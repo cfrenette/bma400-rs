@@ -1,0 +1,20 @@
+[package]
+name = "bma400-rs"
+version = "0.1.0"
+authors = ["Cory Frenette <cory@frenette.dev>"]
+#repository = ""
+license = "MIT OR Apache-2.0"
+description = "A platform-agnostic Rust driver for the BMA400 accelrometer implemented using embedded-hal traits"
+readme = "README.md"
+keywords = ["bma400", "embedded-hal-driver"]
+categories = ["embedded", "hardware-support", "no-std"]
+edition = "2021"
+
+[dependencies]
+accelerometer = "0.12.0"
+embedded-hal = "0.2.7"
+nb = "1.0.0"
+
+[features]
+i2c = []
+spi = []
