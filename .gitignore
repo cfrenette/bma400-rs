@@ -1,3 +1,5 @@
+/examples
 /target
 Cargo.lock
 **/*.rs.bk
+.gdb_history
