@@ -318,6 +318,9 @@ impl IntConfig1 {
             self.difference(Self::LATCH_INT)
         }
     }
+    pub const fn actch_int(&self) -> bool {
+        self.intersects(Self::ACTCH_INT)
+    }
     pub const fn with_actch_int(self, enabled: bool) -> Self {
         if enabled {
             self.union(Self::ACTCH_INT)
@@ -711,7 +714,7 @@ impl FifoConfig0 {
             _ => unreachable!(), // Handled in the public API
         }
     }
-    pub const fn with_send_time_on_full(self, enabled: bool) -> Self {
+    pub const fn with_send_time_on_empty(self, enabled: bool) -> Self {
         if enabled {
             self.union(Self::FIFO_TIME)
         } else {
@@ -748,8 +751,8 @@ cfg_register! {
 }
 
 impl FifoConfig1 {
-    pub const fn with_fifo_wtrmk_threshold(self, threshold: u16) -> Self {
-        Self::from_bits_truncate(threshold.to_le_bytes()[0])
+    pub const fn with_fifo_wtrmk_threshold(self, threshold: u8) -> Self {
+        Self::from_bits_truncate(threshold)
     }
 }
 
@@ -764,8 +767,8 @@ cfg_register! {
 }
 
 impl FifoConfig2 {
-    pub const fn with_fifo_wtrmk_threshold(self, threshold: u16) -> Self {
-        Self::from_bits_truncate((threshold >> 8).to_le_bytes()[0])
+    pub const fn with_fifo_wtrmk_threshold(self, threshold: u8) -> Self {
+        Self::from_bits_truncate(threshold)
     }
 }
 
@@ -1312,6 +1315,20 @@ impl ActChgConfig1 {
             self.union(Self::ACTCH_X_EN)
         } else {
             self.difference(Self::ACTCH_X_EN)
+        }
+    }
+    pub const fn dta_src(&self) -> DataSource {
+        if self.intersects(Self::ACTCH_SRC) {
+            DataSource::AccFilt2
+        } else {
+            DataSource::AccFilt1
+        }
+    }
+    pub const fn with_dta_src(self, src: DataSource) -> Self {
+        match src {
+            DataSource::AccFilt1 => self.difference(Self::ACTCH_SRC),
+            DataSource::AccFilt2 => self.union(Self::ACTCH_SRC),
+            DataSource::AccFilt2Lp => unreachable!(),
         }
     }
     pub const fn with_observation_period(self, period: ActChgObsPeriod) -> Self {

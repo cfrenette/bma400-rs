@@ -21,8 +21,8 @@ pub enum ConfigError {
     Filt1InterruptInvalidODR,
     /// Tap Interrupt data source (Filt1) ODR must be 200Hz
     TapIntEnabledInvalidODR,
-    /// FIFO Power circuit disabled with FIFO enabled
-    FifoPwrDisableWhileEnabled,
+    /// FIFO Read attempted with read circuit disabled
+    FifoReadWhilePwrDisable,
 }
 
 pub struct Status {
@@ -130,14 +130,20 @@ impl Measurement {
     }
 }
 
-pub enum InterruptPin {
-    INT1,
-    INT2,
+
+/// The BMA400's Hardware Interrupt Pins, Int1 and Int2
+pub enum InterruptPins {
+    None,
+    Int1,
+    Int2,
+    Both,
 }
 
 /// Defines which state represents active
 pub enum PinOutputLevel {
+    /// Gnd
     ActiveLow,
+    /// VDDIO / Hi-Z
     ActiveHigh,
 }
 
