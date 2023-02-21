@@ -26,10 +26,11 @@ where
 
     /// Set the timeout counter for auto low power mode. This value is 12-bits, and is incremented every 2.5ms
     /// 
-    /// This value is clamped to \[0, 4095\]
+    /// This value is clamped to \[1, 4096\]
     pub fn with_timeout(mut self, count: u16) -> Self {
-        self.config.auto_low_pow0 = self.config.auto_low_pow0.with_auto_lp_timeout_msb(count);
-        self.config.auto_low_pow1 = self.config.auto_low_pow1.with_auto_lp_timeout_lsb(count);
+        let timeout = count.clamp(1, 4096) - 1;
+        self.config.auto_low_pow0 = self.config.auto_low_pow0.with_auto_lp_timeout_msb(timeout);
+        self.config.auto_low_pow1 = self.config.auto_low_pow1.with_auto_lp_timeout_lsb(timeout);
         self
     }
     // AutoLowPow1
@@ -48,5 +49,17 @@ where
     pub fn with_drdy_trigger(mut self, enabled: bool) -> Self {
         self.config.auto_low_pow1 = self.config.auto_low_pow1.with_drdy_trigger(enabled);
         self
+    }
+
+    pub fn write(self) -> Result<(), E> {
+        if self.device.config.auto_lp_config.auto_low_pow0.bits() != self.config.auto_low_pow0.bits() {
+            self.device.interface.write_register(self.config.auto_low_pow0)?;
+            self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
+        }
+        if self.device.config.auto_lp_config.auto_low_pow1.bits() != self.config.auto_low_pow1.bits() {
+            self.device.interface.write_register(self.config.auto_low_pow1)?;
+            self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
+        }
+        Ok(())
     }
 }

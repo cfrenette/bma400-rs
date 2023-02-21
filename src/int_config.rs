@@ -91,12 +91,8 @@ where
         self
     }
     pub fn write(self) -> Result<(), E> {
-        if self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int() {
-            match self.device.config.acc_config.odr() {
-                OutputDataRate::Hz200 => {},
-                // Tap Interrupt data source ODR must be 200Hz
-                _ => return Err(ConfigError::TapIntEnabledInvalidODR.into()),
-            }
+        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int()) && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200) {
+            return Err(ConfigError::TapIntEnabledInvalidODR.into());
         }
         
         // Check DataSource for each enabled interrupt that can use Filt1 and validate
@@ -105,9 +101,10 @@ where
         // TODO
         // Gen 2
         // TODO
+
         // Activity Change
-        if self.config.int_config1.actch_int() && !matches!(self.device.config.actch_config.src(), DataSource::AccFilt2) {
-            return Err(ConfigError::Filt1InterruptInvalidODR.into())
+        if self.config.int_config1.actch_int() && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && !matches!(self.device.config.actch_config.src(), DataSource::AccFilt2) {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
 
         if self.device.config.int_config.int_config0.bits() != self.config.int_config0.bits() {

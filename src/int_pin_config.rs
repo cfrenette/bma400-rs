@@ -70,102 +70,70 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
+    fn match_mapped(mapped_to: InterruptPins) -> (bool, bool) {
+        match mapped_to {
+            InterruptPins::None => (false, false),
+            InterruptPins::Int1 => (true, false),
+            InterruptPins::Int2 => (false, true),
+            InterruptPins::Both => (true, true),
+        }
+    }
     pub fn new(config: IntPinConfig, device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
         IntPinConfigBuilder { config, device }
     }
     // Int1Map / Int2Map
     /// Map Data Ready Interrupt to [InterruptPins]
     pub fn with_drdy(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_drdy(int1);
         self.config.int2_map = self.config.int2_map.with_drdy(int2);
         self
     }
     /// Map Fifo Watermark Interrupt to [InterruptPins]
     pub fn with_fifo_wm(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_fwm(int1);
         self.config.int2_map = self.config.int2_map.with_fwm(int2);
         self
     }
     /// Map Fifo Full Interrupt to [InterruptPins]
     pub fn with_ffull(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_ffull(int1);
         self.config.int2_map = self.config.int2_map.with_ffull(int2);
         self
     }
     /// Map Interrupt Engine Overrun Interrupt to [InterruptPins]
     pub fn with_ieng_ovrrn(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_ovrrn(int1);
         self.config.int2_map = self.config.int2_map.with_ovrrn(int2);
         self
     }
     /// Map Generic Interrupt 2 to [InterruptPins]
     pub fn with_gen2(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_gen2(int1);
         self.config.int2_map = self.config.int2_map.with_gen2(int2);
         self
     }
     /// Map Generic Interrupt 1 to [InterruptPins]
     pub fn with_gen1(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_gen1(int1);
         self.config.int2_map = self.config.int2_map.with_gen1(int2);
         self
     }
     /// Map Orientation Change Interrupt to [InterruptPins]
     pub fn with_orientch(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_orientch(int1);
         self.config.int2_map = self.config.int2_map.with_orientch(int2);
         self
     }
     /// Map Wakeup Interrupt to [InterruptPins]
     pub fn with_wkup(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int1_map = self.config.int1_map.with_wkup(int1);
         self.config.int2_map = self.config.int2_map.with_wkup(int2);
         self
@@ -175,34 +143,19 @@ where
 
     /// Map Activity Changed Interrupt to [InterruptPins]
     pub fn with_actch(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int12_map = self.config.int12_map.with_actch1(int1).with_actch2(int2);
         self
     }
     /// Map Tap Interrupt to [InterruptPins]
     pub fn with_tap(mut self, mapped_to: InterruptPins) -> Self {
-    let (int1, int2) = match mapped_to {
-        InterruptPins::None => (false, false),
-        InterruptPins::Int1 => (true, false),
-        InterruptPins::Int2 => (false, true),
-        InterruptPins::Both => (true, true),
-    };
+        let (int1, int2) = Self::match_mapped(mapped_to);
     self.config.int12_map = self.config.int12_map.with_tap1(int1).with_tap2(int2);
     self
     }
     /// Map Step Interrupt to [InterruptPins]
     pub fn with_step(mut self, mapped_to: InterruptPins) -> Self {
-        let (int1, int2) = match mapped_to {
-            InterruptPins::None => (false, false),
-            InterruptPins::Int1 => (true, false),
-            InterruptPins::Int2 => (false, true),
-            InterruptPins::Both => (true, true),
-        };
+        let (int1, int2) = Self::match_mapped(mapped_to);
         self.config.int12_map = self.config.int12_map.with_step1(int1).with_step2(int2);
         self
     }
@@ -311,10 +264,10 @@ where
             self.device.config.int_pin_config.int12_io_ctrl = self.config.int12_io_ctrl;
         }
         // Restore the disabled interrupts
-        if int_config0.bits() != tmp_int_config0.bits() {
+        if self.device.config.int_config.get_config0().bits() != tmp_int_config0.bits() {
             self.device.interface.write_register(int_config0)?;
         }
-        if int_config0.bits() != tmp_int_config0.bits() {
+        if self.device.config.int_config.get_config1().bits() != tmp_int_config0.bits() {
             self.device.interface.write_register(int_config1)?;
         }
         if wkup_int_config0.bits() != tmp_wkup_int_config0.bits() {

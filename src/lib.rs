@@ -2,6 +2,8 @@
 
 use core::fmt::Debug;
 pub(crate) use embedded_hal as hal;
+use hal::prelude::_embedded_hal_timer_CountDown;
+use hal::timer::CountDown;
 #[cfg(feature = "float")]
 use accelerometer::{Accelerometer, vector::F32x3, Error as AccError};
 //#[cfg(feature = "advanced-actchg")]
@@ -27,9 +29,15 @@ pub use fifo_config::FifoConfigBuilder;
 mod auto_lp_config;
 use auto_lp_config::AutoLpConfig;
 pub use auto_lp_config::AutoLpConfigBuilder;
+mod auto_wkup_config;
+use auto_wkup_config::AutoWakeupConfig;
+pub use auto_wkup_config::AutoWakeupConfigBuilder;
 mod wkup_int_config;
 use wkup_int_config::WakeupIntConfig;
 pub use wkup_int_config::WakeupIntConfigBuilder;
+mod orientch_config;
+use orientch_config::OrientChgConfig;
+pub use orientch_config::OrientChgConfigBuilder;
 pub mod types;
 pub use types::*;
 mod interface;
@@ -50,24 +58,11 @@ struct Config {
     int_pin_config: IntPinConfig,
     fifo_config: FifoConfig,
     auto_lp_config: AutoLpConfig,
-
-    auto_wakeup0: AutoWakeup0,
-    auto_wakeup1: AutoWakeup1,
-
+    auto_wkup_config: AutoWakeupConfig,
     wkup_int_config: WakeupIntConfig,
-
-    orientch_config0: OrientChgConfig0,
-    orientch_config1: OrientChgConfig1,
-    orientch_config3: OrientChgConfig3,
-    orientch_config4: OrientChgConfig4,
-    orientch_cofnig5: OrientChgConfig5,
-    orientch_config6: OrientChgConfig6,
-    orientch_config7: OrientChgConfig7,
-    orientch_config8: OrientChgConfig8,
-    orientch_config9: OrientChgConfig9,
+    orientch_config: OrientChgConfig,
     
-    /*
-    TODO
+    /* TODO
     gen1int_config0: u8,
     gen1int_config1: u8,
     gen1int_config2: u8,
@@ -97,7 +92,8 @@ struct Config {
 
     //#[cfg(feature = "advanced-tap")]
     tap_config: TapConfig,
-    /*
+
+    /* TODO
     #[cfg(feature = "spi")]
     if_conf: InterfaceConfig,
     self_test: u8,
@@ -113,7 +109,7 @@ pub struct BMA400<T> {
 impl<T, E> BMA400<T> 
 where
     T: ReadFromRegister<Error = E> + WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug
+    E: From<ConfigError> + Debug,
 {
     pub fn get_id(&mut self) -> Result<u8, E> {
         let mut id = [0u8; 1];
@@ -215,6 +211,51 @@ where
     #[cfg(feature = "tap")]
     pub fn adv_tap_cfg(&mut self) -> TapConfigBuilder {
         TapConfigBuilder { config: config.tap_config }
+    }
+
+    pub fn perform_self_test<Timer: CountDown>(&mut self, timer: &mut Timer) -> Result<(), E> {
+        let int_config = self.disable_interrupts()?;
+        let acc_config = self.config.acc_config.clone();
+        self.config_accel()
+            .with_osr(OversampleRate::OSR3)
+            .with_scale(Scale::Range4G)
+            .with_odr(OutputDataRate::Hz100)
+            .write()?;
+
+        // TODO wait 2ms
+        // timer.wait();
+
+        //TODO Write positive test parameters to SelfTest register
+
+        // TODO wait 50ms
+
+        // TODO Read acceleration and excitation values
+
+        // TODO Write negative test parameters to SelfTest register
+
+        // TODO wait 50ms
+
+        // Read and store acceleration and excitation values
+
+        // Calculate difference
+
+        // Disable self test
+
+        // Wait 50ms
+
+        // Re-enable interrupts
+
+        todo!();
+
+        Ok(())
+    }
+
+    fn disable_interrupts(&mut self) -> Result<IntConfig, E> {
+        let int_config0 = self.config.int_config.get_config0();
+        let int_config1 = self.config.int_config.get_config1();
+        self.interface.write_register(int_config0 ^ int_config0)?;
+        self.interface.write_register(int_config1 ^ int_config1)?;
+        Ok(self.config.int_config.clone())
     }
 
     pub fn destroy(self) -> T {

@@ -925,9 +925,6 @@ impl WakeupIntConfig0 {
     pub const fn wkup_int_en(&self ) -> bool {
         self.intersects(Self::WKUP_X_EN.union(Self::WKUP_Y_EN).union(Self::WKUP_Z_EN))
     }
-    pub const fn z_int_en(&self) -> bool {
-        self.intersects(Self::WKUP_Z_EN)
-    }
     pub const fn with_z_axis(self, enabled: bool) -> Self {
         if enabled {
             self.union(Self::WKUP_Z_EN)
@@ -935,18 +932,12 @@ impl WakeupIntConfig0 {
             self.difference(Self::WKUP_Z_EN)
         }
     }
-    pub const fn y_int_en(&self) -> bool {
-        self.intersects(Self::WKUP_Y_EN)
-    }
     pub const fn with_y_axis(self, enabled: bool) -> Self {
         if enabled {
             self.union(Self::WKUP_Y_EN)
         } else {
             self.difference(Self::WKUP_Y_EN)
         }
-    }
-    pub const fn x_int_en(&self) -> bool {
-        self.intersects(Self::WKUP_X_EN)
     }
     pub const fn with_x_axis(self, enabled: bool) -> Self {
         if enabled {
@@ -1107,7 +1098,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig1 {
-    pub const fn with_orient_thresh(threshold: u8) -> Self {
+    pub const fn with_orient_thresh(self, threshold: u8) -> Self {
         Self::from_bits_truncate(threshold)
     }
 }
@@ -1126,7 +1117,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig3 {
-    pub const fn with_orient_dur(duration: u8) -> Self {
+    pub const fn with_orient_dur(self, duration: u8) -> Self {
         Self::from_bits_truncate(duration)
     }
 }
@@ -1145,7 +1136,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig4 {
-    pub const fn with_refx_lsb(ref_x: u16) -> Self {
+    pub const fn with_refx_lsb(self, ref_x: i16) -> Self {
         Self::from_bits_truncate(ref_x.to_le_bytes()[0])
     }
 }
@@ -1160,7 +1151,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig5 {
-    pub const fn with_refx_msb(ref_x: u16) -> Self {
+    pub const fn with_refx_msb(self, ref_x: i16) -> Self {
         Self::from_bits_truncate(ref_x.to_le_bytes()[1])
     }
 }
@@ -1179,7 +1170,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig6 {
-    pub const fn with_refy_lsb(ref_y: u16) -> Self {
+    pub const fn with_refy_lsb(self, ref_y: i16) -> Self {
         Self::from_bits_truncate(ref_y.to_le_bytes()[0])
     }
 }
@@ -1194,7 +1185,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig7 {
-    pub const fn with_refy_msb(ref_y: u16) -> Self {
+    pub const fn with_refy_msb(self, ref_y: i16) -> Self {
         Self::from_bits_truncate(ref_y.to_le_bytes()[1])
     }
 }
@@ -1213,7 +1204,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig8 {
-    pub const fn with_refz_lsb(ref_z: u16) -> Self {
+    pub const fn with_refz_lsb(self, ref_z: i16) -> Self {
         Self::from_bits_truncate(ref_z.to_le_bytes()[0])
     }
 }
@@ -1228,7 +1219,7 @@ cfg_register! {
 }
 
 impl OrientChgConfig9 {
-    pub const fn with_refz_msb(ref_z: u16) -> Self {
+    pub const fn with_refz_msb(self, ref_z: i16) -> Self {
         Self::from_bits_truncate(ref_z.to_le_bytes()[1])
     }
 }
@@ -1275,7 +1266,7 @@ cfg_register! {
 }
 
 impl ActChgConfig0 {
-    pub const fn with_actch_thres(threshold: u8) -> Self {
+    pub const fn with_actch_thres(self, threshold: u8) -> Self {
         Self::from_bits_truncate(threshold)
     }
 }

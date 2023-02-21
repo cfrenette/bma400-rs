@@ -55,11 +55,10 @@ where
     /// 
     /// Cannot use [DataSource::AccFilt2Lp]. If passed, this will default to AccFilt2
     pub fn with_src(mut self, src: DataSource) -> Self {
-        let fifo_source = match src {
-            DataSource::AccFilt2Lp => DataSource::AccFilt2,
-            _ => src,
+        self.config.fifo_config0 = match src {
+            DataSource::AccFilt2Lp => self.config.fifo_config0.with_fifo_src(DataSource::AccFilt2),
+            _ => self.config.fifo_config0.with_fifo_src(src),
         };
-        self.config.fifo_config0 = self.config.fifo_config0.with_fifo_src(fifo_source);
         self
     }
     /// Enable sending a clock reading if more frames are requested than the buffer contains (> `get_fifo_len()`)

@@ -1,4 +1,4 @@
-use crate::{registers::{AccConfig0, AccConfig1, AccConfig2}, Scale, interface::{WriteToRegister, ReadFromRegister}, ConfigError, PowerMode, OversampleRate, Filter1Bandwidth, OutputDataRate, DataSource, BMA400};
+use crate::{registers::{AccConfig0, AccConfig1, AccConfig2}, Scale, interface::WriteToRegister, ConfigError, PowerMode, OversampleRate, Filter1Bandwidth, OutputDataRate, DataSource, BMA400};
 use core::fmt::Debug;
 
 
@@ -19,6 +19,7 @@ impl AccConfig {
     }
 }
 
+/// Configure basic accelerometer settings like Output Data Rate (ODR)
 pub struct AccConfigBuilder<'a, Interface: WriteToRegister> 
 {
     config: AccConfig,
@@ -78,26 +79,24 @@ where
     }
     /// Write the configuration to device registers
     pub fn write(self) -> Result<(), E> {
+        /* TODO Gen Int 1 / 2
         let int_config0 = self.device.config.int_config.get_config0();
+        */
         let int_config1 = self.device.config.int_config.get_config1();
+
         // If Gen Int 1 / 2 or Activity Change use filt1 and are enabled ODR must be 100Hz
         let mut filt1_used_for_ints = false;
         if int_config1.actch_int() && matches!(self.device.config.actch_config.src(), DataSource::AccFilt1) {
             filt1_used_for_ints = true;
         }
         // TODO Gen Int 1 / 2
-        if filt1_used_for_ints {
-            match self.config.odr() {
-                OutputDataRate::Hz100 => {},
-                _ => return Err(ConfigError::Filt1InterruptInvalidODR.into()),
-            }
+
+        if filt1_used_for_ints && !matches!(self.config.odr(), OutputDataRate::Hz100) {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
         // If either Tap Interrupt is enabled, filt1 ODR must be set to 200Hz
-        if int_config1.d_tap_int() || int_config1.s_tap_int() {
-            match self.config.odr() {
-                OutputDataRate::Hz200 => {},
-                _ => return Err(ConfigError::Filt1InterruptInvalidODR.into()),
-            }
+        if (int_config1.d_tap_int() || int_config1.s_tap_int()) && !matches!(self.config.odr(), OutputDataRate::Hz200) {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
         if self.device.config.acc_config.acc_config0.bits() != self.config.acc_config0.bits() {
             self.device.interface.write_register(self.config.acc_config0)?;

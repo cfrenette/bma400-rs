@@ -24,6 +24,10 @@ impl WakeupIntConfig {
     }
 }
 
+/// The BMA400 can be configured to generate an interrupt 
+/// (and optionally automatically switch to normal power mode)
+/// upon detecting an absolute acceleration above a set threshold
+/// from some reference acceleration.
 pub struct WakeupIntConfigBuilder<'a, Interface: WriteToRegister> {
     config: WakeupIntConfig,
     device: &'a mut BMA400<Interface>,

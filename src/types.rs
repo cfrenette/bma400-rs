@@ -283,13 +283,7 @@ pub enum AutoLPTimeoutTrigger {
     TimeoutEnabledGen2IntReset,
 }
 
-/// Wakeup interrupt activity detection mode
-/// 
-/// BMA400 can be configured to generate an interrupt 
-/// (and optionally automatically switch to normal power mode)
-/// upon detecting an absolute acceleration above a set threshold
-/// from some reference acceleration. The reference acceleration
-/// can be determined in 3 ways:
+/// Wake-up interrupt activity reference update mode
 /// 
 /// [WakeupIntRefMode::Manual] - The reference acceleration is set manually by the host MCU
 /// 
@@ -306,6 +300,9 @@ pub enum WakeupIntRefMode {
     /// Continuously update reference acceleration in low power mode
     EveryTime
 }
+
+/// Orientation Changed reference update mode
+/// 
 
 pub enum OrientIntRefMode {
     /// Manually set reference acceleration
