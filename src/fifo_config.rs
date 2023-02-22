@@ -19,6 +19,9 @@ impl FifoConfig {
     pub fn is_read_disabled(&self) -> bool {
         self.fifo_pwr_config.fifo_pwr_disable()
     }
+    pub fn get_config0(&self) -> FifoConfig0 {
+        self.fifo_config0
+    }
 }
 
 pub struct FifoConfigBuilder<'a, Interface: WriteToRegister> {
@@ -31,6 +34,9 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
+    pub fn new(config: FifoConfig, device: &'a mut BMA400<Interface>) -> FifoConfigBuilder<'a, Interface> {
+        FifoConfigBuilder { config, device }
+    }
     // FifoConfig0
 
     /// Manually Disable power to the FIFO Read circuit. This can save 100nA but you must wait 50µs

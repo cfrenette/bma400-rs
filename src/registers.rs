@@ -71,7 +71,7 @@ macro_rules! cfg_register {
 
 r_register!(ChipId: 0x00);
 r_register!(ErrReg: 0x02);
-r_register!(Status: 0x03);
+r_register!(StatusReg: 0x03);
 r_register!(AccXLSB: 0x04);
 r_register!(AccXMSB: 0x05);
 r_register!(AccYLSB: 0x06);
@@ -164,14 +164,6 @@ impl AccConfig1 {
             Scale::Range4G => self.difference(Self::ACC_RANGE).union(Self::ACC_RANGE0),
             Scale::Range8G => self.difference(Self::ACC_RANGE).union(Self::ACC_RANGE1),
             Scale::Range16G => self.union(Self::ACC_RANGE),
-        }
-    }
-    pub const fn osr(&self) -> OversampleRate {
-        match (self.intersection(Self::OSR)).bits() >> 4 {
-            0x00 => OversampleRate::OSR0,
-            0x01 => OversampleRate::OSR1,
-            0x02 => OversampleRate::OSR2,
-            _ => OversampleRate::OSR3,
         }
     }
     pub const fn with_osr(self, osr: OversampleRate) -> Self {
@@ -676,9 +668,6 @@ cfg_register! {
 }
 
 impl FifoConfig0 {
-    pub const fn fifo_en(&self) -> bool {
-        self.intersects(Self::FIFO_X.union(Self::FIFO_Y).union(Self::FIFO_Z))
-    }
     pub const fn with_fifo_z(self, enabled: bool) -> Self {
         if enabled {
             self.union(Self::FIFO_Z)
@@ -1434,8 +1423,9 @@ cfg_register! {
         const TEST_X_EN = 0b0000_0001;
     }
 }
-
+/* Unnecessary?
 impl SelfTest {
+
     pub const fn with_test_sign(self, negative: bool) -> Self {
         if negative {
             self.union(Self::TEST_SIGN)
@@ -1465,7 +1455,7 @@ impl SelfTest {
         }
     }
 }
-
+*/
 pub enum Command {
     FlushFifo,
     ClearStepCount,

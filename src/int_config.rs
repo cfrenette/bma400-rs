@@ -64,8 +64,12 @@ where
         self.config.int_config0 = self.config.int_config0.with_orientch_int(enabled);
         self
     }
+
     // IntConfig1
-    /// Enable/Disable Latched interrupt mode
+
+    /// Enable/Disable latched interrupt mode
+    /// 
+    /// When enabled, all interrupts persist until the corresponding IntStatus is read
     pub fn with_latch_int(mut self, enabled: bool) -> Self {
         self.config.int_config1 = self.config.int_config1.with_latch_int(enabled);
         self

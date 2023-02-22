@@ -6,6 +6,8 @@ pub enum BMA400Error<InterfaceError> {
     IOError(InterfaceError),
     /// Incorrect configuration
     ConfigBuildError(ConfigError),
+    /// Self-Test Failure
+    SelfTestFailedError,
 }
 
 impl<E> From<ConfigError> for BMA400Error<E> {
@@ -25,29 +27,32 @@ pub enum ConfigError {
     FifoReadWhilePwrDisable,
 }
 
+/// A sensor Status reading
 pub struct Status {
-    pub int_active: bool,
-    pub power_mode_stat: PowerMode,
-    pub cmd_rdy: bool,
-    pub drdy_stat: bool,
+    bits: u8,
 }
 
 impl Status {
     pub fn new(status_byte: u8) -> Self {
-        let int_mask = 0b00000001;
-        let power_mode_mask = 0b00000110;
-        let cmd_rdy_mask = 0b00010000;
-        let drdy_mask = 0b10000000;
         Status {
-            int_active: (status_byte & int_mask) != 0,
-            power_mode_stat: match status_byte & power_mode_mask >> 1 {
-                0 => PowerMode::Sleep,
-                1 => PowerMode::LowPower,
-                _ => PowerMode::Normal,
-            },
-            cmd_rdy: (status_byte & cmd_rdy_mask) != 0,
-            drdy_stat: (status_byte & drdy_mask) != 0,
+            bits: status_byte,
         }
+    }
+    pub fn drdy_stat(&self) -> bool {
+        (self.bits & 0b1000_0000) != 0
+    }
+    pub fn cmd_rdy(&self) -> bool {
+        (self.bits & 0b0001_0000) != 0
+    }
+    pub fn power_mode(&self) -> PowerMode {
+        match self.bits & 0b0000_0110 >> 1 {
+            0 => PowerMode::Sleep,
+            1 => PowerMode::LowPower,
+            _ => PowerMode::Normal,
+        }
+    }
+    pub fn int_active(&self) -> bool {
+        (self.bits & 0b0000_0001) != 0
     }
 }
 
@@ -55,6 +60,40 @@ pub enum StepIntStatus {
     None,
     OneStepDetect,
     ManyStepDetect,
+}
+
+pub struct IntStatus0 {
+    bits: u8,
+}
+
+impl IntStatus0 {
+    pub fn new(status_byte: u8) -> Self {
+        IntStatus0 {bits: status_byte }
+    }
+    pub fn drdy_stat(&self) -> bool {
+        (self.bits & 0b1000_0000) != 0
+    }
+    pub fn fwm_stat(&self) -> bool {
+        (self.bits & 0b0100_0000) != 0
+    }
+    pub fn ffull_stat(&self) -> bool {
+        (self.bits & 0b0010_0000) != 0
+    }
+    pub fn ieng_overrun_stat(&self) -> bool {
+        (self.bits & 0b0001_0000) != 0
+    }
+    pub fn gen2_stat(&self) -> bool {
+        (self.bits & 0b0000_1000) != 0
+    }
+    pub fn gen1_stat(&self) -> bool {
+        (self.bits & 0b0000_0100) != 0
+    }
+    pub fn orientch_stat(&self) -> bool {
+        (self.bits & 0b0000_0010) != 0
+    }
+    pub fn wkup_stat(&self) -> bool {
+        (self.bits & 0b0000_0001) != 0
+    }
 }
 
 pub struct IntStatus1 {
@@ -80,6 +119,28 @@ impl IntStatus1 {
             0x01 => StepIntStatus::OneStepDetect,
             _ => StepIntStatus::ManyStepDetect,
         }
+    }
+}
+
+pub struct IntStatus2 {
+    bits: u8,
+}
+
+impl IntStatus2 {
+    pub fn new(status_byte: u8) -> Self {
+        IntStatus2 { bits: status_byte }
+    }
+    pub fn ieng_overrun_stat(&self) -> bool {
+        (self.bits & 0b0001_0000) != 0
+    }
+    pub fn actch_z_stat(&self) -> bool {
+        (self.bits & 0b0000_0100) != 0
+    }
+    pub fn actch_y_stat(&self) -> bool {
+        (self.bits & 0b0000_0010) != 0
+    }
+    pub fn actch_x_stat(&self) -> bool {
+        (self.bits & 0b0000_0001) != 0
     }
 }
 
