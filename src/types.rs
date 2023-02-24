@@ -1,4 +1,4 @@
-
+use bitflags::bitflags;
 /// Error types
 #[derive(Debug)]
 pub enum BMA400Error<InterfaceError> {
@@ -186,8 +186,8 @@ impl Measurement {
         )
     }
     fn to_i16(lsb: u8, msb: u8) -> i16 {
-        let clear_rsvd_bits = msb & 0b0000_1111;
-        i16::from_le_bytes([lsb, if clear_rsvd_bits >> 3 == 0u8 { clear_rsvd_bits } else { clear_rsvd_bits | (0b1111_0000) }])
+        let clear_rsvd_bits = msb & 0x0F;
+        i16::from_le_bytes([lsb, if (clear_rsvd_bits >> 3) == 0u8 { clear_rsvd_bits } else { clear_rsvd_bits | 0xF0 }])
     }
 }
 
@@ -307,7 +307,6 @@ pub enum OversampleRate {
     OSR3,
 }
 
-
 pub enum PowerMode {
     Sleep,
     LowPower,
@@ -320,14 +319,221 @@ pub enum Axis {
     Z,
 }
 
-pub enum FrameType {
-    Data(Axis),
-    Time,
-    Empty,
+pub struct Frame<'a> {
+    slice: &'a [u8]
 }
 
-#[derive(Debug)]
-pub struct BufferFrame {
+// TODO: Make this cleaner (bitflags fields / fns), move to a module?
+impl<'a> Frame<'a> {
+    pub fn frame_type(&self) -> FrameType {
+        Header::from_bits_truncate(self.slice[0]).frame_type()
+    }
+    pub fn x(&self) -> i16 {
+        let header = Header::from_bits_truncate(self.slice[0]);
+        let mut accel = 0;
+        if let FrameType::Data = header.frame_type() {
+            if header.has_x_data() {
+                let (lsb, msb);
+                if header.resolution_is_12bit() {
+                    lsb = (self.slice[1] & 0xF) | (self.slice[2] << 4);
+                    msb = self.slice[2] >> 4;
+                } else  {
+                    lsb = self.slice[1] << 4;
+                    msb = self.slice[1] >> 4;
+                }
+                accel = i16::from_le_bytes([lsb, if (msb >> 3) == 0 { msb } else { msb | 0xF0 }])
+            }
+        }
+        accel
+    }
+    pub fn y(&self) -> i16 {
+        let header = Header::from_bits_truncate(self.slice[0]);
+        let mut accel = 0;
+        let offset = if header.has_x_data() {1} else {0};
+        if let FrameType::Data = header.frame_type() {
+            if header.has_y_data() {
+                let (lsb, msb);
+                if header.resolution_is_12bit() {
+                    lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset + 2] << 4);
+                    msb = self.slice[offset * 2 + 2] >> 4;
+                } else  {
+                    lsb = self.slice[offset + 1] << 4;
+                    msb = self.slice[offset + 1] >> 4;
+                }
+                accel = i16::from_le_bytes([lsb, if (msb >> 3) == 0u8 { msb } else { msb | 0xF0 }])
+            }
+        }
+        accel
+    }
+    pub fn z(&self) -> i16 {
+        let header = Header::from_bits_truncate(self.slice[0]);
+        let mut accel = 0;
+        let offset = if header.has_x_data() {1} else {0} + if header.has_y_data() {1} else {0};
+        if let FrameType::Data = header.frame_type() {
+            if header.has_z_data() {
+                let (lsb, msb);
+                if header.resolution_is_12bit() {
+                    lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset *2 + 2] << 4);
+                    msb = self.slice[offset * 2 + 2] >> 4;
+                } else  {
+                    lsb = self.slice[offset + 1] << 4;
+                    msb = self.slice[offset + 1] >> 4;
+                }
+                accel = i16::from_le_bytes([lsb, if (msb >> 3) == 0u8 { msb } else { msb | 0xF0 }])
+            }
+        }
+        accel
+    }
+    pub fn time(&self) -> u32 {
+        if let FrameType::Time = self.frame_type() {
+            u32::from_le_bytes([self.slice[1], self.slice[2], self.slice[3], 0])
+        } else {
+            0
+        }
+    }
+    pub fn fifo_chg(&self) -> bool {
+        if let FrameType::Control = self.frame_type() {
+            self.slice[1] & 0b0010 != 0
+        } else {
+            false
+        }
+    }
+    pub fn acc0_chg(&self) -> bool {
+        if let FrameType::Control = self.frame_type() {
+            self.slice[1] & 0b0100 !=0
+        } else {
+            false
+        }
+    }
+    pub fn acc1_chg(&self) -> bool {
+        if let FrameType::Control = self.frame_type() {
+            self.slice[1] & 0b1000 != 0
+        } else {
+            false
+        }
+    }
+}
+
+pub enum FrameType {
+    Data,
+    Time,
+    Control,
+}
+
+pub struct FifoFrames<'a> {
+    index: usize,
+    bytes: &'a [u8],
+}
+
+impl<'a> FifoFrames<'a> {
+    pub fn new(bytes: &[u8]) -> FifoFrames {
+        FifoFrames { index: 0, bytes }
+    }
+}
+
+// TODO: Tidy this up, decide whether or not to use fns / fields on the bitflags struct instead of mixing them
+impl<'a> Iterator for FifoFrames<'a> {
+    type Item = Frame<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.bytes.len() {
+            return None
+        }
+        let header_idx = self.index;
+        let header = Header::from_bits_truncate(self.bytes[header_idx]);
+        match header.frame_type() {
+            FrameType::Time => {
+                self.index += 4;
+            },
+            FrameType::Data => {
+                if !header.intersects(Header::AXES) {
+                    self.index += 2;
+                    return None
+                } else {
+                let mut num_axes = 0;
+                let mut n = header.intersection(Header::AXES).bits();
+                while n != 0 {
+                    n &= n-1;
+                    num_axes += 1;
+                }
+                let payload_bytes = if header.resolution_is_12bit() {
+                    num_axes * 2
+                } else {
+                    num_axes
+                };
+                self.index += payload_bytes + 1;
+                }
+            },
+            FrameType::Control => {
+                self.index += 2;
+            },
+        }
+        // Incomplete read
+        if self.index > self.bytes.len() {
+            return None;
+        }
+        Some(Frame{slice: &self.bytes[header_idx .. self.index]})
+    }
+}
+
+bitflags!{
+    struct Header: u8 {
+        const FH_MODE1  = 0b1000_0000;
+        const FH_MODE0  = 0b0100_0000;
+        const FH_PARAM4 = 0b0010_0000;
+        const FH_PARAM3 = 0b0001_0000;
+        const FH_PARAM2 = 0b0000_1000;
+        const FH_PARAM1 = 0b0000_0100;
+        const FH_PARAM0 = 0b0000_0010;
+
+        const TIME = Self::FH_MODE1.bits | Self::FH_PARAM4.bits;
+        const RESOLUTION = Self::FH_PARAM3.bits;
+        const AXES = Self::FH_PARAM2.bits | Self::FH_PARAM1.bits | Self::FH_PARAM0.bits;
+    }
+}
+
+impl Header {
+    pub const fn frame_type(&self) -> FrameType {
+        if self.contains(Self::TIME) {
+            return FrameType::Time
+        } else if self.intersects(Self::FH_MODE0) {
+            return FrameType::Control
+        } else {
+            return FrameType::Data
+        }
+    }
+    pub const fn resolution_is_12bit(&self) -> bool {
+        match self.frame_type() {
+            FrameType::Data => {
+                self.intersects(Self::RESOLUTION)
+            },
+            _ => false,
+        }
+    }
+    pub const fn has_x_data(&self) -> bool {
+        match self.frame_type() {
+            FrameType::Data => {
+                self.intersects(Self::FH_PARAM0)
+            },
+            _ => false,
+        }
+    }
+    pub const fn has_y_data(&self) -> bool {
+        match self.frame_type() {
+            FrameType::Data => {
+                self.intersects(Self::FH_PARAM1)
+            },
+            _ => false,
+        }
+    }
+    pub const fn has_z_data(&self) -> bool {
+        match self.frame_type() {
+            FrameType::Data => {
+                self.intersects(Self::FH_PARAM2)
+            },
+            _ => false,
+        }
+    }
 }
 
 /// Automatically enter low power mode after a defined timeout

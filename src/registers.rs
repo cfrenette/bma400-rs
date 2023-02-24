@@ -88,7 +88,7 @@ r_register!(InterruptStatus2: 0x10);
 r_register!(TempData: 0x11);
 r_register!(FifoLength0: 0x12);
 r_register!(FifoLength1: 0x13);
-r_register!(FifoData: 0x12);
+r_register!(FifoData: 0x14);
 r_register!(StepCount0: 0x15);
 r_register!(StepCount1: 0x16);
 r_register!(StepCount2: 0x17);

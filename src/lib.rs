@@ -2,8 +2,6 @@
 
 use core::fmt::Debug;
 pub(crate) use embedded_hal as hal;
-use hal::prelude::_embedded_hal_timer_CountDown;
-use hal::timer::CountDown;
 #[cfg(feature = "float")]
 use accelerometer::{Accelerometer, vector::F32x3, Error as AccError};
 //#[cfg(feature = "advanced-actchg")]
@@ -96,8 +94,6 @@ struct Config {
     /* TODO
     #[cfg(feature = "spi")]
     if_conf: InterfaceConfig,
-    self_test: u8,
-    cmd: u8,
     */
 }
 
@@ -190,7 +186,7 @@ where
         Ok(IntStatus2::new(status_byte[0]))
     }
 
-    /// Returns the number of unread bytes currently in the FIFO Buffer
+    /// Returns the number of unread bytes currently in the FIFO
     pub fn get_fifo_len(&mut self) -> Result<u16, BMA400Error<E>> {
         let mut buffer = [0u8, 2];
         self.interface.read_register(FifoLength0, &mut buffer)?;
@@ -198,15 +194,16 @@ where
         Ok(u16::from_le_bytes(bytes))
     }
 
-    /// Reads a number of data frames from the FIFO Buffer
-    pub fn read_fifo_frames(&mut self, buffer: &mut [u8]) -> Result<(), BMA400Error<E>> {
+    /// Reads enough bytes from the FIFO to fill`buffer`and returns a [FifoFrames] iterator over the Frames
+    pub fn read_fifo_frames<'a>(&mut self, buffer: &'a mut [u8]) -> Result<FifoFrames<'a>, BMA400Error<E>> {
         if self.config.fifo_config.is_read_disabled() {
             return Err(ConfigError::FifoReadWhilePwrDisable.into());
         }
-        todo!()
+        self.interface.read_register(FifoData, buffer)?;
+        Ok(FifoFrames::new(buffer))
     }
 
-    /// Flush all data from the FIFO Buffer
+    /// Flush all data from the FIFO
     pub fn flush_fifo(&mut self) -> Result<(), BMA400Error<E>> {
         self.interface.write_register(Command::FlushFifo)?;
         Ok(())
@@ -249,78 +246,22 @@ where
         AccConfigBuilder::new(self.config.acc_config.clone(), self)
     }
 
-    /// Enable or disable interrupts (except //TODO) and set interrupt latch mode
+    /// Enable or disable interrupts (except the Auto-Wakeup Interrupt, see `config_autowkup()`) and set interrupt latch mode
     pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
         IntConfigBuilder::new(self.config.int_config.clone(), self)
     }
 
+    /// Map interrupts to the INT1 / INT2 hardware interrupt pins
     pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<T> {
         IntPinConfigBuilder::new(self.config.int_pin_config.clone(), self)
     }
 
-    #[cfg(feature = "tap")]
-    pub fn adv_tap_cfg(&mut self) -> TapConfigBuilder {
-        TapConfigBuilder { config: config.tap_config }
-    }
+    /// Configure the FIFO 
 
-    /// Perform the self test procedure and return [`Ok`] if passed, [`BMA400Error::SelfTestFailedError`] if failed
-    /// 
-    /// This will disable all interrupts and FIFO write for the duration
-    /// 
-    /// See p.48 of the Datasheet
-    pub fn perform_self_test<Timer: CountDown>(&mut self, timer: &mut Timer) -> Result<(), BMA400Error<E>> {
-        let int_config0 = self.config.int_config.get_config0();
-        let int_config1 = self.config.int_config.get_config1();
-        // TODO: Other interrupts
-        self.interface.write_register(int_config0 ^ int_config0)?;
-        self.interface.write_register(int_config1 ^ int_config1)?;
-        // Disable FIFO
-        let fifo_config0 = self.config.fifo_config.get_config0();
-        self.interface.write_register(fifo_config0.with_fifo_x(false).with_fifo_y(false).with_fifo_z(false))?;
-
-        self.config_accel()
-            .with_osr(OversampleRate::OSR3)
-            .with_scale(Scale::Range4G)
-            .with_odr(OutputDataRate::Hz100)
-            .write()?;
-
-        // TODO wait 2ms
-        // timer.wait();
-
-        //TODO Write positive test parameters to SelfTest register
-        self.interface.write_register(SelfTest::from_bits_truncate(0x07))?;
-
-        // TODO wait 50ms
-
-        // TODO Read acceleration and excitation values
-        let m_pos = self.get_unscaled_data()?;
-
-        // TODO Write negative test parameters to SelfTest register
-        self.interface.write_register(SelfTest::from_bits_truncate(0x0F))?;
-
-        // TODO wait 50ms
-
-        // Read and store acceleration and excitation values
-        let m_neg = self.get_unscaled_data()?;
-
-        // Calculate difference
-        let (x, y, z) = (m_pos.x - m_neg.x, m_pos.y - m_neg.y, m_pos.z - m_neg.z);
-
-        // Disable self test
-        self.interface.write_register(SelfTest::default())?;
-
-        // TODO Wait 50ms
-
-        // Re-enable interrupts
-        AccConfigBuilder::new(self.config.acc_config.clone(), self).write()?;
-        FifoConfigBuilder::new(self.config.fifo_config.clone(), self).write()?;
-        IntConfigBuilder::new(self.config.int_config.clone(), self).write()?;
-
-        if x > 1500 && y > 1200 && z > 250 {
-            Ok(())
-        } else {
-            Err(BMA400Error::SelfTestFailedError)
-        }
+    /// Configure Advanced Tap Interrupt Settings
+    //#[cfg(feature = "tap")]
+    pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
+        TapConfigBuilder::new(self)
     }
 
     /// Resets the device and all settings to default

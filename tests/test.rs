@@ -1,9 +1,6 @@
-use bma400_rs::{
-    i2c::I2CInterface, 
-    ConfigBuilder,
-};
-pub use embedded_hal_mock::{i2c::{Mock as I2CMock, Transaction as I2CTransaction}, spi::{Mock as SPIMock, Transaction as SPITransaction}};
-pub use bma400_rs::{
+use embedded_hal_mock::{i2c::{Mock as I2CMock, Transaction as I2CTransaction}, spi::{Mock as SPIMock, Transaction as SPITransaction}};
+use bma400::{
+    i2c::I2CInterface,
     BMA400, 
     types::*,
 };
@@ -53,9 +50,7 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
         ];
         new_i2c(&expectations)
     };
-    let mut config = device.configure();
-    config.with_scale(scale);
-    device.set_config(&mut config).unwrap();
+    device.config_accel().with_scale(scale).write().unwrap();
     let m = device.get_data().unwrap();
     (m.x, m.y, m.z)
 }
@@ -76,4 +71,34 @@ fn get_sensor_clock() {
     let mut device = new_i2c(&expectations);
     let t = device.get_sensor_clock().unwrap();
     assert_eq!(t, 0xFFFFF8);
+}
+
+#[test]
+fn read_fifo_frames() {
+    let expectations = [
+        I2CTransaction::write_read(ADDR, vec![0x14], vec![0x48, 0x6E, 0x9E, 0x01, 0x80, 0x0F, 0xFF, 0x0F, 0x7F, 0xA0, 0xF8, 0xFF, 0xFF, 0x80, 0x00])
+    ];
+    let mut device = new_i2c(&expectations);
+    let mut buffer = [0u8; 15];
+    let frames = device.read_fifo_frames(&mut buffer).unwrap();
+    let mut count = 0;
+    for frame in frames {
+        match frame.frame_type() {
+            FrameType::Data => {
+                assert_eq!(frame.x(), -2047);
+                assert_eq!(frame.y(), -1);
+                assert_eq!(frame.z(), 2047);
+            },
+            FrameType::Time => {
+                assert_eq!(frame.time(),  0xFFFFF8);
+            },
+            FrameType::Control => {
+                assert!(frame.fifo_chg());
+                assert!(frame.acc0_chg());
+                assert!(frame.acc1_chg());
+            }
+        }
+        count +=1;
+    }
+    assert_eq!(count, 3);
 }

@@ -18,6 +18,9 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
+    pub fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
+        TapConfigBuilder { config: device.config.tap_config.clone(), device }
+    }
     // TapConfig0
 
     /// Select axis to use when evaluating interrupt
