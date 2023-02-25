@@ -13,9 +13,14 @@ impl AccConfig {
     pub fn odr(&self) -> OutputDataRate {
         self.acc_config1.odr()
     }
-
     pub fn scale(&self) -> Scale {
         self.acc_config1.scale()
+    }
+    pub fn get_config0(&self) -> AccConfig0 {
+        self.acc_config0
+    }
+    pub fn get_config1(&self) -> AccConfig1 {
+        self.acc_config1
     }
 }
 
@@ -31,8 +36,8 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
-    pub fn new(config: AccConfig, device: &'a mut BMA400<Interface>) -> AccConfigBuilder<'a, Interface> {
-        AccConfigBuilder { config, device }
+    pub fn new(device: &'a mut BMA400<Interface>) -> AccConfigBuilder<'a, Interface> {
+        AccConfigBuilder { config: device.config.acc_config.clone(), device }
     }
     // AccConfig0
     /// Set Power Mode
@@ -86,7 +91,7 @@ where
 
         // If Gen Int 1 / 2 or Activity Change use filt1 and are enabled ODR must be 100Hz
         let mut filt1_used_for_ints = false;
-        if int_config1.actch_int() && matches!(self.device.config.actch_config.src(), DataSource::AccFilt1) {
+        if int_config1.actch_int() && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1) {
             filt1_used_for_ints = true;
         }
         // TODO Gen Int 1 / 2

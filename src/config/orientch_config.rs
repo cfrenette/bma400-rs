@@ -29,8 +29,8 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
-    pub fn new(config: OrientChgConfig, device: &'a mut BMA400<Interface>) -> OrientChgConfigBuilder<'a, Interface> {
-        OrientChgConfigBuilder { config, device }
+    pub fn new(device: &'a mut BMA400<Interface>) -> OrientChgConfigBuilder<'a, Interface> {
+        OrientChgConfigBuilder { config: device.config.orientch_config.clone(), device }
     }
 
     // OrientChgConfig0

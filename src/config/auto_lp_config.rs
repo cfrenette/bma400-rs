@@ -22,6 +22,9 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
+    pub fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
+        AutoLpConfigBuilder { config: device.config.auto_lp_config.clone(), device }
+    }
     // AutoLowPow0 + AutoLowPow1
 
     /// Set the timeout counter for auto low power mode. This value is 12-bits, and is incremented every 2.5ms

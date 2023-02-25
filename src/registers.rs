@@ -396,9 +396,6 @@ impl Int1Map {
             self.difference(Self::FFULL)
         }
     }
-    pub const fn ovrrn_int(&self) -> bool {
-        self.intersects(Self::OVRRN)
-    }
     pub const fn with_ovrrn(self, mapped: bool) -> Self {
         if mapped {
             self.union(Self::OVRRN)
@@ -491,9 +488,6 @@ impl Int2Map {
         } else {
             self.difference(Self::FFULL)
         }
-    }
-    pub const fn ovrrn_int(&self) -> bool {
-        self.intersects(Self::OVRRN)
     }
     pub const fn with_ovrrn(self, mapped: bool) -> Self {
         if mapped {

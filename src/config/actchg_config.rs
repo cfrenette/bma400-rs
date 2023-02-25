@@ -20,16 +20,19 @@ impl ActChgConfig {
     }
 }
 
-pub struct ActChgBuilder<'a, Interface: WriteToRegister> {
+pub struct ActChgConfigBuilder<'a, Interface: WriteToRegister> {
     config: ActChgConfig,
     device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> ActChgBuilder<'a, Interface>
+impl<'a, Interface, E> ActChgConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
+    pub fn new(device: &'a mut BMA400<Interface>) -> ActChgConfigBuilder<'a, Interface> {
+        ActChgConfigBuilder { config: device.config.actchg_config.clone(), device }
+    }
     // ActChgConfig0
     /// Set the threshold used when evaluating the activity changed interrupt condition
     pub fn with_threshold(mut self, threshold: u8) -> Self {
@@ -60,8 +63,8 @@ where
     }
     pub fn write(self) -> Result<(), E> {
 
-        let has_config0_changes = self.device.config.actch_config.actchg_config0.bits() != self.config.actchg_config0.bits();
-        let has_config1_changes = self.device.config.actch_config.actchg_config1.bits() != self.config.actchg_config1.bits();
+        let has_config0_changes = self.device.config.actchg_config.actchg_config0.bits() != self.config.actchg_config0.bits();
+        let has_config1_changes = self.device.config.actchg_config.actchg_config1.bits() != self.config.actchg_config1.bits();
         let has_changes = has_config0_changes || has_config1_changes;
 
         let mut tmp_int_config1 = self.device.config.int_config.get_config1().clone();
@@ -75,11 +78,11 @@ where
         // Write the changes
         if has_config0_changes {
             self.device.interface.write_register(self.config.actchg_config0)?;
-            self.device.config.actch_config.actchg_config0 = self.config.actchg_config0;
+            self.device.config.actchg_config.actchg_config0 = self.config.actchg_config0;
         }
         if has_config1_changes {
             self.device.interface.write_register(self.config.actchg_config1)?;
-            self.device.config.actch_config.actchg_config1 = self.config.actchg_config1;
+            self.device.config.actchg_config.actchg_config1 = self.config.actchg_config1;
         }
 
         // Re-enable the interrupt, if it was disabled

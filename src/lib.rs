@@ -2,100 +2,40 @@
 
 use core::fmt::Debug;
 pub(crate) use embedded_hal as hal;
+use hal::blocking::delay::DelayMs;
 #[cfg(feature = "float")]
 use accelerometer::{Accelerometer, vector::F32x3, Error as AccError};
-//#[cfg(feature = "advanced-actchg")]
-mod actchg_config;
-use actchg_config::ActChgConfig;
-pub use actchg_config::ActChgBuilder;
-//#[cfg(feature = "tap")]
-mod tap_config;
-use tap_config::TapConfig;
-pub use tap_config::TapConfigBuilder;
-mod accel_config;
-use accel_config::AccConfig;
-pub use accel_config::AccConfigBuilder;
-mod int_config;
-use int_config::IntConfig;
-pub use int_config::IntConfigBuilder;
-mod int_pin_config;
-use int_pin_config::IntPinConfig;
-pub use int_pin_config::IntPinConfigBuilder;
-mod fifo_config;
-use fifo_config::FifoConfig;
-pub use fifo_config::FifoConfigBuilder;
-mod auto_lp_config;
-use auto_lp_config::AutoLpConfig;
-pub use auto_lp_config::AutoLpConfigBuilder;
-mod auto_wkup_config;
-use auto_wkup_config::AutoWakeupConfig;
-pub use auto_wkup_config::AutoWakeupConfigBuilder;
-mod wkup_int_config;
-use wkup_int_config::WakeupIntConfig;
-pub use wkup_int_config::WakeupIntConfigBuilder;
-mod orientch_config;
-use orientch_config::OrientChgConfig;
-pub use orientch_config::OrientChgConfigBuilder;
 pub mod types;
 pub use types::*;
-mod interface;
-use interface::{ReadFromRegister, WriteToRegister};
 pub(crate) mod registers;
 use registers::*;
+mod interface;
+use interface::{ReadFromRegister, WriteToRegister};
+pub mod config;
+use config::{
+    Config,
+    AccConfigBuilder,
+    IntConfigBuilder,
+    IntPinConfigBuilder,
+    FifoConfigBuilder,
+    AutoLpConfigBuilder,
+    AutoWakeupConfigBuilder,
+    WakeupIntConfigBuilder,
+};
+// Maybe #[cfg(feature = "adv-int-orientchg")]
+pub use config::OrientChgConfigBuilder;
+// Maybe #[cfg(feature = "adv-int-generic")]
+// TODO Generic Interrupts
+// Maybe #[cfg(feature = "adv-int-actchg")]
+pub use config::ActChgConfigBuilder;
+// Maybe #[cfg(feature = "adv-int-tap")]
+pub use config::TapConfigBuilder;
 
 //#[cfg(feature = "i2c")]
 pub mod i2c;
 
 #[cfg(feature = "spi")]
 pub mod spi;
-
-#[derive(Default, Clone)]
-struct Config {
-    acc_config: AccConfig,
-    int_config: IntConfig,
-    int_pin_config: IntPinConfig,
-    fifo_config: FifoConfig,
-    auto_lp_config: AutoLpConfig,
-    auto_wkup_config: AutoWakeupConfig,
-    wkup_int_config: WakeupIntConfig,
-    orientch_config: OrientChgConfig,
-    
-    /* TODO
-    gen1int_config0: u8,
-    gen1int_config1: u8,
-    gen1int_config2: u8,
-    gen1int_config3: u8,
-    gen1int_config31: u8,
-    gen1int_config4: u8,
-    gen1int_config5: u8,
-    gen1int_config6: u8,
-    gen1int_config7: u8,
-    gen1int_config8: u8,
-    gen1int_config9: u8,
-    gen2int_config0: u8,
-    gen2int_config1: u8,
-    gen2int_config2: u8,
-    gen2int_config3: u8,
-    gen2int_config31: u8,
-    gen2int_config4: u8,
-    gen2int_config5: u8,
-    gen2int_config6: u8,
-    gen2int_config7: u8,
-    gen2int_config8: u8,
-    gen2int_config9: u8,
-    */
-
-    //#[cfg(feature = "advanced-actchg")]
-    actch_config: ActChgConfig,
-
-    //#[cfg(feature = "advanced-tap")]
-    tap_config: TapConfig,
-
-    /* TODO
-    #[cfg(feature = "spi")]
-    if_conf: InterfaceConfig,
-    */
-}
 
 pub struct BMA400<T> {
     interface: T,
@@ -143,7 +83,7 @@ where
     pub fn get_data(&mut self) -> Result<Measurement, BMA400Error<E>> {
         let mut bytes = [0u8; 6];
         self.interface.read_register(AccXLSB, &mut bytes)?;
-        Ok(Measurement::from_bytes_scaled(self.config.acc_config.scale(), &bytes))
+        Ok(Measurement::from_bytes_scaled(self.config.scale(), &bytes))
     }
 
     /// Timer reading from the integrated sensor clock. 
@@ -196,7 +136,7 @@ where
 
     /// Reads enough bytes from the FIFO to fill`buffer`and returns a [FifoFrames] iterator over the Frames
     pub fn read_fifo_frames<'a>(&mut self, buffer: &'a mut [u8]) -> Result<FifoFrames<'a>, BMA400Error<E>> {
-        if self.config.fifo_config.is_read_disabled() {
+        if self.config.is_fifo_read_disabled() {
             return Err(ConfigError::FifoReadWhilePwrDisable.into());
         }
         self.interface.read_register(FifoData, buffer)?;
@@ -243,25 +183,93 @@ where
 
     /// Configure sensor-wide settings like [PowerMode] and [OversampleRate]
     pub fn config_accel(&mut self) -> AccConfigBuilder<T> {
-        AccConfigBuilder::new(self.config.acc_config.clone(), self)
+        AccConfigBuilder::new(self)
     }
 
     /// Enable or disable interrupts (except the Auto-Wakeup Interrupt, see `config_autowkup()`) and set interrupt latch mode
     pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
-        IntConfigBuilder::new(self.config.int_config.clone(), self)
+        IntConfigBuilder::new(self)
     }
 
     /// Map interrupts to the INT1 / INT2 hardware interrupt pins
     pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<T> {
-        IntPinConfigBuilder::new(self.config.int_pin_config.clone(), self)
+        IntPinConfigBuilder::new(self)
     }
 
     /// Configure the FIFO 
+    pub fn config_fifo(&mut self) -> FifoConfigBuilder<T> {
+        FifoConfigBuilder::new(self)
+    }
+
+    /// Configure Auto Low Power settings
+    pub fn config_auto_lp(&mut self) -> AutoLpConfigBuilder<T> {
+        AutoLpConfigBuilder::new(self)
+    }
+
+    /// Configure Auto Wake-up settings
+    pub fn config_autowkup(&mut self) -> AutoWakeupConfigBuilder<T> {
+        AutoWakeupConfigBuilder::new(self)
+    }
+
+    /// Configure Wakeup Interrupt settings
+    pub fn config_wkup_int(&mut self) -> WakeupIntConfigBuilder<T> {
+        WakeupIntConfigBuilder::new(self)
+    }
 
     /// Configure Advanced Tap Interrupt Settings
-    //#[cfg(feature = "tap")]
+    // Maybe #[cfg(feature = "adv-int-tap")]
     pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
         TapConfigBuilder::new(self)
+    }
+
+    /// Perform the self test procedure and return [`Ok`] if passed, [`BMA400Error::SelfTestFailedError`] if failed
+    /// 
+    /// This will disable all interrupts and FIFO write for the duration
+    /// 
+    /// See p.48 of the datasheet
+    pub fn perform_self_test<Timer: DelayMs<u8>>(&mut self, timer: &mut Timer) -> Result<(), BMA400Error<E>> {
+
+        // Disable interrupts, set accelerometer test config
+        self.config.setup_self_test(&mut self.interface)?;
+
+        // Wait 2ms
+        timer.delay_ms(2);
+
+        // Write positive test parameters to SelfTest register
+        self.interface.write_register(SelfTest::from_bits_truncate(0x07))?;
+
+        // Wait 50ms
+        timer.delay_ms(50);
+
+        // Read acceleration and excitation values
+        let m_pos = self.get_unscaled_data()?;
+
+        // Write negative test parameters to SelfTest register
+        self.interface.write_register(SelfTest::from_bits_truncate(0x0F))?;
+
+        // Wait 50ms
+        timer.delay_ms(50);
+
+        // Read and store acceleration and excitation values
+        let m_neg = self.get_unscaled_data()?;
+
+        // Calculate difference
+        let (x, y, z) = (m_pos.x - m_neg.x, m_pos.y - m_neg.y, m_pos.z - m_neg.z);
+
+        // Disable self test
+        self.interface.write_register(SelfTest::default())?;
+
+        // Wait 50ms
+        timer.delay_ms(50);
+
+        // Re-enable interrupts and previous config
+        self.config.cleanup_self_test(&mut self.interface)?;
+
+        if x > 1500 && y > 1200 && z > 250 {
+            Ok(())
+        } else {
+            Err(BMA400Error::SelfTestFailedError)
+        }
     }
 
     /// Resets the device and all settings to default
@@ -274,11 +282,14 @@ where
         Ok(())
     }
 
+    /// Consumes the device instance returning the I2C / SPI Interface
     pub fn destroy(self) -> T {
         self.interface
     }
 }
 
+
+// TODO
 #[cfg(feature = "float")]
 impl<T, E> Accelerometer for BMA400<T> 
 where

@@ -38,6 +38,9 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
+    pub fn new(device: &'a mut BMA400<Interface>) -> WakeupIntConfigBuilder<'a, Interface> {
+        WakeupIntConfigBuilder { config: device.config.wkup_int_config.clone(), device }
+    }
     // WkupIntConfig0
     /// Set Reference mode for the Wake-up Interrupt
     pub fn with_ref_mode(mut self, mode: WakeupIntRefMode) -> Self {

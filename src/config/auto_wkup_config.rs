@@ -12,6 +12,12 @@ pub struct AutoWakeupConfig {
     auto_wakeup1: AutoWakeup1,
 }
 
+impl AutoWakeupConfig {
+    pub fn get_config1(&self) -> AutoWakeup1 {
+        self.auto_wakeup1
+    }
+}
+
 pub struct AutoWakeupConfigBuilder<'a, Interface> {
     config: AutoWakeupConfig,
     device: &'a mut BMA400<Interface>,
@@ -22,8 +28,8 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
-    pub fn new(config: AutoWakeupConfig, device: &'a mut BMA400<Interface>) -> AutoWakeupConfigBuilder<'a, Interface> {
-        AutoWakeupConfigBuilder { config, device }
+    pub fn new(device: &'a mut BMA400<Interface>) -> AutoWakeupConfigBuilder<'a, Interface> {
+        AutoWakeupConfigBuilder { config: device.config.auto_wkup_config.clone(), device }
     }
 
     /// Set the timer counter for periodic auto wake-up. This value is 12-bits and is incremented every 2.5ms

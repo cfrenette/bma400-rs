@@ -34,8 +34,8 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
-    pub fn new(config: FifoConfig, device: &'a mut BMA400<Interface>) -> FifoConfigBuilder<'a, Interface> {
-        FifoConfigBuilder { config, device }
+    pub fn new(device: &'a mut BMA400<Interface>) -> FifoConfigBuilder<'a, Interface> {
+        FifoConfigBuilder { config: device.config.fifo_config.clone() , device }
     }
     // FifoConfig0
 

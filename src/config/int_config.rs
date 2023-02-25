@@ -30,8 +30,8 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError> + Debug,
 {
-    pub fn new(config: IntConfig, device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
-        IntConfigBuilder { config, device }
+    pub fn new(device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
+        IntConfigBuilder { config: device.config.int_config.clone(), device }
     }
     // IntConfig0
     /// Enable/Disable the Data Ready Interrupt
@@ -107,7 +107,7 @@ where
         // TODO
 
         // Activity Change
-        if self.config.int_config1.actch_int() && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && !matches!(self.device.config.actch_config.src(), DataSource::AccFilt2) {
+        if self.config.int_config1.actch_int() && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && !matches!(self.device.config.actchg_config.src(), DataSource::AccFilt2) {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
 

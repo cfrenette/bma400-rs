@@ -46,9 +46,6 @@ impl IntPinConfig {
     pub fn orientch_map(&self) -> InterruptPins {
         Self::mapped_pins(self.int1_map.orientch_int(), self.int2_map.orientch_int())
     }
-    pub fn ovrrn_map(&self) -> InterruptPins {
-        Self::mapped_pins(self.int1_map.ovrrn_int(), self.int2_map.ovrrn_int())
-    }
     pub fn actch_map(&self) -> InterruptPins {
         Self::mapped_pins(self.int12_map.actch_int1(), self.int12_map.actch_int2())
     }
@@ -78,8 +75,8 @@ where
             InterruptPins::Both => (true, true),
         }
     }
-    pub fn new(config: IntPinConfig, device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
-        IntPinConfigBuilder { config, device }
+    pub fn new(device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
+        IntPinConfigBuilder { config: device.config.int_pin_config.clone(), device }
     }
     // Int1Map / Int2Map
     /// Map Data Ready Interrupt to [InterruptPins]
