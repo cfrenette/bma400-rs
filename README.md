@@ -6,12 +6,16 @@ A platform-agnostic Rust driver for the BMA400 accelrometer implemented using [`
 ## Status
 
 - [x] Support Basic Sensor Features
-- [ ] Support Programmable (Custom) Interrupts
-- [ ] Tests
 - [ ] SPI Support
-- [ ] Documentation and More Examples
+- [ ] Support Programmable (Custom) Interrupts
+- [ ] Tests (In-progress)
+- [ ] Documentation
+- [ ] More Examples
 
-### About the Sensor (from the manufacturer)
+## About the Sensor 
+
+ (from the manufacturer)
+
 #### Basic Description
 12 bit, digital, triaxial acceleration sensor with smart on-chip motion and position-triggered interrupt features.
 
