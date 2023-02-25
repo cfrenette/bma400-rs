@@ -12,6 +12,55 @@ A platform-agnostic Rust driver for the BMA400 accelrometer implemented using [`
 - [ ] Documentation
 - [ ] More Examples
 
+## Usage
+
+Import an embedded_hal implementation for your target and this crate: 
+
+```rust
+use nrf52833_hal::{
+  (...)
+};
+use bma400::{
+  BMA400, 
+  PowerMode, 
+  OutputDataRate, 
+  InterruptPins
+};
+
+(...)
+
+    // BMA400: Initialize the accelerometer by passing in an interface 
+    // implementing the embedded-hal i2c WriteRead and Write traits
+    let mut accel = BMA400::<Twim<TWIM0>>::new_i2c(i2c).unwrap();
+
+
+    // BMA400: Set the power mode to normal and the output data rate to 200Hz
+    accel
+    .config_accel()
+    .with_power_mode(PowerMode::Normal)
+    .with_odr(OutputDataRate::Hz200)
+    .write().unwrap();
+
+
+    // BMA400: Map the tap interrupt to the INT1 pin
+    accel
+    .config_int_pins()
+    .with_tap(InterruptPins::Both)
+    .write().unwrap();
+
+
+    // BMA400: Enable the single and double tap interrupts and enable latching
+    // (interrupt persists until cleared by reading the interrupt status register)
+    accel
+    .config_interrupts()
+    .with_latch_int(true)
+    .with_d_tap_int(true)
+    .with_s_tap_int(true)
+    .write().unwrap();
+
+```
+For the full example above with nrf52833, see `examples/bma400-nrf52833`.
+
 ## About the Sensor 
 
  (from the manufacturer)
