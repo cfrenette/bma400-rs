@@ -38,7 +38,7 @@ use crate::{
     Scale, 
     registers::{
         IntConfig0, IntConfig1, 
-        AccConfig0, AccConfig1, AutoWakeup1,
+        AccConfig0, AccConfig1,
     }, 
     BMA400Error, interface::WriteToRegister
 };
