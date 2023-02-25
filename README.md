@@ -29,12 +29,12 @@ use bma400::{
 
 (...)
 
-    // BMA400: Initialize the accelerometer by passing in an interface 
+    // Initialize the accelerometer by passing in an interface 
     // implementing the embedded-hal i2c WriteRead and Write traits
     let mut accel = BMA400::<Twim<TWIM0>>::new_i2c(i2c).unwrap();
 
 
-    // BMA400: Set the power mode to normal and the output data rate to 200Hz
+    // Set the power mode to normal and the output data rate to 200Hz
     accel
     .config_accel()
     .with_power_mode(PowerMode::Normal)
@@ -42,14 +42,14 @@ use bma400::{
     .write().unwrap();
 
 
-    // BMA400: Map the tap interrupt to the INT1 pin
+    // Map the tap interrupt to the INT1 pin
     accel
     .config_int_pins()
     .with_tap(InterruptPins::Both)
     .write().unwrap();
 
 
-    // BMA400: Enable the single and double tap interrupts and enable latching
+    // Enable the single and double tap interrupts and enable latching
     // (interrupt persists until cleared by reading the interrupt status register)
     accel
     .config_interrupts()
@@ -58,8 +58,21 @@ use bma400::{
     .with_s_tap_int(true)
     .write().unwrap();
 
+    // Read a one-shot measurement from the accelerometer
+    let measurement = accel.get_data().unwrap();
+    let x_accel: i16 = measurement.x;
+    let y_accel: i16 = measurement.y;
+    let z_accel: i16 = measurement.z;
+
+    // Read the interrupt status register containing the tap interrupt
+    // (clearing all interrupts with statuses in that register)
+    let int_stat1 = accel.get_int_status1().unwrap();
+    let taps_detected = int_stat1.d_tap_stat() || int_stat1.s_tap_stat();
+
+    (...)
+
 ```
-For the full example above with nrf52833, see `examples/bma400-nrf52833`.
+For a full example using the tap interrupt mapped to a GPIO pin on the nrf52833, see `examples/bma400-nrf52833`.
 
 ## About the Sensor 
 
