@@ -45,7 +45,7 @@ use bma400::{
     // Map the tap interrupt to the INT1 pin
     accel
     .config_int_pins()
-    .with_tap(InterruptPins::Both)
+    .with_tap(InterruptPins::Int1)
     .write().unwrap();
 
 
