@@ -8,7 +8,7 @@ use crate::{
 };
 
 // This is set by the SDO Pin level. (p. 108 of datasheet)
-//#[cfg(feature = "i2c-default")]
+#[cfg(feature = "i2c-default")]
 pub const ADDR: u8 = 0b00010100;
 #[cfg(feature = "i2c-alt")]
 pub const ADDR: u8 = 0b00010101;
@@ -28,7 +28,7 @@ where
     type Error = BMA400Error<E, ()>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        self.i2c.write(ADDR, &[T::ADDR, register.to_byte()]).map_err(|e| BMA400Error::IOError(e))
+        self.i2c.write(ADDR, &[register.addr, register.to_byte()]).map_err(|e| BMA400Error::IOError(e))
     }
 }
 
