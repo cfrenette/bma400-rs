@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{WakeupIntConfig0, WakeupIntConfig1, WakeupIntConfig2, WakeupIntConfig3, WakeupIntConfig4},
     interface::WriteToRegister,
     BMA400,
@@ -36,7 +35,7 @@ pub struct WakeupIntConfigBuilder<'a, Interface: WriteToRegister> {
 impl<'a, Interface, E> WakeupIntConfigBuilder<'a, Interface> 
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> WakeupIntConfigBuilder<'a, Interface> {
         WakeupIntConfigBuilder { config: device.config.wkup_int_config.clone(), device }

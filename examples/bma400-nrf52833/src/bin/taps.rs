@@ -32,10 +32,8 @@ fn main() -> ! {
     // Initialize the GPIO I2C interface
     let i2c = Twim::new(peripherals.TWIM0, i2c_pins, Frequency::K400);
 
-
-    // BMA400: Initialize the accelerometer
-    let mut accel = BMA400::<Twim<TWIM0>>::new_i2c(i2c).unwrap();
-
+    // BMA400: Initialize the Accelerometer
+    let mut accel = BMA400::new_i2c(i2c).unwrap();
 
     // BMA400: Set the power mode to normal and the output data rate to 200Hz
     accel

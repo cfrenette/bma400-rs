@@ -67,7 +67,7 @@ pub struct GenIntConfigBuilder<'a, Interface: WriteToRegister> {
 impl <'a, Interface, E> GenIntConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn write(self) -> Result<(), E> {
         if let DataSource::AccFilt1 = self.config.src() {

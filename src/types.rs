@@ -1,16 +1,29 @@
+use core::fmt::Debug;
 use bitflags::bitflags;
 /// Error types
 #[derive(Debug)]
-pub enum BMA400Error<InterfaceError> {
+pub enum BMA400Error<InterfaceError, PinError> 
+where
+    InterfaceError: Debug,
+    PinError: Debug,
+{
     /// I2C / SPI Error
     IOError(InterfaceError),
+    /// Chip Select Pin Error
+    ChipSelectPinError(PinError),
     /// Incorrect configuration
     ConfigBuildError(ConfigError),
+    /// Invalid Chip ID read at initialization
+    ChipIdReadFailed,
     /// Self-Test Failure
     SelfTestFailedError,
 }
 
-impl<E> From<ConfigError> for BMA400Error<E> {
+impl<InterfaceError, PinError> From<ConfigError> for BMA400Error<InterfaceError, PinError>
+where
+    InterfaceError: Debug,
+    PinError: Debug,
+{
     fn from(value: ConfigError) -> Self {
         Self::ConfigBuildError(value)
     }

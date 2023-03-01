@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{AutoWakeup0, AutoWakeup1},
     interface::WriteToRegister,
     BMA400,
@@ -26,7 +25,7 @@ pub struct AutoWakeupConfigBuilder<'a, Interface> {
 impl<'a, Interface, E> AutoWakeupConfigBuilder<'a, Interface> 
 where 
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> AutoWakeupConfigBuilder<'a, Interface> {
         AutoWakeupConfigBuilder { config: device.config.auto_wkup_config.clone(), device }

@@ -1,5 +1,6 @@
+use core::fmt::Debug;
 use crate::hal::blocking::i2c::{Write, WriteRead};
-
+use crate::registers::ChipId;
 use crate::{
     interface::{WriteToRegister, ReadFromRegister},
     registers::{ReadReg, ConfigReg}, 
@@ -14,39 +15,50 @@ pub const ADDR: u8 = 0b00010101;
 
 // Wrapper class to instantiate BMA400 with an I2C interface 
 // (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
+#[derive(Debug)]
 pub struct I2CInterface<I2C> {
     i2c: I2C,
 }
 
-impl<I2C> WriteToRegister for I2CInterface<I2C>
+impl<I2C, E> WriteToRegister for I2CInterface<I2C>
 where
-    I2C: Write
+    I2C: Write<Error = E>,
+    E: Debug,
 {
-    type Error = BMA400Error<I2C::Error>;
+    type Error = BMA400Error<E, ()>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
         self.i2c.write(ADDR, &[T::ADDR, register.to_byte()]).map_err(|e| BMA400Error::IOError(e))
     }
 }
 
-impl<I2C> ReadFromRegister for I2CInterface<I2C>
+impl<I2C, E> ReadFromRegister for I2CInterface<I2C>
 where
-    I2C: WriteRead
+    I2C: WriteRead<Error = E>,
+    E: Debug,
 {
-    type Error = BMA400Error<I2C::Error>;
+    type Error = BMA400Error<E, ()>;
+
     fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
         self.i2c.write_read(ADDR, &[register.addr()], buffer).map_err(|e| BMA400Error::IOError(e))
     }
 }
 
-impl<I2C, E> BMA400<I2C>
+impl<I2C, E> BMA400<I2CInterface<I2C>>
 where
     I2C: WriteRead<Error = E> + Write<Error = E>,
-    I2CInterface<I2C>: ReadFromRegister + WriteToRegister,
+    I2CInterface<I2C>: ReadFromRegister<Error = BMA400Error<E, ()>> + WriteToRegister<Error = BMA400Error<E, ()>>,
+    E: Debug,
 {
-    pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E>> {
-        let interface = I2CInterface { i2c };
+    pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E, ()>> {
+        let mut interface = I2CInterface { i2c };
         let config = Config::default();
-        Ok(BMA400 { interface, config })
+        let mut chip_id = [0u8; 1];
+        interface.read_register(ChipId, &mut chip_id)?;
+        if chip_id[0] != 0x90 {
+            Err(BMA400Error::ChipIdReadFailed)
+        } else {
+            Ok(BMA400 { interface, config })
+        }
     }
 }

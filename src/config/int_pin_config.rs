@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{Int1Map, Int2Map, Int12Map, Int12IOCtrl},
     interface::WriteToRegister,
     BMA400,
@@ -65,7 +64,7 @@ pub struct IntPinConfigBuilder<'a, Interface> {
 impl<'a, Interface, E> IntPinConfigBuilder<'a, Interface> 
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     fn match_mapped(mapped_to: InterruptPins) -> (bool, bool) {
         match mapped_to {

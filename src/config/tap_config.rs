@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+
 use crate::{registers::{TapConfig0, TapConfig1}, interface::WriteToRegister, BMA400, ConfigError, Axis, TapSensitivity, MinTapDuration, DoubleTapDuration, MaxTapDuration};
 
 #[derive(Clone, Default)]
@@ -16,7 +16,7 @@ pub struct TapConfigBuilder<'a, Interface: WriteToRegister>
 impl<'a, Interface, E> TapConfigBuilder<'a, Interface> 
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
         TapConfigBuilder { config: device.config.tap_config.clone(), device }
