@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use embedded_hal::digital::v2::OutputPin;
 use crate::hal::blocking::spi::{Write, Transfer};
 use crate::{
@@ -14,43 +15,54 @@ pub struct SPIInterface<SPI, CSBPin> {
     csb: CSBPin,
 }
 
-impl<SPI, CSBPin> WriteToRegister for SPIInterface<SPI, CSBPin> 
+impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI, CSBPin> 
 where
-    SPI: Write<u8>,
-    CSBPin: OutputPin,
+    SPI: Write<u8, Error = InterfaceError>,
+    CSBPin: OutputPin<Error = PinError>,
+    InterfaceError: Debug,
+    PinError: Debug,
 {
-    type Error = BMA400Error<SPI::Error, CSBPin::Error>;
+    type Error = BMA400Error<InterfaceError, PinError>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        todo!()
+        self.csb.set_low().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        self.spi.write(&[register.addr(), register.to_byte()]).map_err(|e| BMA400Error::IOError(e))?;
+        self.csb.set_high().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        Ok(())
     }
-    
 }
 
-impl<SPI, CSBPin> ReadFromRegister for SPIInterface<SPI, CSBPin> 
+impl<SPI, CSBPin, InterfaceError, PinError> ReadFromRegister for SPIInterface<SPI, CSBPin> 
 where
-    SPI: Transfer<u8>,
-    CSBPin: OutputPin,
+    SPI: Transfer<u8, Error = InterfaceError>,
+    CSBPin: OutputPin<Error = PinError>,
+    InterfaceError: Debug,
+    PinError: Debug,
 {
-    type Error = BMA400Error<SPI::Error, CSBPin::Error>;
+    type Error = BMA400Error<InterfaceError, PinError>;
 
     fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        todo!()
+        let first_byte = register.addr() | 1 << 7;
+        buffer[0] = first_byte;
+        self.csb.set_low().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        self.spi.transfer(buffer).map_err(|e| BMA400Error::IOError(e))?;
+        self.csb.set_high().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        Ok(())
     }
-
-    
 }
 
 impl<SPI, CSBPin, InterfaceError, PinError> BMA400<SPIInterface<SPI, CSBPin>>
 where
-    SPI: Transfer<u8> + Write<u8>,
-    CSBPin: OutputPin,
+    SPI: Transfer<u8, Error = InterfaceError> + Write<u8, Error = InterfaceError>,
+    CSBPin: OutputPin<Error = PinError>,
     SPIInterface<SPI, CSBPin>: ReadFromRegister<Error = BMA400Error<InterfaceError, PinError>> + WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
+    InterfaceError: Debug,
+    PinError: Debug,
 {
     pub fn new_spi(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();
-        // Initialize SPI Mode
+        // Initialize SPI Mode by doing a dummy read
         interface.read_register(ChipId, &mut [0u8; 1])?;
         // Validate Chip ID
         let mut chip_id = [0u8; 1];
