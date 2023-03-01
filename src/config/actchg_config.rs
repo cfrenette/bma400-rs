@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{ActChgConfig0, ActChgConfig1}, 
     interface::WriteToRegister, 
     BMA400, 
@@ -28,7 +27,7 @@ pub struct ActChgConfigBuilder<'a, Interface: WriteToRegister> {
 impl<'a, Interface, E> ActChgConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> ActChgConfigBuilder<'a, Interface> {
         ActChgConfigBuilder { config: device.config.actchg_config.clone(), device }

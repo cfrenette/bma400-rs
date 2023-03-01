@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{FifoConfig0, FifoConfig1, FifoConfig2, FifoPwrConfig},
     interface::WriteToRegister,
     BMA400,
@@ -32,7 +31,7 @@ pub struct FifoConfigBuilder<'a, Interface: WriteToRegister> {
 impl<'a, Interface, E> FifoConfigBuilder<'a, Interface>
 where 
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> FifoConfigBuilder<'a, Interface> {
         FifoConfigBuilder { config: device.config.fifo_config.clone() , device }

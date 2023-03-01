@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{AutoLowPow0, AutoLowPow1},
     interface::WriteToRegister,
     BMA400,
@@ -20,7 +19,7 @@ pub struct AutoLpConfigBuilder<'a, Interface:WriteToRegister> {
 impl<'a, Interface, E> AutoLpConfigBuilder<'a, Interface> 
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
         AutoLpConfigBuilder { config: device.config.auto_lp_config.clone(), device }

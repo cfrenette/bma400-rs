@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 mod accel_config;
 use accel_config::AccConfig;
 mod int_config;
@@ -81,7 +82,7 @@ impl Config {
     pub fn is_fifo_read_disabled(&self) -> bool {
         self.fifo_config.is_read_disabled()
     }
-    pub fn setup_self_test<Interface: WriteToRegister<Error = BMA400Error<E>>, E>(&self, interface: &mut Interface) -> Result<(), BMA400Error<E>> {
+    pub fn setup_self_test<Interface: WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>, InterfaceError: Debug, PinError: Debug>(&self, interface: &mut Interface) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         // Disable Interrupts
         interface.write_register(IntConfig0::from_bits_truncate(0x00))?;
         interface.write_register(IntConfig1::from_bits_truncate(0x00))?;
@@ -95,7 +96,7 @@ impl Config {
         interface.write_register(AccConfig1::from_bits_truncate(0x78))?;
         Ok(())
     }
-    pub fn cleanup_self_test<Interface: WriteToRegister<Error = BMA400Error<E>>, E>(&self, interface: &mut Interface) -> Result<(), BMA400Error<E>> {
+    pub fn cleanup_self_test<Interface: WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>, InterfaceError: Debug, PinError: Debug>(&self, interface: &mut Interface) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         // Restore AccConfig
         interface.write_register(self.acc_config.get_config0())?;
         interface.write_register(self.acc_config.get_config1())?;

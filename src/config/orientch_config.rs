@@ -1,5 +1,4 @@
 use crate::{
-    Debug,
     registers::{OrientChgConfig0, OrientChgConfig1, OrientChgConfig3, OrientChgConfig4, OrientChgConfig5, OrientChgConfig6, OrientChgConfig7, OrientChgConfig8, OrientChgConfig9},
     interface::WriteToRegister,
     BMA400,
@@ -27,7 +26,7 @@ pub struct OrientChgConfigBuilder<'a, Interface> {
 impl<'a, Interface, E> OrientChgConfigBuilder<'a, Interface>
 where 
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> OrientChgConfigBuilder<'a, Interface> {
         OrientChgConfigBuilder { config: device.config.orientch_config.clone(), device }

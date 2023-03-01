@@ -1,5 +1,4 @@
 use crate::{registers::{AccConfig0, AccConfig1, AccConfig2}, Scale, interface::WriteToRegister, ConfigError, PowerMode, OversampleRate, Filter1Bandwidth, OutputDataRate, DataSource, BMA400};
-use core::fmt::Debug;
 
 
 #[derive(Clone, Default)]
@@ -34,7 +33,7 @@ pub struct AccConfigBuilder<'a, Interface: WriteToRegister>
 impl<'a, Interface, E> AccConfigBuilder<'a, Interface> 
 where
     Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError> + Debug,
+    E: From<ConfigError>,
 {
     pub fn new(device: &'a mut BMA400<Interface>) -> AccConfigBuilder<'a, Interface> {
         AccConfigBuilder { config: device.config.acc_config.clone(), device }
