@@ -65,3 +65,63 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_hal_mock::i2c::{Mock, Transaction};
+    use crate::{
+        BMA400Error,
+        i2c::I2CInterface,
+    };
+    const ADDR: u8 = crate::i2c::ADDR;
+    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
+        let expected = [
+            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
+        ];
+        BMA400::new_i2c(Mock::new(&expected)).unwrap()
+    }
+    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
+        BMA400::new_i2c(Mock::new(expected)).unwrap()
+    }
+    #[test]
+    fn test_timeout() {
+        let mut device = device_no_write();
+        let builder = device.config_auto_lp();
+        let builder = builder.with_timeout(4098);
+        assert_eq!(builder.config.auto_low_pow0.bits(), 0xFF);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0xF0);
+        let builder = builder.with_timeout(0);
+        assert_eq!(builder.config.auto_low_pow0.bits(), 0x00);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x00);
+    }
+    #[test]
+    fn test_auto_lp_trigger() {
+        let mut device = device_no_write();
+        let builder = device.config_auto_lp();
+        let builder = builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledNoReset);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x04);
+        let builder = builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x08);
+        let builder = builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutDisabled);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x00);
+    }
+    #[test]
+    fn test_gen1_int_trigger() {
+        let mut device = device_no_write();
+        let builder = device.config_auto_lp();
+        let builder = builder.with_gen1_int_trigger(true);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x02);
+        let builder = builder.with_gen1_int_trigger(false);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x00);
+    }
+    #[test]
+    fn test_drdy_trigger() {
+        let mut device = device_no_write();
+        let builder = device.config_auto_lp();
+        let builder = builder.with_drdy_trigger(true);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x01);
+        let builder = builder.with_drdy_trigger(false);
+        assert_eq!(builder.config.auto_low_pow1.bits(), 0x00);
+    }
+}

@@ -817,7 +817,7 @@ impl AutoLowPow1 {
         match mode {
             AutoLPTimeoutTrigger::TimeoutDisabled => self.difference(Self::AUTO_LP_TIMEOUT),
             AutoLPTimeoutTrigger::TimeoutEnabledNoReset => self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT0),
-            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => self.union(Self::AUTO_LP_TIMEOUT),
+            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT1),
         }
     }
     pub const fn with_gen1_int_trigger(self, enabled: bool) -> Self {
