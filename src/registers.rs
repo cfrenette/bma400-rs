@@ -934,7 +934,7 @@ impl WakeupIntConfig0 {
     }
     pub const fn with_reference_mode(self, ref_mode: WakeupIntRefMode) -> Self {
         match ref_mode {
-            WakeupIntRefMode::Manual => self.difference(Self::WKUP_REF0),
+            WakeupIntRefMode::Manual => self.difference(Self::WKUP_REFU),
             WakeupIntRefMode::OneTime => self.difference(Self::WKUP_REFU).union(Self::WKUP_REF0),
             WakeupIntRefMode::EveryTime => self.difference(Self::WKUP_REFU).union(Self::WKUP_REF1),
         }
