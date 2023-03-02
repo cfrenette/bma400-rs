@@ -213,7 +213,7 @@ impl AccConfig2 {
         match data_src {
             DataSource::AccFilt1 => self.difference(Self::DTA_SRC),
             DataSource::AccFilt2 => self.difference(Self::DTA_SRC).union(Self::DTA_SRC0),
-            DataSource::AccFilt2Lp => self.intersection(Self::DTA_SRC),
+            DataSource::AccFilt2Lp => self.difference(Self::DTA_SRC).union(Self::DTA_SRC1),
         }
     }
 }
@@ -1467,28 +1467,5 @@ impl ConfigReg for Command {
             Command::ClearStepCount => 0xB1,
             Command::SoftReset => 0xB6,
         }
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-
-    // TODO
-
-    use super::*;
-
-    #[test]
-    fn acc_config0() {
-        let acc_config0 = AccConfig0::default();
-        assert_eq!(acc_config0.bits, 0x00);
-    }
-
-    #[test]
-    fn acc_config1() {
-        let mut acc_config1 = AccConfig1::default();
-        assert_eq!(acc_config1.bits, 0x49);
-        let acc_config1 = acc_config1.with_scale(Scale::Range2G);
-        assert_eq!(acc_config1.bits, 0x09);
     }
 }

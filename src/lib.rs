@@ -28,10 +28,10 @@ pub use config::ActChgConfigBuilder;
 // Maybe #[cfg(feature = "adv-int-tap")]
 pub use config::TapConfigBuilder;
 
-#[cfg(feature = "i2c")]
+#[cfg(any(feature = "i2c", test))]
 pub mod i2c;
 
-#[cfg(feature = "spi")]
+#[cfg(any(feature = "spi", test))]
 pub mod spi;
 
 pub struct BMA400<T> {
