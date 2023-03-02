@@ -1,5 +1,5 @@
 # bma400-rs
-A platform-agnostic Rust driver for the BMA400 accelrometer implemented using [`embedded-hal`](https://github.com/japaric/embedded-hal) traits
+A platform-agnostic Rust driver for the BMA400 accelerometer implemented using [`embedded-hal`](https://github.com/japaric/embedded-hal) traits
 
 🚧 Under Development 🚧
 
@@ -31,7 +31,7 @@ use bma400::{
 
     // Initialize the accelerometer by passing in an interface 
     // implementing the embedded-hal i2c WriteRead and Write traits
-    let mut accel = BMA400::<Twim<TWIM0>>::new_i2c(i2c).unwrap();
+    let mut accel = BMA400::new_i2c(i2c).unwrap();
 
 
     // Set the power mode to normal and the output data rate to 200Hz
