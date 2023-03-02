@@ -214,6 +214,19 @@ where
         WakeupIntConfigBuilder::new(self)
     }
 
+    /// Configure Orientation Change Interrupt settings
+    pub fn config_orientchg_int(&mut self) -> OrientChgConfigBuilder<T> {
+        OrientChgConfigBuilder::new(self)
+    }
+
+    // TODO Gen Int 1
+    // TODO Gen Int 2
+
+    /// Configure Activity Change Interrupt settings
+    pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<T> {
+        ActChgConfigBuilder::new(self)
+    }
+
     /// Configure Advanced Tap Interrupt Settings
     // Maybe #[cfg(feature = "adv-int-tap")]
     pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
