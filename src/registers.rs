@@ -1053,8 +1053,8 @@ impl OrientChgConfig0 {
     }
     pub const fn with_data_src(self, src: DataSource) -> Self {
         match src {
-            DataSource::AccFilt1 => self.difference(Self::ORIENT_SRC),
-            DataSource::AccFilt2 => unreachable!(), // Handled in the public API
+            DataSource::AccFilt1 => unreachable!(), // Handled in the public API
+            DataSource::AccFilt2 => self.difference(Self::ORIENT_SRC),
             DataSource::AccFilt2Lp => self.union(Self::ORIENT_SRC),
         }
     }
