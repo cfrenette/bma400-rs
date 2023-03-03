@@ -1332,9 +1332,9 @@ cfg_register! {
 impl TapConfig0 {
     pub const fn with_axis(self, axis: Axis) -> Self {
         match axis {
-            Axis::X => self.difference(Self::SEL_AXIS),
+            Axis::Z => self.difference(Self::SEL_AXIS),
             Axis::Y => self.difference(Self::SEL_AXIS).union(Self::SEL_AXIS0),
-            Axis::Z => self.difference(Self::SEL_AXIS).union(Self::SEL_AXIS1),
+            Axis::X => self.difference(Self::SEL_AXIS).union(Self::SEL_AXIS1),
         }
     }
     pub const fn with_sensitivity(self, sens: TapSensitivity) -> Self {
@@ -1360,7 +1360,7 @@ cfg_register! {
         const TICS_TH1  = 0b0000_0010;
         const TICS_TH0  = 0b0000_0001;
 
-        const QUIET_DT = Self::QUIET_DT1.bits | Self::QUIET_DT1.bits;
+        const QUIET_DT = Self::QUIET_DT1.bits | Self::QUIET_DT0.bits;
         const QUIET = Self::QUIET1.bits | Self::QUIET0.bits;
         const TICS_TH = Self::TICS_TH1.bits | Self::TICS_TH0.bits;
     }
@@ -1370,8 +1370,8 @@ impl TapConfig1 {
     pub const fn with_min_tap_duration(self, min_duration: MinTapDuration) -> Self {
         match min_duration {
             MinTapDuration::Samples4 => self.difference(Self::QUIET_DT),
-            MinTapDuration::Samples8 => self.difference(Self::QUIET_DT).union(Self::QUIET0),
-            MinTapDuration::Samples12 => self.difference(Self::QUIET_DT).union(Self::QUIET1),
+            MinTapDuration::Samples8 => self.difference(Self::QUIET_DT).union(Self::QUIET_DT0),
+            MinTapDuration::Samples12 => self.difference(Self::QUIET_DT).union(Self::QUIET_DT1),
             MinTapDuration::Samples16 => self.union(Self::QUIET_DT),
         }
     }
