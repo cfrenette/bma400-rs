@@ -42,9 +42,8 @@ where
     type Error = BMA400Error<InterfaceError, PinError>;
 
     fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        let first_byte = register.addr() | 1 << 7;
-        buffer[0] = first_byte;
         self.csb.set_low().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        self.spi.transfer(&mut [register.addr() | 1 << 7, 0]).map_err(|e| BMA400Error::IOError(e))?;
         self.spi.transfer(buffer).map_err(|e| BMA400Error::IOError(e))?;
         self.csb.set_high().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
         Ok(())
