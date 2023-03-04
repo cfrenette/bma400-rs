@@ -1393,12 +1393,14 @@ impl TapConfig1 {
     }
 }
 
+#[cfg(any(feature="spi", test))]
 cfg_register! {
     InterfaceConfig: 0x7C = 0x00 {
         const SPI3 = 0b0000_0001;
     }
 }
 
+#[cfg(any(feature="spi", test))]
 impl InterfaceConfig {
     pub const fn with_spi_3wire_mode(self, enabled: bool) -> Self {
         if enabled {
