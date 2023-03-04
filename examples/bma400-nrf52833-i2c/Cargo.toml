@@ -1,6 +1,6 @@
 [package]
 authors = ["cfrenette <cory@frenette.dev>"]
-name = "bma400-nrf52833"
+name = "bma400-nrf52833-i2c"
 edition = "2021"
 version = "0.1.0"
 
