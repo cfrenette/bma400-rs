@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use bma400_nrf52833 as _; // global logger + panicking behavior + memory layout
+use bma400_nrf52833_i2c as _; // global logger + panicking behavior + memory layout
 
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;

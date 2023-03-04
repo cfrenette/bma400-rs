@@ -2,3 +2,4 @@
 Cargo.lock
 **/*.rs.bk
 .gdb_history
+examples/bma400-nrf52833-spi
