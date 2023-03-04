@@ -3,7 +3,7 @@ use embedded_hal::digital::v2::OutputPin;
 use crate::hal::blocking::spi::{Write, Transfer};
 use crate::{
     interface::{WriteToRegister, ReadFromRegister},
-    registers::{ReadReg, ConfigReg, ChipId}, 
+    registers::{ReadReg, ConfigReg, ChipId, InterfaceConfig}, 
     BMA400, Config, BMA400Error
 };
 
@@ -64,6 +64,22 @@ where
         // Initialize SPI Mode by doing a dummy read
         interface.read_register(ChipId, &mut [0u8; 1])?;
         // Validate Chip ID
+        let mut chip_id = [0u8; 1];
+        interface.read_register(ChipId, &mut chip_id)?;
+        if chip_id[0] != 0x90 {
+            Err(BMA400Error::ChipIdReadFailed)
+        } else {
+            Ok(BMA400 { interface, config })
+        }
+    }
+    pub fn new_spi_3wire(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
+        let mut interface = SPIInterface { spi, csb };
+        let config = Config::default();
+        // Initialize SPI Mode by doing a dummy read
+        interface.read_register(ChipId, &mut [0u8; 1])?;
+        let mut if_config = InterfaceConfig::default();
+        if_config = if_config.with_spi_3wire_mode(true);
+        interface.write_register(if_config)?;
         let mut chip_id = [0u8; 1];
         interface.read_register(ChipId, &mut chip_id)?;
         if chip_id[0] != 0x90 {

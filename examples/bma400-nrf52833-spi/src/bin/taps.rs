@@ -1,23 +1,23 @@
 #![no_std]
 #![no_main]
 
-use bma400_nrf52833_i2c as _; // global logger + panicking behavior + memory layout
+use bma400_nrf52833_spi as _; // global logger + panicking behavior + memory layout
 
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
 use cortex_m::prelude::_embedded_hal_blocking_delay_DelayMs;
 use cortex_m_rt::entry;
 use nrf52833_hal::{
-    gpio,
+    gpio::{self, Level, PushPull, Pin, Output},
     gpiote::Gpiote,
-    pac::{self, interrupt, TWIM0},
-    twim::{Frequency, Pins, Twim}, Timer,
+    pac::{self, interrupt, SPIM0},
+    spim::{Frequency, Pins, Mode, Polarity, Phase}, Timer, Spim,
 };
-use bma400::{BMA400, PowerMode, OutputDataRate, i2c::I2CInterface, InterruptPins};
+use bma400::{BMA400, PowerMode, OutputDataRate, spi::SPIInterface, InterruptPins};
 
 // Shared access to the accelerometer and GPIO Tasks and Events peripheral
 static GPIO: Mutex<RefCell<Option<Gpiote>>> = Mutex::new(RefCell::new(None));
-type AccelDevice = BMA400<I2CInterface<Twim<TWIM0>>>;
+type AccelDevice = BMA400<SPIInterface<Spim<SPIM0>, Pin<Output<PushPull>>>>;
 static ACCEL: Mutex<RefCell<Option<AccelDevice>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
@@ -26,15 +26,18 @@ fn main() -> ! {
     let peripherals = nrf52833_hal::pac::Peripherals::take().unwrap();
     let p0 = gpio::p0::Parts::new(peripherals.P0);
     let p1 = gpio::p1::Parts::new(peripherals.P1);
-    let i2c_pins = Pins {
-        scl: p0.p0_26.into_floating_input().degrade(),
-        sda: p1.p1_00.into_floating_input().degrade(),
+    // Set the chip select pin to high
+    let csb = p1.p1_02.into_push_pull_output(Level::High).degrade();
+    let spi_pins = Pins {
+        miso: Some(p0.p0_01.into_floating_input().degrade()),
+        mosi: Some(p0.p0_13.into_push_pull_output(Level::Low).degrade()),
+        sck: Some(p0.p0_17.into_push_pull_output(Level::Low).degrade()),
     };
-    // Initialize the GPIO I2C interface
-    let i2c = Twim::new(peripherals.TWIM0, i2c_pins, Frequency::K400);
+    // Initialize the GPIO SPI interface
+    let spi = Spim::new(peripherals.SPIM0, spi_pins, Frequency::M8, Mode {polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition}, 0);
 
     // BMA400: Initialize the Accelerometer
-    let mut accel = BMA400::new_i2c(i2c).unwrap();
+    let mut accel = BMA400::new_spi(spi, csb).unwrap();
 
     // BMA400: Set the power mode to normal and the output data rate to 200Hz
     accel
