@@ -872,3 +872,22 @@ fn perform_self_test() {
     assert!(matches!(result, Err(BMA400Error::SelfTestFailedError)));
 
 }
+
+#[test]
+fn soft_reset() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x7E, 0xB6]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::transfer(vec![0x8D, 0x00], vec![0x00, 0x00]));
+    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+    device.soft_reset().unwrap();
+}

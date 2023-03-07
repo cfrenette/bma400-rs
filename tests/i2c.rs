@@ -661,3 +661,15 @@ fn perform_self_test() {
     let result = device.perform_self_test(&mut timer);
     assert!(matches!(result, Err(BMA400Error::SelfTestFailedError)));
 }
+
+#[test]
+fn soft_reset() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x7E, 0xB6]));
+    expected.push(Transaction::write_read(ADDR, vec![0x0D], vec![0x01]));
+
+    let mut device = new(&expected);
+    device.soft_reset().unwrap();
+}
