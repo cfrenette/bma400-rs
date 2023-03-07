@@ -572,6 +572,76 @@ fn config_interrupts() {
     .with_step_int(false).write().unwrap();
 }
 
+#[test]
+fn config_int_pins() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x21, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x22, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x23, 0xDD]));
+    expected.push(Transaction::write(ADDR, vec![0x24, 0x66]));
+
+    expected.push(Transaction::write(ADDR, vec![0x21, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x23, 0xD0]));
+    expected.push(Transaction::write(ADDR, vec![0x24, 0x60]));
+
+    expected.push(Transaction::write(ADDR, vec![0x22, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x23, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x24, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_int_pins()
+    .with_drdy(InterruptPins::Both)
+    .with_fifo_wm(InterruptPins::Both)
+    .with_ffull(InterruptPins::Both)
+    .with_ieng_ovrrn(InterruptPins::Both)
+    .with_gen2(InterruptPins::Both)
+    .with_gen1(InterruptPins::Both)
+    .with_orientch(InterruptPins::Both)
+    .with_wkup(InterruptPins::Both)
+    .with_actch(InterruptPins::Both)
+    .with_tap(InterruptPins::Both)
+    .with_step(InterruptPins::Both)
+    .with_int1_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh))
+    .with_int2_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh))
+    .write().unwrap();
+
+    // Un-Set Pin1
+    device.config_int_pins()
+    .with_drdy(InterruptPins::Int2)
+    .with_fifo_wm(InterruptPins::Int2)
+    .with_ffull(InterruptPins::Int2)
+    .with_ieng_ovrrn(InterruptPins::Int2)
+    .with_gen2(InterruptPins::Int2)
+    .with_gen1(InterruptPins::Int2)
+    .with_orientch(InterruptPins::Int2)
+    .with_wkup(InterruptPins::Int2)
+    .with_actch(InterruptPins::Int2)
+    .with_tap(InterruptPins::Int2)
+    .with_step(InterruptPins::Int2)
+    .with_int1_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
+    .write().unwrap();
+
+    // Un-Set Pin2
+    device.config_int_pins()
+    .with_drdy(InterruptPins::None)
+    .with_fifo_wm(InterruptPins::None)
+    .with_ffull(InterruptPins::None)
+    .with_ieng_ovrrn(InterruptPins::None)
+    .with_gen2(InterruptPins::None)
+    .with_gen1(InterruptPins::None)
+    .with_orientch(InterruptPins::None)
+    .with_wkup(InterruptPins::None)
+    .with_actch(InterruptPins::None)
+    .with_tap(InterruptPins::None)
+    .with_step(InterruptPins::None)
+    .with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
