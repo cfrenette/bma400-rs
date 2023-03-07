@@ -525,6 +525,53 @@ fn config_accel() {
     .with_reg_dta_src(DataSource::AccFilt1).write().unwrap();
 }
 
+#[test]
+fn config_interrupts() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x56, 0x10]));
+    expected.push(Transaction::write(ADDR, vec![0x1F, 0xEE]));
+    expected.push(Transaction::write(ADDR, vec![0x20, 0x9D]));
+
+    expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x20, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Activity Change to use AccFilt2 so we can enable it
+    device.config_actchg_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+
+    // Set Everything
+    device.config_interrupts()
+    .with_actch_int(true)
+    .with_d_tap_int(true)
+    .with_dta_rdy_int(true)
+    .with_ffull_int(true)
+    .with_fwm_int(true)
+    .with_gen1_int(true)
+    .with_gen2_int(true)
+    .with_latch_int(true)
+    .with_orientch_int(true)
+    .with_s_tap_int(true)
+    .with_step_int(true).write().unwrap();
+
+    // Un-Set Everything
+    device.config_interrupts()
+    .with_actch_int(false)
+    .with_d_tap_int(false)
+    .with_dta_rdy_int(false)
+    .with_ffull_int(false)
+    .with_fwm_int(false)
+    .with_gen1_int(false)
+    .with_gen2_int(false)
+    .with_latch_int(false)
+    .with_orientch_int(false)
+    .with_s_tap_int(false)
+    .with_step_int(false).write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));

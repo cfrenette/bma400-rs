@@ -700,7 +700,68 @@ fn config_accel() {
     .with_osr(OversampleRate::OSR0)
     .with_odr(OutputDataRate::Hz12_5)
     .with_reg_dta_src(DataSource::AccFilt1).write().unwrap();
+}
 
+#[test]
+fn config_interrupts() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x56, 0x10]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x1F, 0xEE]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x20, 0x9D]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x1F, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x20, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Activity Change to use AccFilt2 so we can enable it
+    device.config_actchg_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+
+    // Set Everything
+    device.config_interrupts()
+    .with_actch_int(true)
+    .with_d_tap_int(true)
+    .with_dta_rdy_int(true)
+    .with_ffull_int(true)
+    .with_fwm_int(true)
+    .with_gen1_int(true)
+    .with_gen2_int(true)
+    .with_latch_int(true)
+    .with_orientch_int(true)
+    .with_s_tap_int(true)
+    .with_step_int(true).write().unwrap();
+
+    // Un-Set Everything
+    device.config_interrupts()
+    .with_actch_int(false)
+    .with_d_tap_int(false)
+    .with_dta_rdy_int(false)
+    .with_ffull_int(false)
+    .with_fwm_int(false)
+    .with_gen1_int(false)
+    .with_gen2_int(false)
+    .with_latch_int(false)
+    .with_orientch_int(false)
+    .with_s_tap_int(false)
+    .with_step_int(false).write().unwrap();
 }
 
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
