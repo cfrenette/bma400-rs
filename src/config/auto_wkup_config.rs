@@ -31,9 +31,10 @@ where
         AutoWakeupConfigBuilder { config: device.config.auto_wkup_config.clone(), device }
     }
 
-    /// Set the timer counter for periodic auto wake-up. This value is 12-bits and is incremented every 2.5ms
+    /// Set the timer counter threshold for periodic auto wake-up. The counter is 12-bits and is incremented every 2.5ms,
+    /// so this value is clamped to \[0, 4095\]
     pub fn with_wakeup_period(mut self, count: u16) -> Self {
-        let timeout = count.clamp(1, 4096) - 1;
+        let timeout = count.clamp(0, 4095);
         self.config.auto_wakeup0 = self.config.auto_wakeup0.with_wakeup_timeout_msb(timeout);
         self.config.auto_wakeup1 = self.config.auto_wakeup1.with_wakeup_timeout_lsb(timeout);
         self
@@ -79,7 +80,7 @@ mod tests {
     fn test_wakeup_period() {
         let mut device = device_no_write();
         let builder = device.config_autowkup();
-        let builder = builder.with_wakeup_period(4098);
+        let builder = builder.with_wakeup_period(4097);
         assert_eq!(builder.config.auto_wakeup0.bits(), 0xFF);
         assert_eq!(builder.config.auto_wakeup1.bits(), 0xF0);
         let builder = builder.with_wakeup_period(0);
