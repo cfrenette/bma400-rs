@@ -1412,7 +1412,7 @@ impl InterfaceConfig {
 }
 
 cfg_register! {
-    SelfTest: 0x7C = 0x00 {
+    SelfTest: 0x7D = 0x00 {
         const TEST_SIGN = 0b0000_1000;
         const TEST_Z_EN = 0b0000_0100;
         const TEST_Y_EN = 0b0000_0010;
