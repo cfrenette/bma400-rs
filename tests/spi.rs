@@ -864,6 +864,72 @@ fn config_int_pins() {
     .write().unwrap();
 }
 
+#[test]
+fn config_fifo() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x26, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x27, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x28, 0x03]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x29, 0x01]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x26, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x27, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x28, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x29, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_fifo()
+    .with_8bit_mode(true)
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_send_time_on_empty(true)
+    .with_stop_on_full(true)
+    .with_auto_flush(true)
+    .with_watermark_thresh(1023)
+    .with_read_disabled(true)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_fifo()
+    .with_8bit_mode(false)
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_send_time_on_empty(false)
+    .with_stop_on_full(false)
+    .with_auto_flush(false)
+    .with_watermark_thresh(0)
+    .with_read_disabled(false)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));
