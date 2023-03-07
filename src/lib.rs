@@ -126,7 +126,7 @@ where
 
     /// Returns the number of unread bytes currently in the FIFO
     pub fn get_fifo_len(&mut self) -> Result<u16, BMA400Error<InterfaceError, PinError>> {
-        let mut buffer = [0u8, 2];
+        let mut buffer = [0u8; 2];
         self.interface.read_register(FifoLength0, &mut buffer)?;
         let bytes = [buffer[0], buffer[1] & 0b0000_0111];
         Ok(u16::from_le_bytes(bytes))

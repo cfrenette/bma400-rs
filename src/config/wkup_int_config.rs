@@ -125,19 +125,13 @@ where
 mod tests {
     use super::*;
     use embedded_hal_mock::i2c::{Mock, Transaction};
-    use crate::{
-        BMA400Error,
-        i2c::I2CInterface,
-    };
+    use crate::i2c::I2CInterface;
     const ADDR: u8 = crate::i2c::ADDR;
     fn device_no_write() -> BMA400<I2CInterface<Mock>> {
         let expected = [
             Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
         ];
         BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
-    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
-        BMA400::new_i2c(Mock::new(expected)).unwrap()
     }
     #[test]
     fn test_ref_mode() {
