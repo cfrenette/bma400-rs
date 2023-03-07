@@ -489,6 +489,42 @@ fn get_raw_temp() {
     assert_eq!(temp, 127);
 }
 
+#[test]
+fn config_accel() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x19, 0xE2]));
+    expected.push(Transaction::write(ADDR, vec![0x1A, 0xFB]));
+    expected.push(Transaction::write(ADDR, vec![0x1B, 0x08]));
+
+    expected.push(Transaction::write(ADDR, vec![0x19, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x1A, 0x05]));
+    expected.push(Transaction::write(ADDR, vec![0x1B, 0x00]));
+
+    let mut device = new(&expected);
+    
+    // Set Everything
+    device.config_accel()
+    .with_filt1_bw(Filter1Bandwidth::Low)
+    .with_osr_lp(OversampleRate::OSR3)
+    .with_power_mode(PowerMode::Normal)
+    .with_scale(Scale::Range16G)
+    .with_osr(OversampleRate::OSR3)
+    .with_odr(OutputDataRate::Hz800)
+    .with_reg_dta_src(DataSource::AccFilt2Lp).write().unwrap();
+
+    // Un-Set Everything
+    device.config_accel()
+    .with_filt1_bw(Filter1Bandwidth::High)
+    .with_osr_lp(OversampleRate::OSR0)
+    .with_power_mode(PowerMode::Sleep)
+    .with_scale(Scale::Range2G)
+    .with_osr(OversampleRate::OSR0)
+    .with_odr(OutputDataRate::Hz12_5)
+    .with_reg_dta_src(DataSource::AccFilt1).write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));

@@ -648,6 +648,61 @@ fn get_raw_temp() {
     assert_eq!(temp, 127);
 }
 
+#[test]
+fn config_accel() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x19, 0xE2]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x1A, 0xFB]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x1B, 0x08]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x19, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x1A, 0x05]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x1B, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+    
+    // Set Everything
+    device.config_accel()
+    .with_filt1_bw(Filter1Bandwidth::Low)
+    .with_osr_lp(OversampleRate::OSR3)
+    .with_power_mode(PowerMode::Normal)
+    .with_scale(Scale::Range16G)
+    .with_osr(OversampleRate::OSR3)
+    .with_odr(OutputDataRate::Hz800)
+    .with_reg_dta_src(DataSource::AccFilt2Lp).write().unwrap();
+
+    // Un-Set Everything
+    device.config_accel()
+    .with_filt1_bw(Filter1Bandwidth::High)
+    .with_osr_lp(OversampleRate::OSR0)
+    .with_power_mode(PowerMode::Sleep)
+    .with_scale(Scale::Range2G)
+    .with_osr(OversampleRate::OSR0)
+    .with_odr(OutputDataRate::Hz12_5)
+    .with_reg_dta_src(DataSource::AccFilt1).write().unwrap();
+
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));
