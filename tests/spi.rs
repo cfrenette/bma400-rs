@@ -1012,6 +1012,80 @@ fn config_autowkup() {
     .write().unwrap();
 }
 
+#[test]
+fn config_wkup_int() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x30, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x31, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x32, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x33, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    // Enable the interrupt last
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2F, 0xFE]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    // Disable the interrupt first, keeping other settings intact
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2F, 0x1E]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x30, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x31, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x32, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x33, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    // Re-enable / write IntConfig0 changes last
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2F, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_wkup_int()
+    .with_axes(true, true, true)
+    .with_num_samples(8)
+    .with_ref_mode(WakeupIntRefMode::EveryTime)
+    .with_threshold(0xFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_wkup_int()
+    .with_axes(false, false, false)
+    .with_num_samples(1)
+    .with_ref_mode(WakeupIntRefMode::Manual)
+    .with_threshold(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));

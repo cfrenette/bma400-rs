@@ -742,6 +742,48 @@ fn config_autowkup() {
     .write().unwrap();
 }
 
+#[test]
+fn config_wkup_int() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x30, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x31, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x32, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x33, 0xFF]));
+    // Enable the interrupt last
+    expected.push(Transaction::write(ADDR, vec![0x2F, 0xFE]));
+
+    // Disable the interrupt first, keeping other settings intact
+    expected.push(Transaction::write(ADDR, vec![0x2F, 0x1E]));
+    expected.push(Transaction::write(ADDR, vec![0x30, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x31, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x32, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x33, 0x00]));
+    // Re-enable / write IntConfig0 changes last
+    expected.push(Transaction::write(ADDR, vec![0x2F, 0x00]));
+
+    let mut device = new(&expected);
+    
+    // Set Everything
+    device.config_wkup_int()
+    .with_axes(true, true, true)
+    .with_num_samples(8)
+    .with_ref_mode(WakeupIntRefMode::EveryTime)
+    .with_threshold(0xFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_wkup_int()
+    .with_axes(false, false, false)
+    .with_num_samples(1)
+    .with_ref_mode(WakeupIntRefMode::Manual)
+    .with_threshold(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
