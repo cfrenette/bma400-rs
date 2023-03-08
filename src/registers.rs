@@ -998,7 +998,7 @@ impl WakeupIntConfig3 {
 }
 
 cfg_register! {
-    WakeupIntConfig4: 0x34 = 0x00 {
+    WakeupIntConfig4: 0x33 = 0x00 {
         const WKUP_REF_Z7 = 0b1000_0000;
         const WKUP_REF_Z6 = 0b0100_0000;
         const WKUP_REF_Z5 = 0b0010_0000;
