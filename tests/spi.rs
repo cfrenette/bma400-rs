@@ -972,6 +972,46 @@ fn config_auto_lp() {
     .write().unwrap();
 }
 
+#[test]
+fn config_autowkup() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2C, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2D, 0xF6]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2C, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2D, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_autowkup()
+    .with_wakeup_period(0xFFF)
+    .with_periodic_wakeup(true)
+    .with_activity_int(true)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_autowkup()
+    .with_wakeup_period(0)
+    .with_periodic_wakeup(false)
+    .with_activity_int(false)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));

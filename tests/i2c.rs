@@ -714,6 +714,34 @@ fn config_auto_lp() {
     .write().unwrap();
 }
 
+#[test]
+fn config_autowkup() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x2C, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x2D, 0xF6]));
+
+    expected.push(Transaction::write(ADDR, vec![0x2C, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x2D, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_autowkup()
+    .with_wakeup_period(0xFFF)
+    .with_periodic_wakeup(true)
+    .with_activity_int(true)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_autowkup()
+    .with_wakeup_period(0)
+    .with_periodic_wakeup(false)
+    .with_activity_int(false)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
