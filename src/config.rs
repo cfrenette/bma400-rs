@@ -39,7 +39,7 @@ use crate::{
     Scale, 
     registers::{
         IntConfig0, IntConfig1, 
-        AccConfig0, AccConfig1,
+        AccConfig1,
     }, 
     BMA400Error, interface::WriteToRegister
 };
@@ -86,12 +86,12 @@ impl Config {
         // Disable Interrupts
         interface.write_register(IntConfig0::from_bits_truncate(0x00))?;
         interface.write_register(IntConfig1::from_bits_truncate(0x00))?;
-        interface.write_register(self.auto_wkup_config.get_config1().with_wakeup_int(false))?;
+        interface.write_register(self.auto_wkup_config.get_config1().clone().with_wakeup_int(false))?;
         // Disable FIFO
-        interface.write_register(self.fifo_config.get_config0().with_fifo_x(false).with_fifo_y(false).with_fifo_z(false))?;
+        interface.write_register(self.fifo_config.get_config0().clone().with_fifo_x(false).with_fifo_y(false).with_fifo_z(false))?;
 
         // Set PowerMode = Normal
-        interface.write_register(AccConfig0::from_bits_truncate(0x02))?;
+        interface.write_register(self.acc_config.get_config0().clone().with_power_mode(crate::PowerMode::Normal))?;
         // Set Range = 4G, OSR = OSR3, ODR = 100Hz
         interface.write_register(AccConfig1::from_bits_truncate(0x78))?;
         Ok(())

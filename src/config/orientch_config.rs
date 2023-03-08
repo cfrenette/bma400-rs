@@ -154,3 +154,82 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_hal_mock::i2c::{Mock, Transaction};
+    use crate::{
+        i2c::I2CInterface,
+    };
+    const ADDR: u8 = crate::i2c::ADDR;
+    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
+        let expected = [
+            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
+        ];
+        BMA400::new_i2c(Mock::new(&expected)).unwrap()
+    }
+    #[test]
+    fn test_axes() {
+        let mut device = device_no_write();
+        let builder = device.config_orientchg_int();
+        let builder = builder.with_axes(false, false, true);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x80);
+        let builder = builder.with_axes(false, true, false);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x40);
+        let builder = builder.with_axes(true, false, false);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x20);
+    }
+    #[test]
+    fn test_src() {
+        let mut device = device_no_write();
+        let builder = device.config_orientchg_int();
+        let builder = builder.with_src(DataSource::AccFilt1);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x00);
+        let builder = builder.with_src(DataSource::AccFilt2Lp);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x10);
+        let builder = builder.with_src(DataSource::AccFilt2);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x00);
+    }
+    #[test]
+    fn test_ref_mode() {
+        let mut device = device_no_write();
+        let builder = device.config_orientchg_int();
+        let builder = builder.with_ref_mode(OrientIntRefMode::AccFilt2);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x04);
+        let builder = builder.with_ref_mode(OrientIntRefMode::AccFilt2Lp);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x08);
+        let builder = builder.with_ref_mode(OrientIntRefMode::Manual);
+        assert_eq!(builder.config.orientch_config0.bits(), 0x00);
+    }
+    #[test]
+    fn test_threshold() {
+        let mut device = device_no_write();
+        let builder = device.config_orientchg_int();
+        let builder = builder.with_threshold(255);
+        assert_eq!(builder.config.orientch_config1.bits(), 0xFF);
+        let builder = builder.with_threshold(0);
+        assert_eq!(builder.config.orientch_config1.bits(), 0x00);
+    }
+    #[test]
+    fn test_duration() {
+        let mut device = device_no_write();
+        let builder = device.config_orientchg_int();
+        let builder = builder.with_duration(255);
+        assert_eq!(builder.config.orientch_config3.bits(), 0xFF);
+        let builder = builder.with_duration(0);
+        assert_eq!(builder.config.orientch_config3.bits(), 0x00);
+    }
+    #[test]
+    fn test_ref_accel() {
+        let mut device = device_no_write();
+        let builder = device.config_orientchg_int();
+        let builder = builder.with_ref_accel(-256,240, 15);
+        assert_eq!(builder.config.orientch_config4.bits(), 0x00);
+        assert_eq!(builder.config.orientch_config5.bits(), 0x0F);
+        assert_eq!(builder.config.orientch_config6.bits(), 0xF0);
+        assert_eq!(builder.config.orientch_config7.bits(), 0x00);
+        assert_eq!(builder.config.orientch_config8.bits(), 0x0F);
+        assert_eq!(builder.config.orientch_config9.bits(), 0x00);
+    }
+}

@@ -272,3 +272,235 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_hal_mock::i2c::{Mock, Transaction};
+    use crate::{
+        i2c::I2CInterface,
+        PinOutputLevel,
+    };
+    const ADDR: u8 = crate::i2c::ADDR;
+    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
+        let expected = [
+            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
+        ];
+        BMA400::new_i2c(Mock::new(&expected)).unwrap()
+    }
+    #[test]
+    fn test_mapped_pins() {
+        assert!(matches!(IntPinConfig::mapped_pins(false, false), InterruptPins::None));
+        assert!(matches!(IntPinConfig::mapped_pins(true, false), InterruptPins::Int1));
+        assert!(matches!(IntPinConfig::mapped_pins(false, true), InterruptPins::Int2));
+        assert!(matches!(IntPinConfig::mapped_pins(true, true), InterruptPins::Both));
+    }
+    #[test]
+    fn test_match_mapped() {
+        assert!(matches!(IntPinConfigBuilder::<I2CInterface<Mock>>::match_mapped(InterruptPins::None), (false, false)));
+        assert!(matches!(IntPinConfigBuilder::<I2CInterface<Mock>>::match_mapped(InterruptPins::Int1), (true, false)));
+        assert!(matches!(IntPinConfigBuilder::<I2CInterface<Mock>>::match_mapped(InterruptPins::Int2), (false, true)));
+        assert!(matches!(IntPinConfigBuilder::<I2CInterface<Mock>>::match_mapped(InterruptPins::Both), (true, true)));
+    }
+    #[test]
+    fn test_drdy() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_drdy(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x80);
+        assert_eq!(builder.config.int2_map.bits(), 0x80);
+        let builder = builder.with_drdy(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x80);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_drdy(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x80);
+        let builder = builder.with_drdy(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_fwm() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_fifo_wm(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x40);
+        assert_eq!(builder.config.int2_map.bits(), 0x40);
+        let builder = builder.with_fifo_wm(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x40);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_fifo_wm(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x40);
+        let builder = builder.with_fifo_wm(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_ffull() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_ffull(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x20);
+        assert_eq!(builder.config.int2_map.bits(), 0x20);
+        let builder = builder.with_ffull(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x20);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_ffull(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x20);
+        let builder = builder.with_ffull(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_ieng_ovrrn() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_ieng_ovrrn(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x10);
+        assert_eq!(builder.config.int2_map.bits(), 0x10);
+        let builder = builder.with_ieng_ovrrn(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x10);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_ieng_ovrrn(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x10);
+        let builder = builder.with_ieng_ovrrn(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_gen2() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_gen2(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x08);
+        assert_eq!(builder.config.int2_map.bits(), 0x08);
+        let builder = builder.with_gen2(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x08);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_gen2(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x08);
+        let builder = builder.with_gen2(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_gen1() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_gen1(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x04);
+        assert_eq!(builder.config.int2_map.bits(), 0x04);
+        let builder = builder.with_gen1(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x04);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_gen1(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x04);
+        let builder = builder.with_gen1(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_orientch() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_orientch(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x02);
+        assert_eq!(builder.config.int2_map.bits(), 0x02);
+        let builder = builder.with_orientch(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x02);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_orientch(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x02);
+        let builder = builder.with_orientch(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_wkup() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_wkup(InterruptPins::Both);
+        assert_eq!(builder.config.int1_map.bits(), 0x01);
+        assert_eq!(builder.config.int2_map.bits(), 0x01);
+        let builder = builder.with_wkup(InterruptPins::Int1);
+        assert_eq!(builder.config.int1_map.bits(), 0x01);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+        let builder = builder.with_wkup(InterruptPins::Int2);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x01);
+        let builder = builder.with_wkup(InterruptPins::None);
+        assert_eq!(builder.config.int1_map.bits(), 0x00);
+        assert_eq!(builder.config.int2_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_actch() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_actch(InterruptPins::Both);
+        assert_eq!(builder.config.int12_map.bits(), 0x88);
+        let builder = builder.with_actch(InterruptPins::Int1);
+        assert_eq!(builder.config.int12_map.bits(), 0x08);
+        let builder = builder.with_actch(InterruptPins::Int2);
+        assert_eq!(builder.config.int12_map.bits(), 0x80);
+        let builder = builder.with_actch(InterruptPins::None);
+        assert_eq!(builder.config.int12_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_tap() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_tap(InterruptPins::Both);
+        assert_eq!(builder.config.int12_map.bits(), 0x44);
+        let builder = builder.with_tap(InterruptPins::Int1);
+        assert_eq!(builder.config.int12_map.bits(), 0x04);
+        let builder = builder.with_tap(InterruptPins::Int2);
+        assert_eq!(builder.config.int12_map.bits(), 0x40);
+        let builder = builder.with_tap(InterruptPins::None);
+        assert_eq!(builder.config.int12_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_step() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_step(InterruptPins::Both);
+        assert_eq!(builder.config.int12_map.bits(), 0x11);
+        let builder = builder.with_step(InterruptPins::Int1);
+        assert_eq!(builder.config.int12_map.bits(), 0x01);
+        let builder = builder.with_step(InterruptPins::Int2);
+        assert_eq!(builder.config.int12_map.bits(), 0x10);
+        let builder = builder.with_step(InterruptPins::None);
+        assert_eq!(builder.config.int12_map.bits(), 0x00);
+    }
+    #[test]
+    fn test_int1_cfg() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_int1_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveLow));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x24);
+        let builder = builder.with_int1_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x26);
+        let builder = builder.with_int1_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x20);
+        let builder = builder.with_int1_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveHigh));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x22);
+    }
+    #[test]
+    fn test_int2_cfg() {
+        let mut device = device_no_write();
+        let builder = device.config_int_pins();
+        let builder = builder.with_int2_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveLow));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x42);
+        let builder = builder.with_int2_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x62);
+        let builder = builder.with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x02);
+        let builder = builder.with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveHigh));
+        assert_eq!(builder.config.int12_io_ctrl.bits(), 0x22);
+    }
+}

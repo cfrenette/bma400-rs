@@ -58,7 +58,7 @@ impl Status {
         (self.bits & 0b0001_0000) != 0
     }
     pub fn power_mode(&self) -> PowerMode {
-        match self.bits & 0b0000_0110 >> 1 {
+        match (self.bits & 0b0000_0110) >> 1 {
             0 => PowerMode::Sleep,
             1 => PowerMode::LowPower,
             _ => PowerMode::Normal,

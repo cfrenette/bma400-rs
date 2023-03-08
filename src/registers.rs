@@ -213,7 +213,7 @@ impl AccConfig2 {
         match data_src {
             DataSource::AccFilt1 => self.difference(Self::DTA_SRC),
             DataSource::AccFilt2 => self.difference(Self::DTA_SRC).union(Self::DTA_SRC0),
-            DataSource::AccFilt2Lp => self.intersection(Self::DTA_SRC),
+            DataSource::AccFilt2Lp => self.difference(Self::DTA_SRC).union(Self::DTA_SRC1),
         }
     }
 }
@@ -817,7 +817,7 @@ impl AutoLowPow1 {
         match mode {
             AutoLPTimeoutTrigger::TimeoutDisabled => self.difference(Self::AUTO_LP_TIMEOUT),
             AutoLPTimeoutTrigger::TimeoutEnabledNoReset => self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT0),
-            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => self.union(Self::AUTO_LP_TIMEOUT),
+            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT1),
         }
     }
     pub const fn with_gen1_int_trigger(self, enabled: bool) -> Self {
@@ -934,7 +934,7 @@ impl WakeupIntConfig0 {
     }
     pub const fn with_reference_mode(self, ref_mode: WakeupIntRefMode) -> Self {
         match ref_mode {
-            WakeupIntRefMode::Manual => self.difference(Self::WKUP_REF0),
+            WakeupIntRefMode::Manual => self.difference(Self::WKUP_REFU),
             WakeupIntRefMode::OneTime => self.difference(Self::WKUP_REFU).union(Self::WKUP_REF0),
             WakeupIntRefMode::EveryTime => self.difference(Self::WKUP_REFU).union(Self::WKUP_REF1),
         }
@@ -998,7 +998,7 @@ impl WakeupIntConfig3 {
 }
 
 cfg_register! {
-    WakeupIntConfig4: 0x34 = 0x00 {
+    WakeupIntConfig4: 0x33 = 0x00 {
         const WKUP_REF_Z7 = 0b1000_0000;
         const WKUP_REF_Z6 = 0b0100_0000;
         const WKUP_REF_Z5 = 0b0010_0000;
@@ -1053,8 +1053,8 @@ impl OrientChgConfig0 {
     }
     pub const fn with_data_src(self, src: DataSource) -> Self {
         match src {
-            DataSource::AccFilt1 => self.difference(Self::ORIENT_SRC),
-            DataSource::AccFilt2 => unreachable!(), // Handled in the public API
+            DataSource::AccFilt1 => unreachable!(), // Handled in the public API
+            DataSource::AccFilt2 => self.difference(Self::ORIENT_SRC),
             DataSource::AccFilt2Lp => self.union(Self::ORIENT_SRC),
         }
     }
@@ -1332,9 +1332,9 @@ cfg_register! {
 impl TapConfig0 {
     pub const fn with_axis(self, axis: Axis) -> Self {
         match axis {
-            Axis::X => self.difference(Self::SEL_AXIS),
+            Axis::Z => self.difference(Self::SEL_AXIS),
             Axis::Y => self.difference(Self::SEL_AXIS).union(Self::SEL_AXIS0),
-            Axis::Z => self.difference(Self::SEL_AXIS).union(Self::SEL_AXIS1),
+            Axis::X => self.difference(Self::SEL_AXIS).union(Self::SEL_AXIS1),
         }
     }
     pub const fn with_sensitivity(self, sens: TapSensitivity) -> Self {
@@ -1360,7 +1360,7 @@ cfg_register! {
         const TICS_TH1  = 0b0000_0010;
         const TICS_TH0  = 0b0000_0001;
 
-        const QUIET_DT = Self::QUIET_DT1.bits | Self::QUIET_DT1.bits;
+        const QUIET_DT = Self::QUIET_DT1.bits | Self::QUIET_DT0.bits;
         const QUIET = Self::QUIET1.bits | Self::QUIET0.bits;
         const TICS_TH = Self::TICS_TH1.bits | Self::TICS_TH0.bits;
     }
@@ -1370,8 +1370,8 @@ impl TapConfig1 {
     pub const fn with_min_tap_duration(self, min_duration: MinTapDuration) -> Self {
         match min_duration {
             MinTapDuration::Samples4 => self.difference(Self::QUIET_DT),
-            MinTapDuration::Samples8 => self.difference(Self::QUIET_DT).union(Self::QUIET0),
-            MinTapDuration::Samples12 => self.difference(Self::QUIET_DT).union(Self::QUIET1),
+            MinTapDuration::Samples8 => self.difference(Self::QUIET_DT).union(Self::QUIET_DT0),
+            MinTapDuration::Samples12 => self.difference(Self::QUIET_DT).union(Self::QUIET_DT1),
             MinTapDuration::Samples16 => self.union(Self::QUIET_DT),
         }
     }
@@ -1412,7 +1412,7 @@ impl InterfaceConfig {
 }
 
 cfg_register! {
-    SelfTest: 0x7C = 0x00 {
+    SelfTest: 0x7D = 0x00 {
         const TEST_SIGN = 0b0000_1000;
         const TEST_Z_EN = 0b0000_0100;
         const TEST_Y_EN = 0b0000_0010;
@@ -1469,28 +1469,5 @@ impl ConfigReg for Command {
             Command::ClearStepCount => 0xB1,
             Command::SoftReset => 0xB6,
         }
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-
-    // TODO
-
-    use super::*;
-
-    #[test]
-    fn acc_config0() {
-        let acc_config0 = AccConfig0::default();
-        assert_eq!(acc_config0.bits, 0x00);
-    }
-
-    #[test]
-    fn acc_config1() {
-        let mut acc_config1 = AccConfig1::default();
-        assert_eq!(acc_config1.bits, 0x49);
-        let acc_config1 = acc_config1.with_scale(Scale::Range2G);
-        assert_eq!(acc_config1.bits, 0x09);
     }
 }
