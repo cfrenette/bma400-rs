@@ -28,9 +28,9 @@ where
 
     /// Set the timeout counter for auto low power mode. This value is 12-bits, and is incremented every 2.5ms
     /// 
-    /// This value is clamped to \[1, 4096\]
+    /// This value is clamped to \[0, 4095\]
     pub fn with_timeout(mut self, count: u16) -> Self {
-        let timeout = count.clamp(1, 4096) - 1;
+        let timeout = count.clamp(0, 4095);
         self.config.auto_low_pow0 = self.config.auto_low_pow0.with_auto_lp_timeout_msb(timeout);
         self.config.auto_low_pow1 = self.config.auto_low_pow1.with_auto_lp_timeout_lsb(timeout);
         self

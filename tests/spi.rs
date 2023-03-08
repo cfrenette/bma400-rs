@@ -930,6 +930,48 @@ fn config_fifo() {
     .write().unwrap();
 }
 
+#[test]
+fn config_auto_lp() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2A, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2B, 0xFB]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2A, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x2B, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_auto_lp()
+    .with_timeout(0xFFF)
+    .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset)
+    .with_drdy_trigger(true)
+    .with_gen1_int_trigger(true)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_auto_lp()
+    .with_timeout(0)
+    .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutDisabled)
+    .with_drdy_trigger(false)
+    .with_gen1_int_trigger(false)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));

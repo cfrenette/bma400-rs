@@ -684,6 +684,36 @@ fn config_fifo() {
     .write().unwrap();
 }
 
+#[test]
+fn config_auto_lp() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x2A, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x2B, 0xFB]));
+
+    expected.push(Transaction::write(ADDR, vec![0x2A, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x2B, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_auto_lp()
+    .with_timeout(0xFFF)
+    .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset)
+    .with_drdy_trigger(true)
+    .with_gen1_int_trigger(true)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_auto_lp()
+    .with_timeout(0)
+    .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutDisabled)
+    .with_drdy_trigger(false)
+    .with_gen1_int_trigger(false)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
