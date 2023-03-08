@@ -832,6 +832,36 @@ fn config_orientchg_int() {
     .write().unwrap();
 }
 
+#[test]
+fn config_actchg_int() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x55, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x56, 0xF4]));
+
+    expected.push(Transaction::write(ADDR, vec![0x55, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x56, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_actchg_int()
+    .with_threshold(0xFF)
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_obs_period(ActChgObsPeriod::Samples512)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_actchg_int()
+    .with_threshold(0)
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_obs_period(ActChgObsPeriod::Samples32)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));

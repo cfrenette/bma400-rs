@@ -1141,6 +1141,48 @@ fn config_orientchg_int() {
     .write().unwrap();
 }
 
+#[test]
+fn config_actchg_int() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x55, 0xFF]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x56, 0xF4]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x55, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x56, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&mut expected_io, &mut expected_pin);
+
+    // Set Everything
+    device.config_actchg_int()
+    .with_threshold(0xFF)
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_obs_period(ActChgObsPeriod::Samples512)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_actchg_int()
+    .with_threshold(0)
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_obs_period(ActChgObsPeriod::Samples32)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));
