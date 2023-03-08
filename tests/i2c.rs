@@ -862,6 +862,38 @@ fn config_actchg_int() {
     .write().unwrap();
 }
 
+#[test]
+fn config_tap() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x57, 0x17]));
+    expected.push(Transaction::write(ADDR, vec![0x58, 0x3F]));
+
+    expected.push(Transaction::write(ADDR, vec![0x57, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x58, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_tap()
+    .with_axis(Axis::X)
+    .with_sensitivity(TapSensitivity::SENS7)
+    .with_min_duration_btn_taps(MinTapDuration::Samples16)
+    .with_max_double_tap_window(DoubleTapDuration::Samples120)
+    .with_max_tap_duration(MaxTapDuration::Samples18)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_tap()
+    .with_axis(Axis::Z)
+    .with_sensitivity(TapSensitivity::SENS0)
+    .with_min_duration_btn_taps(MinTapDuration::Samples4)
+    .with_max_double_tap_window(DoubleTapDuration::Samples60)
+    .with_max_tap_duration(MaxTapDuration::Samples6)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));

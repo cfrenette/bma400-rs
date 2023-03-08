@@ -1183,6 +1183,50 @@ fn config_actchg_int() {
     .write().unwrap();
 }
 
+#[test]
+fn config_tap() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x57, 0x17]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x58, 0x3F]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x57, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x58, 0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_tap()
+    .with_axis(Axis::X)
+    .with_sensitivity(TapSensitivity::SENS7)
+    .with_min_duration_btn_taps(MinTapDuration::Samples16)
+    .with_max_double_tap_window(DoubleTapDuration::Samples120)
+    .with_max_tap_duration(MaxTapDuration::Samples18)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_tap()
+    .with_axis(Axis::Z)
+    .with_sensitivity(TapSensitivity::SENS0)
+    .with_min_duration_btn_taps(MinTapDuration::Samples4)
+    .with_max_double_tap_window(DoubleTapDuration::Samples60)
+    .with_max_tap_duration(MaxTapDuration::Samples6)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));
