@@ -784,6 +784,54 @@ fn config_wkup_int() {
     .write().unwrap();
 }
 
+#[test]
+fn config_orientchg_int() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x35, 0xF8]));
+    expected.push(Transaction::write(ADDR, vec![0x36, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x38, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x39, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x3A, 0x0F]));
+    expected.push(Transaction::write(ADDR, vec![0x3B, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x3C, 0x0F]));
+    expected.push(Transaction::write(ADDR, vec![0x3D, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x3E, 0x0F]));
+
+    expected.push(Transaction::write(ADDR, vec![0x35, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x36, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x38, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x39, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x3A, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x3B, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x3C, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x3D, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x3E, 0x00]));
+
+    let mut device = new(&expected);
+    
+    // Set Everything
+    device.config_orientchg_int()
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2Lp)
+    .with_ref_mode(OrientIntRefMode::AccFilt2Lp)
+    .with_threshold(0xFF)
+    .with_duration(0xFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_orientchg_int()
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt2)
+    .with_ref_mode(OrientIntRefMode::Manual)
+    .with_threshold(0)
+    .with_duration(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
     expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));

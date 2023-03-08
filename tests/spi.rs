@@ -1086,6 +1086,61 @@ fn config_wkup_int() {
     .write().unwrap();
 }
 
+#[test]
+fn config_orientchg_int() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    let mut write = |bytes: Vec<u8>| {
+        expected_pin.push(PinTransaction::set(State::Low));
+        expected_io.push(Transaction::write(bytes));
+        expected_pin.push(PinTransaction::set(State::High));
+    };
+
+    write(vec![0x35, 0xF8]);
+    write(vec![0x36, 0xFF]);
+    write(vec![0x38, 0xFF]);
+    write(vec![0x39, 0xFF]);
+    write(vec![0x3A, 0x0F]);
+    write(vec![0x3B, 0xFF]);
+    write(vec![0x3C, 0x0F]);
+    write(vec![0x3D, 0xFF]);
+    write(vec![0x3E, 0x0F]);
+
+    write(vec![0x35, 0x00]);
+    write(vec![0x36, 0x00]);
+    write(vec![0x38, 0x00]);
+    write(vec![0x39, 0x00]);
+    write(vec![0x3A, 0x00]);
+    write(vec![0x3B, 0x00]);
+    write(vec![0x3C, 0x00]);
+    write(vec![0x3D, 0x00]);
+    write(vec![0x3E, 0x00]);
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_orientchg_int()
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2Lp)
+    .with_ref_mode(OrientIntRefMode::AccFilt2Lp)
+    .with_threshold(0xFF)
+    .with_duration(0xFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_orientchg_int()
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt2)
+    .with_ref_mode(OrientIntRefMode::Manual)
+    .with_threshold(0)
+    .with_duration(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));
