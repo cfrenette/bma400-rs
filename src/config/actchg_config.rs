@@ -4,7 +4,7 @@ use crate::{
     BMA400, 
     ConfigError, 
     DataSource, 
-    ActChgObsPeriod
+    ActChgObsPeriod, OutputDataRate
 };
 
 #[derive(Clone, Default)]
@@ -15,7 +15,7 @@ pub struct ActChgConfig {
 
 impl ActChgConfig {
     pub fn src(&self) -> DataSource {
-        self.actchg_config1.dta_src()
+        self.actchg_config1.src()
     }
 }
 
@@ -66,10 +66,21 @@ where
         let has_config1_changes = self.device.config.actchg_config.actchg_config1.bits() != self.config.actchg_config1.bits();
         let has_changes = has_config0_changes || has_config1_changes;
 
+        // If there are no changes, return early
+        if !has_changes {
+            return Ok(());
+        }
+
         let mut tmp_int_config1 = self.device.config.int_config.get_config1().clone();
+        let int_enabled = tmp_int_config1.actch_int();
+
+        // If the interrupt is enabled and we're trying to change the Data Source to AccFilt1, the ODR must be 100Hz
+        if int_enabled && matches!(self.config.actchg_config1.src(), DataSource::AccFilt1) && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
 
         // Temporarily disable the interrupt, if active
-        if tmp_int_config1.actch_int() && has_changes {
+        if int_enabled {
             tmp_int_config1 = tmp_int_config1.with_actch_int(false);
             self.device.interface.write_register(tmp_int_config1)?;
         }
@@ -97,7 +108,7 @@ mod tests {
     use super::*;
     use embedded_hal_mock::i2c::{Mock, Transaction};
     use crate::{
-        i2c::I2CInterface,
+        i2c::I2CInterface, BMA400Error,
     };
     const ADDR: u8 = crate::i2c::ADDR;
     fn device_no_write() -> BMA400<I2CInterface<Mock>> {
@@ -105,6 +116,9 @@ mod tests {
             Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
         ];
         BMA400::new_i2c(Mock::new(&expected)).unwrap()
+    }
+    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
+        BMA400::new_i2c(Mock::new(expected)).unwrap()
     }
     #[test]
     fn test_threshold() {
@@ -151,5 +165,21 @@ mod tests {
         assert_eq!(builder.config.actchg_config1.bits(), 0x04);
         let builder = builder.with_obs_period(ActChgObsPeriod::Samples32);
         assert_eq!(builder.config.actchg_config1.bits(), 0x00);
+    }
+    #[test]
+    fn test_config_err() {
+        let expected = [
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
+            Transaction::write(ADDR, [0x56, 0x10].into()),
+            Transaction::write(ADDR, [0x20, 0x10].into()),
+        ];
+        let mut device = device_write(&expected);
+        // Change the data source to AccFilt2
+        assert!(matches!(device.config_actchg_int().with_src(DataSource::AccFilt2).write(), Ok(())));
+        // Enable the interrupt
+        assert!(matches!(device.config_interrupts().with_actch_int(true).write(), Ok(())));
+        // Try to change the data source back to AccFilt1 while the interrupt is enabled
+        let result = device.config_actchg_int().with_src(DataSource::AccFilt1).write();
+        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
     }
 }

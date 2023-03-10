@@ -1765,7 +1765,7 @@ impl ActChgConfig1 {
             self.difference(Self::ACTCH_X_EN)
         }
     }
-    pub const fn dta_src(&self) -> DataSource {
+    pub const fn src(&self) -> DataSource {
         if self.intersects(Self::ACTCH_SRC) {
             DataSource::AccFilt2
         } else {
