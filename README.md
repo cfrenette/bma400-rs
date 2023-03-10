@@ -7,7 +7,7 @@ A platform-agnostic Rust driver for the BMA400 accelerometer implemented using [
 
 - [x] Support Basic Sensor Features
 - [x] SPI Support
-- [ ] Support Programmable (Custom) Interrupts
+- [x] Support Programmable (Custom) Interrupts
 - [ ] Tests (In-progress)
 - [ ] Documentation
 - [ ] More Examples

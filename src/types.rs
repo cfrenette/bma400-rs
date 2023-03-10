@@ -639,3 +639,45 @@ pub enum MaxTapDuration {
     Samples12,
     Samples18,
 }
+
+/// Generic interrupt activity detection reference acceleration update mode
+pub enum GenIntRefMode {
+    /// Reference is not updated automatically and must be set by using `with_ref_accel()`
+    Manual,
+    /// A reference acceleration snapshot is taken from the selected data source once upon triggering the interrupt or entering normal mode
+    OneTime,
+    /// A reference acceleration snapshot is taken from the selected data source each time the interrupt condition is evaluated
+    EveryTimeFromSrc,
+    /// A reference acceleration snapshot is taken from AccFilt2Lp (1Hz) each time the interrupt condition is evaluated
+    EveryTimeFromLp,
+}
+
+/// Hysteresis configuration options for the Generic interrupt activity comparision
+pub enum Hysteresis {
+    /// No hysteresis
+    None,
+    /// 24 milli-g hysteresis
+    Hyst24mg,
+    /// 48 milli-g hysteresis
+    Hyst48mg,
+    /// 96 milli-g hysteresis
+    Hyst96mg,
+}
+
+/// Select whether the interrupt triggers on detecting acceleration 
+/// either outside or inside the \[`ref_accel`-`threshold`,`ref_accel`+`threshold`\] window
+pub enum GenIntCriterionMode {
+    /// Interrupt triggers on acceleration inside reference +/- threshold (Inactivity Detection)
+    Inactivity,
+    /// Interrupt triggers on acceleration outside reference +/- threshold (Activity Detection)
+    Activity,
+}
+
+/// Select whether the interrupt triggers on any single access satisfying its criterion
+/// or all enabled axes must satisfy their criteria
+pub enum GenIntLogicMode {
+    /// Interrupt triggers if the acceleration for _any_ axis satisfies its criterion
+    Or,
+    /// Interrupt triggers only if the acceleration for _all_ axes satisfies their criteria
+    And,
+}

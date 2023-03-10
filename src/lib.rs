@@ -22,7 +22,7 @@ use config::{
 // Maybe #[cfg(feature = "adv-int-orientchg")]
 pub use config::OrientChgConfigBuilder;
 // Maybe #[cfg(feature = "adv-int-generic")]
-// TODO Generic Interrupts
+pub use config::GenIntConfigBuilder;
 // Maybe #[cfg(feature = "adv-int-actchg")]
 pub use config::ActChgConfigBuilder;
 // Maybe #[cfg(feature = "adv-int-tap")]
@@ -219,8 +219,15 @@ where
         OrientChgConfigBuilder::new(self)
     }
 
-    // TODO Gen Int 1
-    // TODO Gen Int 2
+    /// Configure Generic Interrupt 1 settings
+    pub fn config_gen1_int(&mut self) -> GenIntConfigBuilder<T> {
+        GenIntConfigBuilder::new_gen1(self)
+    }
+
+    /// Configure Generic Interrupt 2 settings
+    pub fn config_gen2_int(&mut self) -> GenIntConfigBuilder<T> {
+        GenIntConfigBuilder::new_gen2(self)
+    }
 
     /// Configure Activity Change Interrupt settings
     pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<T> {
