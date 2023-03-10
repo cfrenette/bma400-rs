@@ -713,6 +713,15 @@ fn config_interrupts() {
     expected_pin.push(PinTransaction::set(State::High));
 
     expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x3F, 0x10]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x4A, 0x10]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+
+    expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x1F, 0xEE]));
     expected_pin.push(PinTransaction::set(State::High));
 
@@ -731,8 +740,12 @@ fn config_interrupts() {
 
     let mut device = new(&expected_io, &expected_pin);
 
-    // Set Activity Change to use AccFilt2 so we can enable it
+    // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
     device.config_actchg_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen1_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen2_int()
     .with_src(DataSource::AccFilt2).write().unwrap();
 
     // Set Everything
@@ -1142,6 +1155,136 @@ fn config_orientchg_int() {
 }
 
 #[test]
+fn config_gen1_int() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    let mut write = |bytes: Vec<u8>| {
+        expected_pin.push(PinTransaction::set(State::Low));
+        expected_io.push(Transaction::write(bytes));
+        expected_pin.push(PinTransaction::set(State::High));
+    };
+
+    write(vec![0x3F, 0xFF]);
+    write(vec![0x40, 0x03]);
+    write(vec![0x41, 0xFF]);
+    write(vec![0x42, 0xFF]);
+    write(vec![0x43, 0xFF]);
+    write(vec![0x44, 0xFF]);
+    write(vec![0x45, 0x0F]);
+    write(vec![0x46, 0xFF]);
+    write(vec![0x47, 0x0F]);
+    write(vec![0x48, 0xFF]);
+    write(vec![0x49, 0x0F]);
+
+    write(vec![0x3F, 0x00]);
+    write(vec![0x40, 0x00]);
+    write(vec![0x41, 0x00]);
+    write(vec![0x42, 0x00]);
+    write(vec![0x43, 0x00]);
+    write(vec![0x44, 0x00]);
+    write(vec![0x45, 0x00]);
+    write(vec![0x46, 0x00]);
+    write(vec![0x47, 0x00]);
+    write(vec![0x48, 0x00]);
+    write(vec![0x49, 0x00]);
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_gen1_int()
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+    .with_hysteresis(Hysteresis::Hyst96mg)
+    .with_criterion_mode(GenIntCriterionMode::Activity)
+    .with_logic_mode(GenIntLogicMode::And)
+    .with_threshold(0xFF)
+    .with_duration(0xFFFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_gen1_int()
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_reference_mode(GenIntRefMode::Manual)
+    .with_hysteresis(Hysteresis::None)
+    .with_criterion_mode(GenIntCriterionMode::Inactivity)
+    .with_logic_mode(GenIntLogicMode::Or)
+    .with_threshold(0)
+    .with_duration(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
+#[test]
+fn config_gen2_int() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+
+    let mut write = |bytes: Vec<u8>| {
+        expected_pin.push(PinTransaction::set(State::Low));
+        expected_io.push(Transaction::write(bytes));
+        expected_pin.push(PinTransaction::set(State::High));
+    };
+
+    write(vec![0x4A, 0xFF]);
+    write(vec![0x4B, 0x03]);
+    write(vec![0x4C, 0xFF]);
+    write(vec![0x4D, 0xFF]);
+    write(vec![0x4E, 0xFF]);
+    write(vec![0x4F, 0xFF]);
+    write(vec![0x50, 0x0F]);
+    write(vec![0x51, 0xFF]);
+    write(vec![0x52, 0x0F]);
+    write(vec![0x53, 0xFF]);
+    write(vec![0x54, 0x0F]);
+
+    write(vec![0x4A, 0x00]);
+    write(vec![0x4B, 0x00]);
+    write(vec![0x4C, 0x00]);
+    write(vec![0x4D, 0x00]);
+    write(vec![0x4E, 0x00]);
+    write(vec![0x4F, 0x00]);
+    write(vec![0x50, 0x00]);
+    write(vec![0x51, 0x00]);
+    write(vec![0x52, 0x00]);
+    write(vec![0x53, 0x00]);
+    write(vec![0x54, 0x00]);
+
+    let mut device = new(&expected_io, &expected_pin);
+
+    // Set Everything
+    device.config_gen2_int()
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+    .with_hysteresis(Hysteresis::Hyst96mg)
+    .with_criterion_mode(GenIntCriterionMode::Activity)
+    .with_logic_mode(GenIntLogicMode::And)
+    .with_threshold(0xFF)
+    .with_duration(0xFFFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_gen2_int()
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_reference_mode(GenIntRefMode::Manual)
+    .with_hysteresis(Hysteresis::None)
+    .with_criterion_mode(GenIntCriterionMode::Inactivity)
+    .with_logic_mode(GenIntLogicMode::Or)
+    .with_threshold(0)
+    .with_duration(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
+#[test]
 fn config_actchg_int() {
     let mut expected_io = Vec::new();
     let mut expected_pin = Vec::new();
@@ -1354,6 +1497,16 @@ fn perform_self_test() {
     expected_io.push(Transaction::write(vec![0x56, 0x10]));
     expected_pin.push(PinTransaction::set(State::High));
 
+    // Gen Int1 Data Src = AccFilt2
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x3F, 0x10]));
+    expected_pin.push(PinTransaction::set(State::High));
+
+    // Gen Int2 Data Src = AccFilt2
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::write(vec![0x4A, 0x10]));
+    expected_pin.push(PinTransaction::set(State::High));
+
     // Set non-power mode settings in AccConfig0
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x19, 0xE0]));
@@ -1393,6 +1546,12 @@ fn perform_self_test() {
 
     // ActChgConfig
     device.config_actchg_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    // Gen1IntConfig
+    device.config_gen1_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    // Gen2IntConfig
+    device.config_gen2_int()
     .with_src(DataSource::AccFilt2).write().unwrap();
 
     // AccConfig

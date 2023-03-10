@@ -97,18 +97,20 @@ where
     }
     /// Write the configuration to device registers
     pub fn write(self) -> Result<(), E> {
-        /* TODO Gen Int 1 / 2
         let int_config0 = self.device.config.int_config.get_config0();
-        */
         let int_config1 = self.device.config.int_config.get_config1();
 
-        // If Gen Int 1 / 2 or Activity Change use filt1 and are enabled ODR must be 100Hz
+        // If Gen Int 1 / 2 or Activity Change use AccFilt1 and are enabled, ODR must be 100Hz
         let mut filt1_used_for_ints = false;
         if int_config1.actch_int() && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1) {
             filt1_used_for_ints = true;
         }
-        // TODO Gen Int 1 / 2
-
+        if int_config0.gen1_int() && matches!(self.device.config.gen1int_config.src(), DataSource::AccFilt1) {
+            filt1_used_for_ints = true;
+        }
+        if int_config0.gen2_int() && matches!(self.device.config.gen2int_config.src(), DataSource::AccFilt1) {
+            filt1_used_for_ints = true;
+        }
         if filt1_used_for_ints && !matches!(self.config.odr(), OutputDataRate::Hz100) {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
@@ -259,14 +261,42 @@ mod tests {
         assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
     }
     #[test]
-    #[ignore = "unimplemented"]
     fn test_gen1_int_config_err() {
-        todo!()
+        let expected = [
+            // Chip Read
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
+            // Set OutputDataRate to 100Hz
+            Transaction::write(ADDR, [0x1A, 0x48].into()),
+            // Enable Generic Interrupt 1
+            Transaction::write(ADDR, [0x1F, 0x04].into()),
+        ];
+        let mut device = device_write(&expected);
+        // Set the OutputDataRate to 100Hz
+        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
+        // Enable Generic Interrupt 1
+        assert!(matches!(device.config_interrupts().with_gen1_int(true).write(), Ok(())));
+        // Try to change the OutputDataRate back to 200Hz
+        let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
+        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
     }
     #[test]
-    #[ignore = "unimplemented"]
     fn test_gen2_int_config_err() {
-        todo!()
+        let expected = [
+            // Chip Read
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
+            // Set OutputDataRate to 100Hz
+            Transaction::write(ADDR, [0x1A, 0x48].into()),
+            // Enable Generic Interrupt 1
+            Transaction::write(ADDR, [0x1F, 0x08].into()),
+        ];
+        let mut device = device_write(&expected);
+        // Set the OutputDataRate to 100Hz
+        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
+        // Enable Generic Interrupt 1
+        assert!(matches!(device.config_interrupts().with_gen2_int(true).write(), Ok(())));
+        // Try to change the OutputDataRate back to 200Hz
+        let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
+        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
     }
     #[test]
     fn test_tap_int_config_err() {

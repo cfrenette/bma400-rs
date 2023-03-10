@@ -26,8 +26,9 @@ pub use wkup_int_config::WakeupIntConfigBuilder;
 mod orientch_config;
 use orientch_config::OrientChgConfig;
 pub use orientch_config::OrientChgConfigBuilder;
-// TODO Generic Interrupts
-// mod gen_int_config;
+mod gen_int_config;
+pub use gen_int_config::GenIntConfigBuilder;
+use gen_int_config::{Gen1IntConfig, Gen2IntConfig};
 mod actchg_config;
 use actchg_config::ActChgConfig;
 pub use actchg_config::ActChgConfigBuilder;
@@ -58,10 +59,9 @@ pub(crate) struct Config {
     orientch_config: OrientChgConfig,
     
     // Maybe #[cfg(feature = "adv-int-generic")]
-    /* TODO
-    gen1int_config: GenIntConfig,
-    gen2int_config: GenIntConfig,
-    */
+    gen1int_config: Gen1IntConfig,
+    // Maybe #[cfg(feature = "adv-int-generic")]
+    gen2int_config: Gen2IntConfig,
 
     // Maybe #[cfg(feature = "adv-int-actchg")]
     actchg_config: ActChgConfig,

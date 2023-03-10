@@ -17,7 +17,7 @@ use crate::{
         MinTapDuration,
         MaxTapDuration,
         DoubleTapDuration,
-    }
+    }, GenIntRefMode, Hysteresis, GenIntCriterionMode, GenIntLogicMode
 };
 
 pub trait ReadReg {
@@ -1207,33 +1207,507 @@ impl OrientChgConfig9 {
     }
 }
 
-/* 
-    TODO:
-    GenInt1Config0 = 0x3F,
-    GenInt1Config1 = 0x40,
-    GenInt1Config2 = 0x41,
-    GenInt1Config3 = 0x42,
-    // Not a typo
-    GenInt1Config31 = 0x43,
-    GenInt1Config4 = 0x44,
-    GenInt1Config5 = 0x45,
-    GenInt1Config6 = 0x46,
-    GenInt1Config7 = 0x47,
-    GenInt1Config8 = 0x48,
-    GenInt1Config9 = 0x49,
-    GenInt2Config0 = 0x4A,
-    GenInt2Config1 = 0x4B,
-    GenInt2Config2 = 0x4C,
-    GenInt2Config3 = 0x4D,
-    // Again, not a typo
-    GenInt2Config31 = 0x4E,
-    GenInt2Config4 = 0x4F,
-    GenInt2Config5 = 0x50,
-    GenInt2Config6 = 0x51,
-    GenInt2Config7 = 0x52,
-    GenInt2Config8 = 0x53,
-    GenInt2Config9 = 0x54
-*/
+cfg_register! {
+    Gen1IntConfig0: 0x3F = 0x00 {
+        const ACT_Z_EN  = 0b1000_0000;
+        const ACT_Y_EN  = 0b0100_0000;
+        const ACT_X_EN  = 0b0010_0000;
+        const SRC       = 0b0001_0000;
+        const ACT_REFU1 = 0b0000_1000;
+        const ACT_REFU0 = 0b0000_0100;
+        const ACT_HYST1 = 0b0000_0010;
+        const ACT_HYST0 = 0b0000_0001; 
+
+        const ACT_REFU_MODE = Self::ACT_REFU1.bits | Self::ACT_REFU0.bits;
+        const ACT_HYST = Self::ACT_HYST1.bits | Self::ACT_HYST0.bits;
+    }
+}
+
+impl Gen1IntConfig0 {
+    pub const fn with_z_axis(&self, enabled: bool) -> Self {
+        if enabled {
+            self.union(Self::ACT_Z_EN)
+        } else {
+            self.difference(Self::ACT_Z_EN)
+        }
+    }
+    pub const fn with_y_axis(&self, enabled: bool) -> Self {
+        if enabled {
+            self.union(Self::ACT_Y_EN)
+        } else {
+            self.difference(Self::ACT_Y_EN)
+        }
+    }
+    pub const fn with_x_axis(&self, enabled: bool) -> Self {
+        if enabled {
+            self.union(Self::ACT_X_EN)
+        } else {
+            self.difference(Self::ACT_X_EN)
+        }
+    }
+    pub const fn with_src(&self, src: DataSource) -> Self {
+        match src {
+            DataSource::AccFilt1 => self.difference(Self::SRC),
+            DataSource::AccFilt2 => self.union(Self::SRC),
+            DataSource::AccFilt2Lp => unreachable!(), // Handled in the public API
+        }
+    }
+    pub const fn src(&self) -> DataSource {
+        if self.intersects(Self::SRC) {
+            DataSource::AccFilt2
+        } else {
+            DataSource::AccFilt1
+        }
+    }
+    pub const fn with_refu_mode(&self, mode: GenIntRefMode) -> Self {
+        match mode {
+            GenIntRefMode::Manual => self.difference(Self::ACT_REFU_MODE),
+            GenIntRefMode::OneTime => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU0),
+            GenIntRefMode::EveryTimeFromSrc => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU1),
+            GenIntRefMode::EveryTimeFromLp => self.union(Self::ACT_REFU_MODE),
+        }
+    }
+    pub const fn with_act_hysteresis(&self, hysteresis: Hysteresis) -> Self {
+        match hysteresis {
+            Hysteresis::None => self.difference(Self::ACT_HYST),
+            Hysteresis::Hyst24mg => self.difference(Self::ACT_HYST).union(Self::ACT_HYST0),
+            Hysteresis::Hyst48mg => self.difference(Self::ACT_HYST).union(Self::ACT_HYST1),
+            Hysteresis::Hyst96mg => self.union(Self::ACT_HYST),
+        }
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig1: 0x40 = 0x00 {
+        const CRITERION_SEL = 0b0000_0010;
+        const COMB_SEL      = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig1 {
+    pub const fn with_criterion_sel(&self, mode: GenIntCriterionMode) -> Self {
+        match mode {
+            GenIntCriterionMode::Inactivity => self.difference(Self::CRITERION_SEL),
+            GenIntCriterionMode::Activity => self.union(Self::CRITERION_SEL),
+        }
+    }
+    pub const fn with_comb_sel(&self, mode: GenIntLogicMode) -> Self {
+        match mode {
+            GenIntLogicMode::Or => self.difference(Self::COMB_SEL),
+            GenIntLogicMode::And => self.union(Self::COMB_SEL),
+        }
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig2: 0x41 = 0x00 {
+        const THRESHOLD7 = 0b1000_0000;
+        const THRESHOLD6 = 0b0100_0000;
+        const THRESHOLD5 = 0b0010_0000;
+        const THRESHOLD4 = 0b0001_0000;
+        const THRESHOLD3 = 0b0000_1000;
+        const THRESHOLD2 = 0b0000_0100;
+        const THRESHOLD1 = 0b0000_0010;
+        const THRESHOLD0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig2 {
+    pub const fn with_threshold(&self, threshold: u8) -> Self {
+        Self::from_bits_truncate(threshold)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig3: 0x42 = 0x00 {
+        const DURATION_MSB7 = 0b1000_0000;
+        const DURATION_MSB6 = 0b0100_0000;
+        const DURATION_MSB5 = 0b0010_0000;
+        const DURATION_MSB4 = 0b0001_0000;
+        const DURATION_MSB3 = 0b0000_1000;
+        const DURATION_MSB2 = 0b0000_0100;
+        const DURATION_MSB1 = 0b0000_0010;
+        const DURATION_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig3 {
+    pub const fn with_duration_msb(&self, duration: u8) -> Self {
+        Self::from_bits_truncate(duration)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig31: 0x43 = 0x00 {
+        const DURATION_LSB7 = 0b1000_0000;
+        const DURATION_LSB6 = 0b0100_0000;
+        const DURATION_LSB5 = 0b0010_0000;
+        const DURATION_LSB4 = 0b0001_0000;
+        const DURATION_LSB3 = 0b0000_1000;
+        const DURATION_LSB2 = 0b0000_0100;
+        const DURATION_LSB1 = 0b0000_0010;
+        const DURATION_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig31 {
+    pub const fn with_duration_lsb(&self, duration: u8) -> Self {
+        Self::from_bits_truncate(duration)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig4: 0x44 = 0x00 {
+        const REFX_LSB7 = 0b1000_0000;
+        const REFX_LSB6 = 0b0100_0000;
+        const REFX_LSB5 = 0b0010_0000;
+        const REFX_LSB4 = 0b0001_0000;
+        const REFX_LSB3 = 0b0000_1000;
+        const REFX_LSB2 = 0b0000_0100;
+        const REFX_LSB1 = 0b0000_0010;
+        const REFX_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig4 {
+    pub const fn with_ref_x_lsb(&self, ref_x: u8) -> Self {
+        Self::from_bits_truncate(ref_x)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig5: 0x45 = 0x00 {
+        const REFX_MSB3 = 0b0000_1000;
+        const REFX_MSB2 = 0b0000_0100;
+        const REFX_MSB1 = 0b0000_0010;
+        const REFX_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig5 {
+    pub const fn with_ref_x_msb(&self, ref_x: u8) -> Self {
+        Self::from_bits_truncate(ref_x)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig6: 0x46 = 0x00 {
+        const REFY_LSB7 = 0b1000_0000;
+        const REFY_LSB6 = 0b0100_0000;
+        const REFY_LSB5 = 0b0010_0000;
+        const REFY_LSB4 = 0b0001_0000;
+        const REFY_LSB3 = 0b0000_1000;
+        const REFY_LSB2 = 0b0000_0100;
+        const REFY_LSB1 = 0b0000_0010;
+        const REFY_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig6 {
+    pub const fn with_ref_y_lsb(&self, ref_y: u8) -> Self {
+        Self::from_bits_truncate(ref_y)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig7: 0x47 = 0x00 {
+        const REFY_MSB3 = 0b0000_1000;
+        const REFY_MSB2 = 0b0000_0100;
+        const REFY_MSB1 = 0b0000_0010;
+        const REFY_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig7 {
+    pub const fn with_ref_y_msb(&self, ref_y: u8) -> Self {
+        Self::from_bits_truncate(ref_y)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig8: 0x48 = 0x00 {
+        const REFZ_LSB7 = 0b1000_0000;
+        const REFZ_LSB6 = 0b0100_0000;
+        const REFZ_LSB5 = 0b0010_0000;
+        const REFZ_LSB4 = 0b0001_0000;
+        const REFZ_LSB3 = 0b0000_1000;
+        const REFZ_LSB2 = 0b0000_0100;
+        const REFZ_LSB1 = 0b0000_0010;
+        const REFZ_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig8 {
+    pub const fn with_ref_z_lsb(&self, ref_z: u8) -> Self {
+        Self::from_bits_truncate(ref_z)
+    }
+}
+
+cfg_register! {
+    Gen1IntConfig9: 0x49 = 0x00 {
+        const REFZ_MSB3 = 0b0000_1000;
+        const REFZ_MSB2 = 0b0000_0100;
+        const REFZ_MSB1 = 0b0000_0010;
+        const REFZ_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen1IntConfig9 {
+    pub const fn with_ref_z_msb(&self, ref_z: u8) -> Self {
+        Self::from_bits_truncate(ref_z)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig0: 0x4A = 0x00 {
+        const ACT_Z_EN  = 0b1000_0000;
+        const ACT_Y_EN  = 0b0100_0000;
+        const ACT_X_EN  = 0b0010_0000;
+        const SRC       = 0b0001_0000;
+        const ACT_REFU1 = 0b0000_1000;
+        const ACT_REFU0 = 0b0000_0100;
+        const ACT_HYST1 = 0b0000_0010;
+        const ACT_HYST0 = 0b0000_0001; 
+
+        const ACT_REFU_MODE = Self::ACT_REFU1.bits | Self::ACT_REFU0.bits;
+        const ACT_HYST = Self::ACT_HYST1.bits | Self::ACT_HYST0.bits;
+    }
+}
+
+impl Gen2IntConfig0 {
+    pub const fn with_z_axis(&self, enabled: bool) -> Self {
+        if enabled {
+            self.union(Self::ACT_Z_EN)
+        } else {
+            self.difference(Self::ACT_Z_EN)
+        }
+    }
+    pub const fn with_y_axis(&self, enabled: bool) -> Self {
+        if enabled {
+            self.union(Self::ACT_Y_EN)
+        } else {
+            self.difference(Self::ACT_Y_EN)
+        }
+    }
+    pub const fn with_x_axis(&self, enabled: bool) -> Self {
+        if enabled {
+            self.union(Self::ACT_X_EN)
+        } else {
+            self.difference(Self::ACT_X_EN)
+        }
+    }
+    pub const fn with_src(&self, src: DataSource) -> Self {
+        match src {
+            DataSource::AccFilt1 => self.difference(Self::SRC),
+            DataSource::AccFilt2 => self.union(Self::SRC),
+            DataSource::AccFilt2Lp => unreachable!(), // Handled in the public API
+        }
+    }
+    pub const fn src(&self) -> DataSource {
+        if self.intersects(Self::SRC) {
+            DataSource::AccFilt2
+        } else {
+            DataSource::AccFilt1
+        }
+    }
+    pub const fn with_refu_mode(&self, mode: GenIntRefMode) -> Self {
+        match mode {
+            GenIntRefMode::Manual => self.difference(Self::ACT_REFU_MODE),
+            GenIntRefMode::OneTime => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU0),
+            GenIntRefMode::EveryTimeFromSrc => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU1),
+            GenIntRefMode::EveryTimeFromLp => self.union(Self::ACT_REFU_MODE),
+        }
+    }
+    pub const fn with_act_hysteresis(&self, hysteresis: Hysteresis) -> Self {
+        match hysteresis {
+            Hysteresis::None => self.difference(Self::ACT_HYST),
+            Hysteresis::Hyst24mg => self.difference(Self::ACT_HYST).union(Self::ACT_HYST0),
+            Hysteresis::Hyst48mg => self.difference(Self::ACT_HYST).union(Self::ACT_HYST1),
+            Hysteresis::Hyst96mg => self.union(Self::ACT_HYST),
+        }
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig1: 0x4B = 0x00 {
+        const CRITERION_SEL = 0b0000_0010;
+        const COMB_SEL      = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig1 {
+    pub const fn with_criterion_sel(&self, mode: GenIntCriterionMode) -> Self {
+        match mode {
+            GenIntCriterionMode::Inactivity => self.difference(Self::CRITERION_SEL),
+            GenIntCriterionMode::Activity => self.union(Self::CRITERION_SEL),
+        }
+    }
+    pub const fn with_comb_sel(&self, mode: GenIntLogicMode) -> Self {
+        match mode {
+            GenIntLogicMode::Or => self.difference(Self::COMB_SEL),
+            GenIntLogicMode::And => self.union(Self::COMB_SEL),
+        }
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig2: 0x4C = 0x00 {
+        const THRESHOLD7 = 0b1000_0000;
+        const THRESHOLD6 = 0b0100_0000;
+        const THRESHOLD5 = 0b0010_0000;
+        const THRESHOLD4 = 0b0001_0000;
+        const THRESHOLD3 = 0b0000_1000;
+        const THRESHOLD2 = 0b0000_0100;
+        const THRESHOLD1 = 0b0000_0010;
+        const THRESHOLD0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig2 {
+    pub const fn with_threshold(&self, threshold: u8) -> Self {
+        Self::from_bits_truncate(threshold)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig3: 0x4D = 0x00 {
+        const DURATION_MSB7 = 0b1000_0000;
+        const DURATION_MSB6 = 0b0100_0000;
+        const DURATION_MSB5 = 0b0010_0000;
+        const DURATION_MSB4 = 0b0001_0000;
+        const DURATION_MSB3 = 0b0000_1000;
+        const DURATION_MSB2 = 0b0000_0100;
+        const DURATION_MSB1 = 0b0000_0010;
+        const DURATION_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig3 {
+    pub const fn with_duration_msb(&self, duration: u8) -> Self {
+        Self::from_bits_truncate(duration)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig31: 0x4E = 0x00 {
+        const DURATION_LSB7 = 0b1000_0000;
+        const DURATION_LSB6 = 0b0100_0000;
+        const DURATION_LSB5 = 0b0010_0000;
+        const DURATION_LSB4 = 0b0001_0000;
+        const DURATION_LSB3 = 0b0000_1000;
+        const DURATION_LSB2 = 0b0000_0100;
+        const DURATION_LSB1 = 0b0000_0010;
+        const DURATION_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig31 {
+    pub const fn with_duration_lsb(&self, duration: u8) -> Self {
+        Self::from_bits_truncate(duration)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig4: 0x4F = 0x00 {
+        const REFX_LSB7 = 0b1000_0000;
+        const REFX_LSB6 = 0b0100_0000;
+        const REFX_LSB5 = 0b0010_0000;
+        const REFX_LSB4 = 0b0001_0000;
+        const REFX_LSB3 = 0b0000_1000;
+        const REFX_LSB2 = 0b0000_0100;
+        const REFX_LSB1 = 0b0000_0010;
+        const REFX_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig4 {
+    pub const fn with_ref_x_lsb(&self, ref_x: u8) -> Self {
+        Self::from_bits_truncate(ref_x)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig5: 0x50 = 0x00 {
+        const REFX_MSB3 = 0b0000_1000;
+        const REFX_MSB2 = 0b0000_0100;
+        const REFX_MSB1 = 0b0000_0010;
+        const REFX_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig5 {
+    pub const fn with_ref_x_msb(&self, ref_x: u8) -> Self {
+        Self::from_bits_truncate(ref_x)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig6: 0x51 = 0x00 {
+        const REFY_LSB7 = 0b1000_0000;
+        const REFY_LSB6 = 0b0100_0000;
+        const REFY_LSB5 = 0b0010_0000;
+        const REFY_LSB4 = 0b0001_0000;
+        const REFY_LSB3 = 0b0000_1000;
+        const REFY_LSB2 = 0b0000_0100;
+        const REFY_LSB1 = 0b0000_0010;
+        const REFY_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig6 {
+    pub const fn with_ref_y_lsb(&self, ref_y: u8) -> Self {
+        Self::from_bits_truncate(ref_y)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig7: 0x52 = 0x00 {
+        const REFY_MSB3 = 0b0000_1000;
+        const REFY_MSB2 = 0b0000_0100;
+        const REFY_MSB1 = 0b0000_0010;
+        const REFY_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig7 {
+    pub const fn with_ref_y_msb(&self, ref_y: u8) -> Self {
+        Self::from_bits_truncate(ref_y)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig8: 0x53 = 0x00 {
+        const REFZ_LSB7 = 0b1000_0000;
+        const REFZ_LSB6 = 0b0100_0000;
+        const REFZ_LSB5 = 0b0010_0000;
+        const REFZ_LSB4 = 0b0001_0000;
+        const REFZ_LSB3 = 0b0000_1000;
+        const REFZ_LSB2 = 0b0000_0100;
+        const REFZ_LSB1 = 0b0000_0010;
+        const REFZ_LSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig8 {
+    pub const fn with_ref_z_lsb(&self, ref_z: u8) -> Self {
+        Self::from_bits_truncate(ref_z)
+    }
+}
+
+cfg_register! {
+    Gen2IntConfig9: 0x54 = 0x00 {
+        const REFZ_MSB3 = 0b0000_1000;
+        const REFZ_MSB2 = 0b0000_0100;
+        const REFZ_MSB1 = 0b0000_0010;
+        const REFZ_MSB0 = 0b0000_0001;
+    }
+}
+
+impl Gen2IntConfig9 {
+    pub const fn with_ref_z_msb(&self, ref_z: u8) -> Self {
+        Self::from_bits_truncate(ref_z)
+    }
+}
 
 cfg_register! {
     ActChgConfig0: 0x55 = 0x00 {
@@ -1419,39 +1893,7 @@ cfg_register! {
         const TEST_X_EN = 0b0000_0001;
     }
 }
-/* Unnecessary?
-impl SelfTest {
 
-    pub const fn with_test_sign(self, negative: bool) -> Self {
-        if negative {
-            self.union(Self::TEST_SIGN)
-        } else {
-            self.difference(Self::TEST_SIGN)
-        }
-    }
-    pub const fn with_z_axis(self, enabled: bool) -> Self {
-        if enabled {
-            self.union(Self::TEST_Z_EN)
-        } else {
-            self.difference(Self::TEST_Z_EN)
-        }
-    }
-    pub const fn with_y_axis(self, enabled: bool) -> Self {
-        if enabled {
-            self.union(Self::TEST_Y_EN)
-        } else {
-            self.difference(Self::TEST_Y_EN)
-        }
-    }
-    pub const fn with_x_axis(self, enabled: bool) -> Self {
-        if enabled {
-            self.union(Self::TEST_X_EN)
-        } else {
-            self.difference(Self::TEST_X_EN)
-        }
-    }
-}
-*/
 pub enum Command {
     FlushFifo,
     ClearStepCount,

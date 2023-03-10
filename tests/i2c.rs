@@ -531,6 +531,9 @@ fn config_interrupts() {
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
 
     expected.push(Transaction::write(ADDR, vec![0x56, 0x10]));
+    expected.push(Transaction::write(ADDR, vec![0x3F, 0x10]));
+    expected.push(Transaction::write(ADDR, vec![0x4A, 0x10]));
+
     expected.push(Transaction::write(ADDR, vec![0x1F, 0xEE]));
     expected.push(Transaction::write(ADDR, vec![0x20, 0x9D]));
 
@@ -539,8 +542,12 @@ fn config_interrupts() {
 
     let mut device = new(&expected);
 
-    // Set Activity Change to use AccFilt2 so we can enable it
+    // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
     device.config_actchg_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen1_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen2_int()
     .with_src(DataSource::AccFilt2).write().unwrap();
 
     // Set Everything
@@ -833,6 +840,122 @@ fn config_orientchg_int() {
 }
 
 #[test]
+fn config_gen1_int() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x3F, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x40, 0x03]));
+    expected.push(Transaction::write(ADDR, vec![0x41, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x42, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x43, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x44, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x45, 0x0F]));
+    expected.push(Transaction::write(ADDR, vec![0x46, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x47, 0x0F]));
+    expected.push(Transaction::write(ADDR, vec![0x48, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x49, 0x0F]));
+
+    expected.push(Transaction::write(ADDR, vec![0x3F, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x40, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x41, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x42, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x43, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x44, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x45, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x46, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x47, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x48, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x49, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_gen1_int()
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+    .with_hysteresis(Hysteresis::Hyst96mg)
+    .with_criterion_mode(GenIntCriterionMode::Activity)
+    .with_logic_mode(GenIntLogicMode::And)
+    .with_threshold(0xFF)
+    .with_duration(0xFFFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_gen1_int()
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_reference_mode(GenIntRefMode::Manual)
+    .with_hysteresis(Hysteresis::None)
+    .with_criterion_mode(GenIntCriterionMode::Inactivity)
+    .with_logic_mode(GenIntLogicMode::Or)
+    .with_threshold(0)
+    .with_duration(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
+#[test]
+fn config_gen2_int() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write(ADDR, vec![0x4A, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x4B, 0x03]));
+    expected.push(Transaction::write(ADDR, vec![0x4C, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x4D, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x4E, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x4F, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x50, 0x0F]));
+    expected.push(Transaction::write(ADDR, vec![0x51, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x52, 0x0F]));
+    expected.push(Transaction::write(ADDR, vec![0x53, 0xFF]));
+    expected.push(Transaction::write(ADDR, vec![0x54, 0x0F]));
+
+    expected.push(Transaction::write(ADDR, vec![0x4A, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x4B, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x4C, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x4D, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x4E, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x4F, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x50, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x51, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x52, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x53, 0x00]));
+    expected.push(Transaction::write(ADDR, vec![0x54, 0x00]));
+
+    let mut device = new(&expected);
+
+    // Set Everything
+    device.config_gen2_int()
+    .with_axes(true, true, true)
+    .with_src(DataSource::AccFilt2)
+    .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+    .with_hysteresis(Hysteresis::Hyst96mg)
+    .with_criterion_mode(GenIntCriterionMode::Activity)
+    .with_logic_mode(GenIntLogicMode::And)
+    .with_threshold(0xFF)
+    .with_duration(0xFFFF)
+    .with_ref_accel(-1, -1, -1)
+    .write().unwrap();
+
+    // Un-Set Everything
+    device.config_gen2_int()
+    .with_axes(false, false, false)
+    .with_src(DataSource::AccFilt1)
+    .with_reference_mode(GenIntRefMode::Manual)
+    .with_hysteresis(Hysteresis::None)
+    .with_criterion_mode(GenIntCriterionMode::Inactivity)
+    .with_logic_mode(GenIntLogicMode::Or)
+    .with_threshold(0)
+    .with_duration(0)
+    .with_ref_accel(0, 0, 0)
+    .write().unwrap();
+}
+
+#[test]
 fn config_actchg_int() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
@@ -981,6 +1104,12 @@ fn perform_self_test() {
 
     // Actch Int Data Src = AccFilt2
     expected.push(Transaction::write(ADDR, vec![0x56, 0x10]));
+
+    // Gen Int1 Data Src = AccFilt2
+    expected.push(Transaction::write(ADDR, vec![0x3F, 0x10]));
+
+    // Gen Int2 Data Src = AccFilt2
+    expected.push(Transaction::write(ADDR, vec![0x4A, 0x10]));
     
     // Set all non-power mode settings in AccConfig0
     expected.push(Transaction::write(ADDR, vec![0x19, 0xE0]));
@@ -1009,6 +1138,12 @@ fn perform_self_test() {
 
     // ActChgConfig
     device.config_actchg_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    // Gen1IntConfig
+    device.config_gen1_int()
+    .with_src(DataSource::AccFilt2).write().unwrap();
+    // Gen2IntConfig
+    device.config_gen2_int()
     .with_src(DataSource::AccFilt2).write().unwrap();
 
     // AccConfig
