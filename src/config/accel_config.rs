@@ -145,7 +145,7 @@ mod tests {
     const ADDR: u8 = crate::i2c::ADDR;
     fn device_no_write() -> BMA400<I2CInterface<Mock>> {
         let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
         ];
         BMA400::new_i2c(Mock::new(&expected)).unwrap()
     }
@@ -245,11 +245,11 @@ mod tests {
     fn test_actch_config_err() {
         let expected = [
             // Chip Read (during initialization)
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect()),
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
             // Set OutputDataRate to 100Hz
-            Transaction::write(ADDR, [0x1A, 0x48].into_iter().collect()),
+            Transaction::write(ADDR, [0x1A, 0x48].into()),
             // Enable Activity Change Interrupt
-            Transaction::write(ADDR, [0x20, 0x10].into_iter().collect()),
+            Transaction::write(ADDR, [0x20, 0x10].into()),
         ];
         let mut device = device_write(&expected);
         // Set the OutputDataRate to 100Hz
@@ -302,13 +302,13 @@ mod tests {
     fn test_tap_int_config_err() {
         let expected = [
             // Chip Read (during initialization)
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect()),
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
             // Enable Single Tap Interrupt
-            Transaction::write(ADDR, [0x20, 0x04].into_iter().collect()),
+            Transaction::write(ADDR, [0x20, 0x04].into()),
             // Disable Single Tap Interrupt
-            Transaction::write(ADDR, [0x20, 0x00].into_iter().collect()),
+            Transaction::write(ADDR, [0x20, 0x00].into()),
             // Enable Double Tap Interrupt
-            Transaction::write(ADDR, [0x20, 0x08].into_iter().collect())
+            Transaction::write(ADDR, [0x20, 0x08].into())
         ];
         let mut device = device_write(&expected);
         // Set the OutputDataRate to 200Hz (no write performed since default is 200Hz)

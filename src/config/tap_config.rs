@@ -90,7 +90,7 @@ mod tests {
     const ADDR: u8 = crate::i2c::ADDR;
     fn device_no_write() -> BMA400<I2CInterface<Mock>> {
         let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
         ];
         BMA400::new_i2c(Mock::new(&expected)).unwrap()
     }

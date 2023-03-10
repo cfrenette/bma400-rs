@@ -144,7 +144,7 @@ mod tests {
     const ADDR: u8 = crate::i2c::ADDR;
     fn device_no_write() -> BMA400<I2CInterface<Mock>> {
         let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
         ];
         BMA400::new_i2c(Mock::new(&expected)).unwrap()
     }
@@ -231,9 +231,9 @@ mod tests {
     #[test]
     fn test_tap_int_config_err() {
         let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect()),
+            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
             // Set the Output Data Rate to 100Hz
-            Transaction::write(ADDR, [0x1A, 0x48].into_iter().collect()),
+            Transaction::write(ADDR, [0x1A, 0x48].into()),
         ];
         let mut device = device_write(&expected);
         // Set the output data rate to 100Hz
