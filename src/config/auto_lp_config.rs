@@ -21,7 +21,7 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
         AutoLpConfigBuilder { config: device.config.auto_lp_config.clone(), device }
     }
     // AutoLowPow0 + AutoLowPow1

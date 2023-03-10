@@ -29,7 +29,7 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &'a mut BMA400<Interface>) -> ActChgConfigBuilder<'a, Interface> {
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> ActChgConfigBuilder<'a, Interface> {
         ActChgConfigBuilder { config: device.config.actchg_config.clone(), device }
     }
     // ActChgConfig0

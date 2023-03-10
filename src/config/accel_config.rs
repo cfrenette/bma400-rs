@@ -49,7 +49,7 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &'a mut BMA400<Interface>) -> AccConfigBuilder<'a, Interface> {
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AccConfigBuilder<'a, Interface> {
         AccConfigBuilder { config: device.config.acc_config.clone(), device }
     }
     // AccConfig0

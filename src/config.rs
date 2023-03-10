@@ -68,11 +68,6 @@ pub(crate) struct Config {
 
     // Maybe #[cfg(feature = "adv-int-tap")]
     tap_config: TapConfig,
-
-    /* TODO
-    #[cfg(feature = "spi")]
-    if_conf: InterfaceConfig,
-    */
 }
 
 impl Config {

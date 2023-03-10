@@ -37,7 +37,7 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
         IntConfigBuilder { config: device.config.int_config.clone(), device }
     }
     // IntConfig0

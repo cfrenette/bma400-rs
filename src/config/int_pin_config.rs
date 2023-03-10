@@ -74,7 +74,7 @@ where
             InterruptPins::Both => (true, true),
         }
     }
-    pub fn new(device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
         IntPinConfigBuilder { config: device.config.int_pin_config.clone(), device }
     }
     // Int1Map / Int2Map

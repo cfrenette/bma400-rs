@@ -34,7 +34,7 @@ pub struct Gen1IntConfig {
 }
 
 impl Gen1IntConfig {
-    pub(crate) fn src(&self) -> DataSource {
+    pub fn src(&self) -> DataSource {
         self.config0.src()
     }
 }
@@ -55,7 +55,7 @@ pub struct Gen2IntConfig {
 }
 
 impl Gen2IntConfig {
-    pub(crate) fn src(&self) -> DataSource {
+    pub fn src(&self) -> DataSource {
         self.config0.src()
     }
 }
@@ -66,7 +66,7 @@ pub enum GenIntConfig {
 }
 
 impl GenIntConfig {
-    pub(crate) fn src(&self) -> DataSource {
+    pub fn src(&self) -> DataSource {
         match self {
             GenIntConfig::Gen1Int(config) => config.src(),
             GenIntConfig::Gen2Int(config) => config.src(),
@@ -87,10 +87,10 @@ where
     fn new(device: &'a mut BMA400<Interface>, config: GenIntConfig) -> GenIntConfigBuilder<'a, Interface> {
         GenIntConfigBuilder { config, device }
     }
-    pub fn new_gen1(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
+    pub(crate) fn new_gen1(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
         Self::new(device, GenIntConfig::Gen1Int(device.config.gen1int_config.clone()))
     }
-    pub fn new_gen2(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
+    pub(crate) fn new_gen2(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
         Self::new(device, GenIntConfig::Gen2Int(device.config.gen2int_config.clone()))
     }
     // Config0

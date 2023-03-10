@@ -18,7 +18,7 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
+    pub(crate) fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
         TapConfigBuilder { config: device.config.tap_config.clone(), device }
     }
     // TapConfig0
