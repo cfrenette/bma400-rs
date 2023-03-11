@@ -425,17 +425,17 @@ fn read_fifo_frames() {
     for frame in frames {
         match frame.frame_type() {
             FrameType::Data => {
-                assert_eq!(frame.x(), -2047);
-                assert_eq!(frame.y(), -1);
-                assert_eq!(frame.z(), 2047);
+                assert_eq!(frame.x(), Some(-2047));
+                assert_eq!(frame.y(), Some(-1));
+                assert_eq!(frame.z(), Some(2047));
             },
             FrameType::Time => {
-                assert_eq!(frame.time(),  0xFFFFF8);
+                assert_eq!(frame.time(),  Some(0xFFFFF8));
             },
             FrameType::Control => {
-                assert!(frame.fifo_chg());
-                assert!(frame.acc0_chg());
-                assert!(frame.acc1_chg());
+                assert!(frame.fifo_src_chg().unwrap());
+                assert!(frame.filt1_bw_chg().unwrap());
+                assert!(frame.acc1_chg().unwrap());
             }
         }
         count +=1;

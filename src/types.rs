@@ -332,98 +332,89 @@ pub enum Axis {
     Z,
 }
 
+/// An individual frame read from the FIFO buffer.
+/// 
+/// The frame can be one of three [FrameType]s:
+/// 
+/// [FrameType::Data] - Contains an accelerometer reading for the axes enabled
+/// at the time of measurement
+/// 
+/// [FrameType::Control] - This frame type is sent when there are changes to
+/// either: 
+/// - the [DataSource] configured for the FIFO
+/// - [Filter1Bandwidth] or 
+/// - [OutputDataRate], [OversampleRate] and/or [Scale]
+/// 
+/// [FrameType::Time] - Only sent if FIFO is configured with send_time_on_empty
+/// enabled. This is the sensor as of reading past the last byte of the FIFO
 pub struct Frame<'a> {
     slice: &'a [u8]
 }
 
-// TODO: Make this cleaner (bitflags fields / fns), move to a module?
 impl<'a> Frame<'a> {
     pub fn frame_type(&self) -> FrameType {
         Header::from_bits_truncate(self.slice[0]).frame_type()
     }
-    pub fn x(&self) -> i16 {
+    pub fn x(&self) -> Option<i16> {
         let header = Header::from_bits_truncate(self.slice[0]);
-        let mut accel = 0;
-        if let FrameType::Data = header.frame_type() {
-            if header.has_x_data() {
-                let (lsb, msb);
-                if header.resolution_is_12bit() {
-                    lsb = (self.slice[1] & 0xF) | (self.slice[2] << 4);
-                    msb = self.slice[2] >> 4;
-                } else  {
-                    lsb = self.slice[1] << 4;
-                    msb = self.slice[1] >> 4;
-                }
-                accel = i16::from_le_bytes([lsb, if (msb >> 3) == 0 { msb } else { msb | 0xF0 }])
-            }
+        if !matches!(header.frame_type(), FrameType::Data) || !header.has_x_data() {
+            return None;
         }
-        accel
+        Some(self.data_at_offset(0, header.resolution_is_12bit()))
     }
-    pub fn y(&self) -> i16 {
+    pub fn y(&self) -> Option<i16> {
         let header = Header::from_bits_truncate(self.slice[0]);
-        let mut accel = 0;
+        if !matches!(header.frame_type(), FrameType::Data) || !header.has_y_data() {
+            return None;
+        }
         let offset = if header.has_x_data() {1} else {0};
-        if let FrameType::Data = header.frame_type() {
-            if header.has_y_data() {
-                let (lsb, msb);
-                if header.resolution_is_12bit() {
-                    lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset + 2] << 4);
-                    msb = self.slice[offset * 2 + 2] >> 4;
-                } else  {
-                    lsb = self.slice[offset + 1] << 4;
-                    msb = self.slice[offset + 1] >> 4;
-                }
-                accel = i16::from_le_bytes([lsb, if (msb >> 3) == 0u8 { msb } else { msb | 0xF0 }])
-            }
-        }
-        accel
+        Some(self.data_at_offset(offset, header.resolution_is_12bit()))
     }
-    pub fn z(&self) -> i16 {
+    pub fn z(&self) -> Option<i16> {
         let header = Header::from_bits_truncate(self.slice[0]);
-        let mut accel = 0;
+        if !matches!(header.frame_type(), FrameType::Data) || !header.has_z_data() {
+            return None;
+        }
         let offset = if header.has_x_data() {1} else {0} + if header.has_y_data() {1} else {0};
-        if let FrameType::Data = header.frame_type() {
-            if header.has_z_data() {
-                let (lsb, msb);
-                if header.resolution_is_12bit() {
-                    lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset *2 + 2] << 4);
+        Some(self.data_at_offset(offset, header.resolution_is_12bit()))
+    }
+    pub fn time(&self) -> Option<u32> {
+        if !matches!(self.frame_type(), FrameType::Time) {
+            return None;
+        }
+        Some(u32::from_le_bytes([self.slice[1], self.slice[2], self.slice[3], 0]))
+    }
+    pub fn fifo_src_chg(&self) -> Option<bool> {
+        if let FrameType::Control = self.frame_type() {
+            Some(self.slice[1] & 0b0010 != 0)
+        } else {
+            None
+        }
+    }
+    pub fn filt1_bw_chg(&self) -> Option<bool> {
+        if let FrameType::Control = self.frame_type() {
+            Some(self.slice[1] & 0b0100 !=0)
+        } else {
+            None
+        }
+    }
+    pub fn acc1_chg(&self) -> Option<bool> {
+        if let FrameType::Control = self.frame_type() {
+            Some(self.slice[1] & 0b1000 != 0)
+        } else {
+            None
+        }
+    }
+    fn data_at_offset(&self, offset: usize, resolution_is_12bit: bool) -> i16 {
+        let (lsb, msb);
+                if resolution_is_12bit {
+                    lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset * 2 + 2] << 4);
                     msb = self.slice[offset * 2 + 2] >> 4;
                 } else  {
                     lsb = self.slice[offset + 1] << 4;
                     msb = self.slice[offset + 1] >> 4;
                 }
-                accel = i16::from_le_bytes([lsb, if (msb >> 3) == 0u8 { msb } else { msb | 0xF0 }])
-            }
-        }
-        accel
-    }
-    pub fn time(&self) -> u32 {
-        if let FrameType::Time = self.frame_type() {
-            u32::from_le_bytes([self.slice[1], self.slice[2], self.slice[3], 0])
-        } else {
-            0
-        }
-    }
-    pub fn fifo_chg(&self) -> bool {
-        if let FrameType::Control = self.frame_type() {
-            self.slice[1] & 0b0010 != 0
-        } else {
-            false
-        }
-    }
-    pub fn acc0_chg(&self) -> bool {
-        if let FrameType::Control = self.frame_type() {
-            self.slice[1] & 0b0100 !=0
-        } else {
-            false
-        }
-    }
-    pub fn acc1_chg(&self) -> bool {
-        if let FrameType::Control = self.frame_type() {
-            self.slice[1] & 0b1000 != 0
-        } else {
-            false
-        }
+        i16::from_le_bytes([lsb, if (msb >> 3) == 0u8 { msb } else { msb | 0xF0 }])
     }
 }
 
@@ -433,6 +424,7 @@ pub enum FrameType {
     Control,
 }
 
+/// An interator over the buffer provided to `read_fifo_frames()`
 pub struct FifoFrames<'a> {
     index: usize,
     bytes: &'a [u8],
@@ -444,7 +436,6 @@ impl<'a> FifoFrames<'a> {
     }
 }
 
-// TODO: Tidy this up, decide whether or not to use fns / fields on the bitflags struct instead of mixing them
 impl<'a> Iterator for FifoFrames<'a> {
     type Item = Frame<'a>;
 
@@ -454,33 +445,11 @@ impl<'a> Iterator for FifoFrames<'a> {
         }
         let header_idx = self.index;
         let header = Header::from_bits_truncate(self.bytes[header_idx]);
-        match header.frame_type() {
-            FrameType::Time => {
-                self.index += 4;
-            },
-            FrameType::Data => {
-                if !header.intersects(Header::AXES) {
-                    self.index += 2;
-                    return None
-                } else {
-                let mut num_axes = 0;
-                let mut n = header.intersection(Header::AXES).bits();
-                while n != 0 {
-                    n &= n-1;
-                    num_axes += 1;
-                }
-                let payload_bytes = if header.resolution_is_12bit() {
-                    num_axes * 2
-                } else {
-                    num_axes
-                };
-                self.index += payload_bytes + 1;
-                }
-            },
-            FrameType::Control => {
-                self.index += 2;
-            },
+        if matches!(header.frame_type(), FrameType::Data) && !header.has_data() {
+            self.index += 2;
+            return None;
         }
+        self.index += header.num_payload_bytes() + 1;
         // Incomplete read
         if self.index > self.bytes.len() {
             return None;
@@ -521,6 +490,36 @@ impl Header {
                 self.intersects(Self::RESOLUTION)
             },
             _ => false,
+        }
+    }
+    pub const fn has_data(&self) -> bool {
+        match self.frame_type() {
+            FrameType::Data => {
+                self.intersects(Self::AXES)
+            },
+            _ => false,
+        }
+    }
+    pub const fn num_payload_bytes(&self) -> usize {
+        match self.frame_type() {
+            FrameType::Time => 3,
+            FrameType::Data => {
+                if !self.has_data() {
+                    return 1;
+                }
+                let mut n = self.intersection(Self::AXES).bits();
+                let mut num_axes = 0;
+                while n != 0 {
+                    n &= n - 1;
+                    num_axes += 1;
+                }
+                if self.resolution_is_12bit() {
+                    num_axes * 2
+                } else {
+                    num_axes
+                }
+            },
+            FrameType::Control => 1,
         }
     }
     pub const fn has_x_data(&self) -> bool {
