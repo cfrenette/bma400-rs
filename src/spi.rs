@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use embedded_hal::digital::v2::OutputPin;
 use crate::hal::blocking::spi::{Write, Transfer};
 use crate::{
@@ -19,8 +18,6 @@ impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI
 where
     SPI: Write<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
-    InterfaceError: Debug,
-    PinError: Debug,
 {
     type Error = BMA400Error<InterfaceError, PinError>;
 
@@ -36,8 +33,6 @@ impl<SPI, CSBPin, InterfaceError, PinError> ReadFromRegister for SPIInterface<SP
 where
     SPI: Transfer<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
-    InterfaceError: Debug,
-    PinError: Debug,
 {
     type Error = BMA400Error<InterfaceError, PinError>;
 
@@ -54,9 +49,6 @@ impl<SPI, CSBPin, InterfaceError, PinError> BMA400<SPIInterface<SPI, CSBPin>>
 where
     SPI: Transfer<u8, Error = InterfaceError> + Write<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
-    SPIInterface<SPI, CSBPin>: ReadFromRegister<Error = BMA400Error<InterfaceError, PinError>> + WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
-    InterfaceError: Debug,
-    PinError: Debug,
 {
     pub fn new_spi(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };

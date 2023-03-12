@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use crate::hal::blocking::i2c::{Write, WriteRead};
 use crate::registers::ChipId;
 use crate::{
@@ -23,7 +22,6 @@ pub struct I2CInterface<I2C> {
 impl<I2C, E> WriteToRegister for I2CInterface<I2C>
 where
     I2C: Write<Error = E>,
-    E: Debug,
 {
     type Error = BMA400Error<E, ()>;
 
@@ -32,10 +30,9 @@ where
     }
 }
 
-impl<I2C, E> ReadFromRegister for I2CInterface<I2C>
+impl<I2C, E> ReadFromRegister for I2CInterface<I2C> 
 where
     I2C: WriteRead<Error = E>,
-    E: Debug,
 {
     type Error = BMA400Error<E, ()>;
 
@@ -47,8 +44,6 @@ where
 impl<I2C, E> BMA400<I2CInterface<I2C>>
 where
     I2C: WriteRead<Error = E> + Write<Error = E>,
-    I2CInterface<I2C>: ReadFromRegister<Error = BMA400Error<E, ()>> + WriteToRegister<Error = BMA400Error<E, ()>>,
-    E: Debug,
 {
     pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E, ()>> {
         let mut interface = I2CInterface { i2c };

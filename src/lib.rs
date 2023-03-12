@@ -1,5 +1,4 @@
 #![no_std]
-use core::fmt::Debug;
 pub(crate) use embedded_hal as hal;
 use hal::blocking::delay::DelayMs;
 pub mod types;
@@ -42,8 +41,6 @@ pub struct BMA400<T> {
 impl<T, InterfaceError, PinError> BMA400<T> 
 where
     T: ReadFromRegister<Error = BMA400Error<InterfaceError, PinError>> + WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
-    InterfaceError: Debug,
-    PinError: Debug,
 {
     /// Returns the chip ID (0x90)
     pub fn get_id(&mut self) -> Result<u8, BMA400Error<InterfaceError, PinError>> {
