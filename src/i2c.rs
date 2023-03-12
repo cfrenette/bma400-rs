@@ -8,7 +8,7 @@ use crate::{
 };
 
 // This is set by the SDO Pin level. (p. 108 of datasheet)
-#[cfg(feature = "i2c-default")]
+#[cfg(any(feature = "i2c-default", test))]
 pub const ADDR: u8 = 0b00010100;
 #[cfg(feature = "i2c-alt")]
 pub const ADDR: u8 = 0b00010101;
