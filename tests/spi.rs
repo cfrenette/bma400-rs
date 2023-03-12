@@ -16,10 +16,7 @@ use embedded_hal_mock::{
     },
 };
 
-fn new(
-    expected_io: &[Transaction],
-    expected_pin: &[PinTransaction],
-) -> BMA400<SPIInterface<MockSPI, MockPin>> {
+fn new(expected_io: &[Transaction], expected_pin: &[PinTransaction]) -> BMA400<SPIInterface<MockSPI, MockPin>> {
     BMA400::new_spi(MockSPI::new(expected_io), MockPin::new(expected_pin)).unwrap()
 }
 
