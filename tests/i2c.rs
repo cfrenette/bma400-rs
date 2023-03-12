@@ -1,3 +1,4 @@
+#![allow(clippy::vec_init_then_push)]
 use embedded_hal_mock::{
     i2c::{Mock, Transaction}, delay::MockNoop,
 };

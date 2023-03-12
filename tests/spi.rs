@@ -1307,7 +1307,7 @@ fn config_actchg_int() {
     expected_io.push(Transaction::write(vec![0x56, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
 
-    let mut device = new(&mut expected_io, &mut expected_pin);
+    let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
     device.config_actchg_int()
