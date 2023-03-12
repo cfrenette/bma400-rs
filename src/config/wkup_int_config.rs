@@ -1,8 +1,15 @@
 use crate::{
-    registers::{WakeupIntConfig0, WakeupIntConfig1, WakeupIntConfig2, WakeupIntConfig3, WakeupIntConfig4},
     interface::WriteToRegister,
+    registers::{
+        WakeupIntConfig0,
+        WakeupIntConfig1,
+        WakeupIntConfig2,
+        WakeupIntConfig3,
+        WakeupIntConfig4,
+    },
+    ConfigError,
+    WakeupIntRefMode,
     BMA400,
-    ConfigError, WakeupIntRefMode, 
 };
 
 #[derive(Clone, Default)]
@@ -23,7 +30,7 @@ impl WakeupIntConfig {
     }
 }
 
-/// The BMA400 can be configured to generate an interrupt 
+/// The BMA400 can be configured to generate an interrupt
 /// (and optionally automatically switch to normal power mode)
 /// upon detecting an absolute acceleration above a set threshold
 /// from some reference acceleration.
@@ -32,13 +39,16 @@ pub struct WakeupIntConfigBuilder<'a, Interface: WriteToRegister> {
     device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> WakeupIntConfigBuilder<'a, Interface> 
+impl<'a, Interface, E> WakeupIntConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &'a mut BMA400<Interface>) -> WakeupIntConfigBuilder<'a, Interface> {
-        WakeupIntConfigBuilder { config: device.config.wkup_int_config.clone(), device }
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> WakeupIntConfigBuilder<'a, Interface> {
+        WakeupIntConfigBuilder {
+            config: device.config.wkup_int_config.clone(),
+            device,
+        }
     }
     // WkupIntConfig0
     /// Set Reference mode for the Wake-up Interrupt
@@ -46,25 +56,31 @@ where
         self.config.wkup_int_config0 = self.config.wkup_int_config0.with_reference_mode(mode);
         self
     }
-    /// Number of consecutive samples that must exceed reference acceleration + / - threshold before interrupt is triggered.
-    /// 
+    /// Number of consecutive samples that must exceed reference acceleration + / - threshold before
+    /// interrupt is triggered.
+    ///
     /// This value is clamped to \[1, 8\]
     pub fn with_num_samples(mut self, num_samples: u8) -> Self {
-        self.config.wkup_int_config0 = self.config.wkup_int_config0.with_num_samples(num_samples.clamp(1, 8) - 1);
+        self.config.wkup_int_config0 =
+            self.config.wkup_int_config0.with_num_samples(num_samples.clamp(1, 8) - 1);
         self
     }
     /// Select the axes to be used in evaluating the wake-up interrupt condition ()
     pub fn with_axes(mut self, x_en: bool, y_en: bool, z_en: bool) -> Self {
-        self.config.wkup_int_config0 = self.config.wkup_int_config0.with_x_axis(x_en).with_y_axis(y_en).with_z_axis(z_en);
+        self.config.wkup_int_config0 =
+            self.config.wkup_int_config0.with_x_axis(x_en).with_y_axis(y_en).with_z_axis(z_en);
         self
     }
     // WkupIntConfig1
 
-    /// Set the amount by which the measured acceleration must exceed the reference acceleration before the interrupt is triggered.
-    /// 
-    /// This threshold has unsigned 8-bit resolution corresponding to the upper 8 bits of a 12bit acceleration (<< 4). 
-    /// 
-    /// The evaluated condition is abs(measured - reference) > (threshold << 4) for _any_ enabled axis (logic OR).
+    /// Set the amount by which the measured acceleration must exceed the reference acceleration
+    /// before the interrupt is triggered.
+    ///
+    /// This threshold has unsigned 8-bit resolution corresponding to the upper 8 bits of a 12bit
+    /// acceleration (<< 4).
+    ///
+    /// The evaluated condition is abs(measured - reference) > (threshold << 4) for _any_ enabled
+    /// axis (logic OR).
     pub fn with_threshold(mut self, threshold: u8) -> Self {
         self.config.wkup_int_config1 = self.config.wkup_int_config1.with_threshold(threshold);
         self
@@ -72,48 +88,80 @@ where
 
     // WkupIntConfig2 / WkupIntConfig3 / WkupIntConfig4
 
-    /// Manually set the reference acceleration for the x,y,z axes (use with [WakeupIntRefMode::Manual])
-    /// 
-    /// these values have signed 8-bit resolution corresponding to the upper 8 bits of a 12-bit acceleration (<< 4)
-    /// 
+    /// Manually set the reference acceleration for the x,y,z axes (use with
+    /// [WakeupIntRefMode::Manual])
+    ///
+    /// these values have signed 8-bit resolution corresponding to the upper 8 bits of a 12-bit
+    /// acceleration (<< 4)
+    ///
     /// In order for an axis to be evaluated it must be enabled using `with_axes()`
     pub fn with_ref_accel(mut self, x_ref: i8, y_ref: i8, z_ref: i8) -> Self {
-        self.config.wkup_int_config2 = self.config.wkup_int_config2.with_x_ref(x_ref.to_le_bytes()[0]);
-        self.config.wkup_int_config3 = self.config.wkup_int_config3.with_y_ref(y_ref.to_le_bytes()[0]);
-        self.config.wkup_int_config4 = self.config.wkup_int_config4.with_z_ref(z_ref.to_le_bytes()[0]);
+        self.config.wkup_int_config2 =
+            self.config.wkup_int_config2.with_x_ref(x_ref.to_le_bytes()[0]);
+        self.config.wkup_int_config3 =
+            self.config.wkup_int_config3.with_y_ref(y_ref.to_le_bytes()[0]);
+        self.config.wkup_int_config4 =
+            self.config.wkup_int_config4.with_z_ref(z_ref.to_le_bytes()[0]);
         self
     }
     pub fn write(self) -> Result<(), E> {
-        let has_wkup_config0_changes = self.device.config.wkup_int_config.wkup_int_config0.bits() != self.config.wkup_int_config0.bits();
-        let has_wkup_config1_changes = self.device.config.wkup_int_config.wkup_int_config1.bits() != self.config.wkup_int_config1.bits();
-        let has_wkup_config2_changes = self.device.config.wkup_int_config.wkup_int_config2.bits() != self.config.wkup_int_config2.bits();
-        let has_wkup_config3_changes = self.device.config.wkup_int_config.wkup_int_config3.bits() != self.config.wkup_int_config3.bits();
-        let has_wkup_config4_changes = self.device.config.wkup_int_config.wkup_int_config4.bits() != self.config.wkup_int_config4.bits();
-        let has_wkup_config_changes = has_wkup_config0_changes || has_wkup_config1_changes || has_wkup_config2_changes || has_wkup_config3_changes || has_wkup_config4_changes;
-        
+        let has_wkup_config0_changes = self.device.config.wkup_int_config.wkup_int_config0.bits()
+            != self.config.wkup_int_config0.bits();
+        let has_wkup_config1_changes = self.device.config.wkup_int_config.wkup_int_config1.bits()
+            != self.config.wkup_int_config1.bits();
+        let has_wkup_config2_changes = self.device.config.wkup_int_config.wkup_int_config2.bits()
+            != self.config.wkup_int_config2.bits();
+        let has_wkup_config3_changes = self.device.config.wkup_int_config.wkup_int_config3.bits()
+            != self.config.wkup_int_config3.bits();
+        let has_wkup_config4_changes = self.device.config.wkup_int_config.wkup_int_config4.bits()
+            != self.config.wkup_int_config4.bits();
+        let has_wkup_config_changes = has_wkup_config0_changes
+            || has_wkup_config1_changes
+            || has_wkup_config2_changes
+            || has_wkup_config3_changes
+            || has_wkup_config4_changes;
+
         // Disable the interrupt
         if self.device.config.wkup_int_config.is_int_en() && has_wkup_config_changes {
-            self.device.interface.write_register(self.device.config.wkup_int_config.wkup_int_config0.with_x_axis(false).with_y_axis(false).with_z_axis(false))?;
+            self.device.interface.write_register(
+                self.device
+                    .config
+                    .wkup_int_config
+                    .wkup_int_config0
+                    .with_x_axis(false)
+                    .with_y_axis(false)
+                    .with_z_axis(false),
+            )?;
         }
         // Write the config changes
-        if self.device.config.wkup_int_config.wkup_int_config1.bits() != self.config.wkup_int_config1.bits() {
+        if self.device.config.wkup_int_config.wkup_int_config1.bits()
+            != self.config.wkup_int_config1.bits()
+        {
             self.device.interface.write_register(self.config.wkup_int_config1)?;
             self.device.config.wkup_int_config.wkup_int_config1 = self.config.wkup_int_config1;
         }
-        if self.device.config.wkup_int_config.wkup_int_config2.bits() != self.config.wkup_int_config2.bits() {
+        if self.device.config.wkup_int_config.wkup_int_config2.bits()
+            != self.config.wkup_int_config2.bits()
+        {
             self.device.interface.write_register(self.config.wkup_int_config2)?;
             self.device.config.wkup_int_config.wkup_int_config2 = self.config.wkup_int_config2;
         }
-        if self.device.config.wkup_int_config.wkup_int_config3.bits() != self.config.wkup_int_config3.bits() {
+        if self.device.config.wkup_int_config.wkup_int_config3.bits()
+            != self.config.wkup_int_config3.bits()
+        {
             self.device.interface.write_register(self.config.wkup_int_config3)?;
             self.device.config.wkup_int_config.wkup_int_config3 = self.config.wkup_int_config3;
         }
-        if self.device.config.wkup_int_config.wkup_int_config4.bits() != self.config.wkup_int_config4.bits() {
+        if self.device.config.wkup_int_config.wkup_int_config4.bits()
+            != self.config.wkup_int_config4.bits()
+        {
             self.device.interface.write_register(self.config.wkup_int_config4)?;
             self.device.config.wkup_int_config.wkup_int_config4 = self.config.wkup_int_config4;
         }
         // (Re)-enable the interrupt
-        if self.device.config.wkup_int_config.wkup_int_config0.bits() != self.config.wkup_int_config0.bits() {
+        if self.device.config.wkup_int_config.wkup_int_config0.bits()
+            != self.config.wkup_int_config0.bits()
+        {
             self.device.interface.write_register(self.config.wkup_int_config0)?;
             self.device.config.wkup_int_config.wkup_int_config0 = self.config.wkup_int_config0;
         }
@@ -124,18 +172,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
-    use crate::i2c::I2CInterface;
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
+    use crate::tests::get_test_device;
     #[test]
     fn test_ref_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_wkup_int();
         let builder = builder.with_ref_mode(WakeupIntRefMode::OneTime);
         assert_eq!(builder.config.wkup_int_config0.bits(), 0x01);
@@ -146,7 +186,7 @@ mod tests {
     }
     #[test]
     fn test_num_samples() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_wkup_int();
         let builder = builder.with_num_samples(9);
         assert_eq!(builder.config.wkup_int_config0.bits(), 0x1C);
@@ -155,7 +195,7 @@ mod tests {
     }
     #[test]
     fn test_axes() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_wkup_int();
         let builder = builder.with_axes(false, false, true);
         assert_eq!(builder.config.wkup_int_config0.bits(), 0x80);
@@ -166,7 +206,7 @@ mod tests {
     }
     #[test]
     fn test_threshold() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_wkup_int();
         let builder = builder.with_threshold(255);
         assert_eq!(builder.config.wkup_int_config1.bits(), 0xFF);
@@ -175,13 +215,13 @@ mod tests {
     }
     #[test]
     fn test_ref_accel() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_wkup_int();
         let builder = builder.with_ref_accel(-128, 127, 1);
         assert_eq!(builder.config.wkup_int_config2.bits(), 0x80);
         assert_eq!(builder.config.wkup_int_config3.bits(), 0x7F);
         assert_eq!(builder.config.wkup_int_config4.bits(), 0x01);
-        let builder = builder.with_ref_accel(127,-1, -2);
+        let builder = builder.with_ref_accel(127, -1, -2);
         assert_eq!(builder.config.wkup_int_config2.bits(), 0x7F);
         assert_eq!(builder.config.wkup_int_config3.bits(), 0xFF);
         assert_eq!(builder.config.wkup_int_config4.bits(), 0xFE);

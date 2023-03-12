@@ -25,3 +25,4 @@ float = ["dep:accelerometer"]
 
 [dev-dependencies]
 embedded-hal-mock = "0.9.0"
+bma400 = { path = ".", features = ["i2c-default", "spi"]}

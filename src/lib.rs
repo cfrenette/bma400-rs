@@ -1,5 +1,4 @@
 #![no_std]
-use core::fmt::Debug;
 pub(crate) use embedded_hal as hal;
 use hal::blocking::delay::DelayMs;
 pub mod types;
@@ -7,26 +6,29 @@ pub use types::*;
 pub(crate) mod registers;
 use registers::*;
 mod interface;
-use interface::{ReadFromRegister, WriteToRegister};
-pub mod config;
-use config::{
-    Config,
-    AccConfigBuilder,
-    IntConfigBuilder,
-    IntPinConfigBuilder,
-    FifoConfigBuilder,
-    AutoLpConfigBuilder,
-    AutoWakeupConfigBuilder,
-    WakeupIntConfigBuilder,
+use interface::{
+    ReadFromRegister,
+    WriteToRegister,
 };
-// Maybe #[cfg(feature = "adv-int-orientchg")]
-pub use config::OrientChgConfigBuilder;
-// Maybe #[cfg(feature = "adv-int-generic")]
-pub use config::GenIntConfigBuilder;
+pub mod config;
 // Maybe #[cfg(feature = "adv-int-actchg")]
 pub use config::ActChgConfigBuilder;
+// Maybe #[cfg(feature = "adv-int-generic")]
+pub use config::GenIntConfigBuilder;
+// Maybe #[cfg(feature = "adv-int-orientchg")]
+pub use config::OrientChgConfigBuilder;
 // Maybe #[cfg(feature = "adv-int-tap")]
 pub use config::TapConfigBuilder;
+use config::{
+    AccConfigBuilder,
+    AutoLpConfigBuilder,
+    AutoWakeupConfigBuilder,
+    Config,
+    FifoConfigBuilder,
+    IntConfigBuilder,
+    IntPinConfigBuilder,
+    WakeupIntConfigBuilder,
+};
 
 #[cfg(any(feature = "i2c", test))]
 pub mod i2c;
@@ -39,11 +41,10 @@ pub struct BMA400<T> {
     config: Config,
 }
 
-impl<T, InterfaceError, PinError> BMA400<T> 
+impl<T, InterfaceError, PinError> BMA400<T>
 where
-    T: ReadFromRegister<Error = BMA400Error<InterfaceError, PinError>> + WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
-    InterfaceError: Debug,
-    PinError: Debug,
+    T: ReadFromRegister<Error = BMA400Error<InterfaceError, PinError>>
+        + WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
 {
     /// Returns the chip ID (0x90)
     pub fn get_id(&mut self) -> Result<u8, BMA400Error<InterfaceError, PinError>> {
@@ -53,7 +54,7 @@ where
     }
 
     /// Reads and returns the status of the command error register
-    /// 
+    ///
     /// Errors are cleared on read
     pub fn get_cmd_error(&mut self) -> Result<bool, BMA400Error<InterfaceError, PinError>> {
         let mut err_byte = [0u8; 1];
@@ -76,7 +77,7 @@ where
     }
 
     /// Returns data as a [Measurement] adjusted for the selected [Scale]
-    /// 
+    ///
     /// To get unscaled data use `get_unscaled_data()`
     pub fn get_data(&mut self) -> Result<Measurement, BMA400Error<InterfaceError, PinError>> {
         let mut bytes = [0u8; 6];
@@ -84,11 +85,12 @@ where
         Ok(Measurement::from_bytes_scaled(self.config.scale(), &bytes))
     }
 
-    /// Timer reading from the integrated sensor clock. 
-    /// 
+    /// Timer reading from the integrated sensor clock.
+    ///
     /// The timer has a resolution of 21 bits stored across 3 bytes.
-    /// The lowest 3 bits are always zero (the value is left-justified for compatibility with 25.6kHz clocks).
-    /// This timer is inactive in sleep mode. The clock rolls over to zero after `0xFFFFF8`
+    /// The lowest 3 bits are always zero (the value is left-justified for compatibility with
+    /// 25.6kHz clocks). This timer is inactive in sleep mode. The clock rolls over to zero
+    /// after `0xFFFFF8`
     pub fn get_sensor_clock(&mut self) -> Result<u32, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 3];
         self.interface.read_register(SensorTime0, &mut buffer)?;
@@ -147,8 +149,8 @@ where
         Ok(())
     }
 
-    /// Get the step count 
-    /// 
+    /// Get the step count
+    ///
     /// (the counter only increments if the step interrupt is enabled)
     pub fn get_step_count(&mut self) -> Result<u32, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 3];
@@ -163,8 +165,8 @@ where
     }
 
     /// Chip temperature represented as an i8 with 0.5℃ resolution
-    /// 
-    /// -128 (-40.0℃) to 
+    ///
+    /// -128 (-40.0℃) to
     /// 127 (87.5℃)
     pub fn get_raw_temp(&mut self) -> Result<i8, BMA400Error<InterfaceError, PinError>> {
         let mut temp = [0u8; 1];
@@ -176,7 +178,7 @@ where
     #[cfg(feature = "float")]
     /// Chip temperature in degrees celsius with 0.5℃ resolution
     pub fn get_temp_celsius(&mut self) -> Result<f32, BMA400Error<InterfaceError, PinError>> {
-        Ok(f32::from(self.get_raw_temp()?)*0.5 + 23.0)
+        Ok(f32::from(self.get_raw_temp()?) * 0.5 + 23.0)
     }
 
     /// Configure sensor-wide settings like [PowerMode] and [OversampleRate]
@@ -184,7 +186,8 @@ where
         AccConfigBuilder::new(self)
     }
 
-    /// Enable or disable interrupts (except the Auto-Wakeup Interrupt, see `config_autowkup()`) and set interrupt latch mode
+    /// Enable or disable interrupts (except the Auto-Wakeup Interrupt, see `config_autowkup()`) and
+    /// set interrupt latch mode
     pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
         IntConfigBuilder::new(self)
     }
@@ -194,7 +197,7 @@ where
         IntPinConfigBuilder::new(self)
     }
 
-    /// Configure the FIFO 
+    /// Configure the FIFO
     pub fn config_fifo(&mut self) -> FifoConfigBuilder<T> {
         FifoConfigBuilder::new(self)
     }
@@ -240,10 +243,11 @@ where
         TapConfigBuilder::new(self)
     }
 
-    /// Perform the self test procedure and return [`Ok`] if passed, [`BMA400Error::SelfTestFailedError`] if failed
-    /// 
+    /// Perform the self test procedure and return [`Ok`] if passed,
+    /// [`BMA400Error::SelfTestFailedError`] if failed
+    ///
     /// This will disable all interrupts and FIFO write for the duration
-    /// 
+    ///
     /// See p.48 of the datasheet
     pub fn perform_self_test<Timer: DelayMs<u8>>(&mut self, timer: &mut Timer) -> Result<(), BMA400Error<InterfaceError, PinError>> {
 
@@ -306,3 +310,41 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        interface::{
+            ReadFromRegister,
+            WriteToRegister,
+        },
+        registers::{
+            ReadReg,
+            ConfigReg,
+        },
+        BMA400,
+    };
+    pub struct NoOpInterface;
+    #[derive(Debug)]
+    pub struct NoOpError;
+    impl ReadFromRegister for NoOpInterface {
+        type Error = BMA400Error<NoOpError, ()>;
+
+        fn read_register<T: ReadReg>(&mut self, _register: T, _buffer: &mut [u8]) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+    impl WriteToRegister for NoOpInterface {
+        type Error = BMA400Error<NoOpError, ()>;
+
+        fn write_register<T: ConfigReg>(&mut self, _register: T) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+    pub fn get_test_device() -> BMA400<NoOpInterface> {
+        BMA400 {
+            interface: NoOpInterface,
+            config: Config::default(),
+        }
+    }
+}

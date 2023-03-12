@@ -1,21 +1,38 @@
 use crate::{
-    registers::{
-        Gen1IntConfig0, Gen2IntConfig0,
-        Gen1IntConfig1, Gen2IntConfig1,
-        Gen1IntConfig2, Gen2IntConfig2,
-        Gen1IntConfig3, Gen2IntConfig3,
-        Gen1IntConfig31, Gen2IntConfig31,
-        Gen1IntConfig4, Gen2IntConfig4,
-        Gen1IntConfig5, Gen2IntConfig5,
-        Gen1IntConfig6, Gen2IntConfig6,
-        Gen1IntConfig7, Gen2IntConfig7,
-        Gen1IntConfig8, Gen2IntConfig8,
-        Gen1IntConfig9, Gen2IntConfig9,
-    },
-    interface::WriteToRegister,
     config::Config,
+    interface::WriteToRegister,
+    registers::{
+        Gen1IntConfig0,
+        Gen1IntConfig1,
+        Gen1IntConfig2,
+        Gen1IntConfig3,
+        Gen1IntConfig31,
+        Gen1IntConfig4,
+        Gen1IntConfig5,
+        Gen1IntConfig6,
+        Gen1IntConfig7,
+        Gen1IntConfig8,
+        Gen1IntConfig9,
+        Gen2IntConfig0,
+        Gen2IntConfig1,
+        Gen2IntConfig2,
+        Gen2IntConfig3,
+        Gen2IntConfig31,
+        Gen2IntConfig4,
+        Gen2IntConfig5,
+        Gen2IntConfig6,
+        Gen2IntConfig7,
+        Gen2IntConfig8,
+        Gen2IntConfig9,
+    },
+    ConfigError,
+    DataSource,
+    GenIntCriterionMode,
+    GenIntLogicMode,
+    GenIntRefMode,
+    Hysteresis,
+    OutputDataRate,
     BMA400,
-    ConfigError, DataSource, GenIntRefMode, OutputDataRate, Hysteresis, GenIntCriterionMode, GenIntLogicMode, 
 };
 
 #[derive(Clone, Default)]
@@ -34,7 +51,7 @@ pub struct Gen1IntConfig {
 }
 
 impl Gen1IntConfig {
-    pub(crate) fn src(&self) -> DataSource {
+    pub fn src(&self) -> DataSource {
         self.config0.src()
     }
 }
@@ -55,7 +72,7 @@ pub struct Gen2IntConfig {
 }
 
 impl Gen2IntConfig {
-    pub(crate) fn src(&self) -> DataSource {
+    pub fn src(&self) -> DataSource {
         self.config0.src()
     }
 }
@@ -66,7 +83,7 @@ pub enum GenIntConfig {
 }
 
 impl GenIntConfig {
-    pub(crate) fn src(&self) -> DataSource {
+    pub fn src(&self) -> DataSource {
         match self {
             GenIntConfig::Gen1Int(config) => config.src(),
             GenIntConfig::Gen2Int(config) => config.src(),
@@ -79,31 +96,48 @@ pub struct GenIntConfigBuilder<'a, Interface: WriteToRegister> {
     device: &'a mut BMA400<Interface>,
 }
 
-impl <'a, Interface, E> GenIntConfigBuilder<'a, Interface>
+impl<'a, Interface, E> GenIntConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    fn new(device: &'a mut BMA400<Interface>, config: GenIntConfig) -> GenIntConfigBuilder<'a, Interface> {
-        GenIntConfigBuilder { config, device }
+    pub(crate) fn new_gen1(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
+        let config = GenIntConfig::Gen1Int(device.config.gen1int_config.clone());
+        GenIntConfigBuilder {
+            config,
+            device,
+        }
     }
-    pub fn new_gen1(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
-        Self::new(device, GenIntConfig::Gen1Int(device.config.gen1int_config.clone()))
-    }
-    pub fn new_gen2(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
-        Self::new(device, GenIntConfig::Gen2Int(device.config.gen2int_config.clone()))
+    pub(crate) fn new_gen2(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
+        let config = GenIntConfig::Gen2Int(device.config.gen2int_config.clone());
+        GenIntConfigBuilder {
+            config,
+            device,
+        }
     }
     // Config0
     /// Select the axes to be considered when evaluating the generic interrupt criterion
     pub fn with_axes(mut self, x: bool, y: bool, z: bool) -> Self {
         match &mut self.config {
-            GenIntConfig::Gen1Int(config) => config.config0 = config.config0.with_x_axis(x).with_y_axis(y).with_z_axis(z),
-            GenIntConfig::Gen2Int(config) => config.config0 = config.config0.with_x_axis(x).with_y_axis(y).with_z_axis(z),
+            GenIntConfig::Gen1Int(config) => {
+                config.config0 = 
+                    config.config0
+                        .with_x_axis(x)
+                        .with_y_axis(y)
+                        .with_z_axis(z)
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config0 = 
+                    config.config0
+                        .with_x_axis(x)
+                        .with_y_axis(y)
+                        .with_z_axis(z)
+            }
         }
         self
     }
     /// Set the data source to use when evaluating the generic interrupt criterion
-    /// 
+    ///
     /// Cannot use [DataSource::AccFilt2Lp]. If passed, this will default to [DataSource::AccFilt2]
     pub fn with_src(mut self, src: DataSource) -> Self {
         let src = match src {
@@ -127,8 +161,12 @@ where
     /// Set the amplitude of the hysteresis adjustment to the interrupt criteria
     pub fn with_hysteresis(mut self, hysteresis: Hysteresis) -> Self {
         match &mut self.config {
-            GenIntConfig::Gen1Int(config) => config.config0 = config.config0.with_act_hysteresis(hysteresis),
-            GenIntConfig::Gen2Int(config) => config.config0 = config.config0.with_act_hysteresis(hysteresis),
+            GenIntConfig::Gen1Int(config) => {
+                config.config0 = config.config0.with_act_hysteresis(hysteresis)
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config0 = config.config0.with_act_hysteresis(hysteresis)
+            }
         }
         self
     }
@@ -136,8 +174,12 @@ where
     /// Set the interrupt trigger condition (on Activity or Inactivity)
     pub fn with_criterion_mode(mut self, mode: GenIntCriterionMode) -> Self {
         match &mut self.config {
-            GenIntConfig::Gen1Int(config) => config.config1 = config.config1.with_criterion_sel(mode),
-            GenIntConfig::Gen2Int(config) => config.config1 = config.config1.with_criterion_sel(mode),
+            GenIntConfig::Gen1Int(config) => {
+                config.config1 = config.config1.with_criterion_sel(mode)
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config1 = config.config1.with_criterion_sel(mode)
+            }
         }
         self
     }
@@ -150,26 +192,33 @@ where
         self
     }
     // Config2
-    /// Set the threshold above or below reference acceleration at which the interrupt criterion evaluates to true
-    /// 
-    /// This is not adjusted by scale, and is compared against the 8 msb of the acceleration (8 milli-g resolution)
+    /// Set the threshold above or below reference acceleration at which the interrupt criterion
+    /// evaluates to true
+    ///
+    /// This is not adjusted by scale, and is compared against the 8 msb of the acceleration (8
+    /// milli-g resolution)
     pub fn with_threshold(mut self, threshold: u8) -> Self {
         match &mut self.config {
-            GenIntConfig::Gen1Int(config) => config.config2 = config.config2.with_threshold(threshold),
-            GenIntConfig::Gen2Int(config) => config.config2 = config.config2.with_threshold(threshold),
+            GenIntConfig::Gen1Int(config) => {
+                config.config2 = config.config2.with_threshold(threshold)
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config2 = config.config2.with_threshold(threshold)
+            }
         }
         self
     }
     // Config3 and Config31
-    /// Set the number of cycles that the interrupt criterion must evaluate to true before the interrupt triggers
-    /// 
+    /// Set the number of cycles that the interrupt criterion must evaluate to true before the
+    /// interrupt triggers
+    ///
     /// Note that the actual time duration depends on the ODR of the [DataSource] used
     pub fn with_duration(mut self, duration: u16) -> Self {
         match &mut self.config {
             GenIntConfig::Gen1Int(config) => {
                 config.config3 = config.config3.with_duration_msb(duration.to_le_bytes()[1]);
                 config.config31 = config.config31.with_duration_lsb(duration.to_le_bytes()[0]);
-            },
+            }
             GenIntConfig::Gen2Int(config) => {
                 config.config3 = config.config3.with_duration_msb(duration.to_le_bytes()[1]);
                 config.config31 = config.config31.with_duration_lsb(duration.to_le_bytes()[0]);
@@ -178,12 +227,13 @@ where
         self
     }
     // Config4-9
-    /// Manually set the reference acceleration for the interrupt criterion. This is 
+    /// Manually set the reference acceleration for the interrupt criterion. This is
     /// automatically overwritten if [`GenIntRefMode::Manual`] is not set.
-    /// 
+    ///
     /// 12-bit, clamped to \[-2048, 2047\] and scales with [crate::Scale]
     pub fn with_ref_accel(mut self, ref_x: i16, ref_y: i16, ref_z: i16) -> Self {
-        let (ref_x, ref_y, ref_z) = (ref_x.clamp(-2048, 2047), ref_y.clamp(-2048, 2047), ref_z.clamp(-2048, 2047));
+        let (ref_x, ref_y, ref_z) =
+            (ref_x.clamp(-2048, 2047), ref_y.clamp(-2048, 2047), ref_z.clamp(-2048, 2047));
         match &mut self.config {
             GenIntConfig::Gen1Int(config) => {
                 config.config4 = config.config4.with_ref_x_lsb(ref_x.to_le_bytes()[0]);
@@ -192,7 +242,7 @@ where
                 config.config7 = config.config7.with_ref_y_msb(ref_y.to_le_bytes()[1]);
                 config.config8 = config.config8.with_ref_z_lsb(ref_z.to_le_bytes()[0]);
                 config.config9 = config.config9.with_ref_z_msb(ref_z.to_le_bytes()[1]);
-            },
+            }
             GenIntConfig::Gen2Int(config) => {
                 config.config4 = config.config4.with_ref_x_lsb(ref_x.to_le_bytes()[0]);
                 config.config5 = config.config5.with_ref_x_msb(ref_x.to_le_bytes()[1]);
@@ -200,7 +250,7 @@ where
                 config.config7 = config.config7.with_ref_y_msb(ref_y.to_le_bytes()[1]);
                 config.config8 = config.config8.with_ref_z_lsb(ref_z.to_le_bytes()[0]);
                 config.config9 = config.config9.with_ref_z_msb(ref_z.to_le_bytes()[1]);
-            },
+            }
         }
         self
     }
@@ -217,49 +267,62 @@ where
         let has_config8_changes = self.has_config8_changes_from(&self.device.config);
         let has_config9_changes = self.has_config9_changes_from(&self.device.config);
 
-        let has_changes = has_config0_changes || has_config1_changes || has_config2_changes || has_config3_changes
-                                || has_config31_changes || has_config4_changes || has_config5_changes || has_config6_changes
-                                || has_config7_changes || has_config8_changes || has_config9_changes;
-        
+        let has_changes = has_config0_changes
+            || has_config1_changes
+            || has_config2_changes
+            || has_config3_changes
+            || has_config31_changes
+            || has_config4_changes
+            || has_config5_changes
+            || has_config6_changes
+            || has_config7_changes
+            || has_config8_changes
+            || has_config9_changes;
+
         // If there aren't any changes, return early
         if !has_changes {
             return Ok(());
         }
         // Clone the existing enabled interrupts
-        let mut int_config0 = self.device.config.int_config.get_config0().clone();
+        let mut int_config0 = self.device.config.int_config.get_config0();
         let int_enabled = match &self.config {
             GenIntConfig::Gen1Int(_) => int_config0.gen1_int(),
             GenIntConfig::Gen2Int(_) => int_config0.gen2_int(),
         };
-        // If the interrupt is enabled and we're changing the data source to AccFilt1 the ODR must be 100Hz
-        if int_enabled && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && matches!(self.config.src(), DataSource::AccFilt1) {
+        // If the interrupt is enabled and we're changing the data source to AccFilt1 the ODR must
+        // be 100Hz
+        if int_enabled
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.config.src(), DataSource::AccFilt1)
+        {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
-        // If there are changes and the interrupt is active, need to disable interrupt before writing changes
+        // If there are changes and the interrupt is active, need to disable interrupt before
+        // writing changes
         match &self.config {
             GenIntConfig::Gen1Int(_) => {
                 if int_enabled {
                     int_config0 = int_config0.with_gen1_int(false);
                     self.device.interface.write_register(int_config0)?;
                 }
-            },
+            }
             GenIntConfig::Gen2Int(_) => {
                 if int_enabled {
                     int_config0 = int_config0.with_gen2_int(false);
                     self.device.interface.write_register(int_config0)?;
                 }
-            },
+            }
         }
         if has_config0_changes {
             match &self.config {
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config0)?;
                     self.device.config.gen1int_config.config0 = config.config0;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config0)?;
                     self.device.config.gen2int_config.config0 = config.config0;
-                },
+                }
             }
         }
         if has_config1_changes {
@@ -267,11 +330,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config1)?;
                     self.device.config.gen1int_config.config1 = config.config1;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config1)?;
                     self.device.config.gen2int_config.config1 = config.config1;
-                },
+                }
             }
         }
         if has_config2_changes {
@@ -279,11 +342,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config2)?;
                     self.device.config.gen1int_config.config2 = config.config2;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config2)?;
                     self.device.config.gen2int_config.config2 = config.config2;
-                },
+                }
             }
         }
         if has_config3_changes {
@@ -291,11 +354,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config3)?;
                     self.device.config.gen1int_config.config3 = config.config3;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config3)?;
                     self.device.config.gen2int_config.config3 = config.config3;
-                },
+                }
             }
         }
         if has_config31_changes {
@@ -303,11 +366,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config31)?;
                     self.device.config.gen1int_config.config31 = config.config31;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config31)?;
                     self.device.config.gen2int_config.config31 = config.config31;
-                },
+                }
             }
         }
         if has_config4_changes {
@@ -315,11 +378,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config4)?;
                     self.device.config.gen1int_config.config4 = config.config4;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config4)?;
                     self.device.config.gen2int_config.config4 = config.config4;
-                },
+                }
             }
         }
         if has_config5_changes {
@@ -327,11 +390,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config5)?;
                     self.device.config.gen1int_config.config5 = config.config5;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config5)?;
                     self.device.config.gen2int_config.config5 = config.config5;
-                },
+                }
             }
         }
         if has_config6_changes {
@@ -339,11 +402,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config6)?;
                     self.device.config.gen1int_config.config6 = config.config6;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config6)?;
                     self.device.config.gen2int_config.config6 = config.config6;
-                },
+                }
             }
         }
         if has_config7_changes {
@@ -351,11 +414,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config7)?;
                     self.device.config.gen1int_config.config7 = config.config7;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config7)?;
                     self.device.config.gen2int_config.config7 = config.config7;
-                },
+                }
             }
         }
         if has_config8_changes {
@@ -363,11 +426,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config8)?;
                     self.device.config.gen1int_config.config8 = config.config8;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config8)?;
                     self.device.config.gen2int_config.config8 = config.config8;
-                },
+                }
             }
         }
         if has_config9_changes {
@@ -375,11 +438,11 @@ where
                 GenIntConfig::Gen1Int(config) => {
                     self.device.interface.write_register(config.config9)?;
                     self.device.config.gen1int_config.config9 = config.config9;
-                },
+                }
                 GenIntConfig::Gen2Int(config) => {
                     self.device.interface.write_register(config.config9)?;
                     self.device.config.gen2int_config.config9 = config.config9;
-                },
+                }
             }
         }
         // Re-enable interrupt, if it was disabled
@@ -391,68 +454,112 @@ where
     // Detect changes to assess whether to skip writing registers
     fn has_config0_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config0.bits() != device_config.gen1int_config.config0.bits(),
-            GenIntConfig::Gen2Int(config) => config.config0.bits() != device_config.gen2int_config.config0.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config0.bits() != device_config.gen1int_config.config0.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config0.bits() != device_config.gen2int_config.config0.bits()
+            }
         }
     }
     fn has_config1_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config1.bits() != device_config.gen1int_config.config1.bits(),
-            GenIntConfig::Gen2Int(config) => config.config1.bits() != device_config.gen2int_config.config1.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config1.bits() != device_config.gen1int_config.config1.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config1.bits() != device_config.gen2int_config.config1.bits()
+            }
         }
     }
     fn has_config2_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config2.bits() != device_config.gen1int_config.config2.bits(),
-            GenIntConfig::Gen2Int(config) => config.config2.bits() != device_config.gen2int_config.config2.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config2.bits() != device_config.gen1int_config.config2.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config2.bits() != device_config.gen2int_config.config2.bits()
+            }
         }
     }
     fn has_config3_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config3.bits() != device_config.gen1int_config.config3.bits(),
-            GenIntConfig::Gen2Int(config) => config.config3.bits() != device_config.gen2int_config.config3.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config3.bits() != device_config.gen1int_config.config3.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config3.bits() != device_config.gen2int_config.config3.bits()
+            }
         }
     }
     fn has_config31_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config31.bits() != device_config.gen1int_config.config31.bits(),
-            GenIntConfig::Gen2Int(config) => config.config31.bits() != device_config.gen2int_config.config31.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config31.bits() != device_config.gen1int_config.config31.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config31.bits() != device_config.gen2int_config.config31.bits()
+            }
         }
     }
     fn has_config4_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config4.bits() != device_config.gen1int_config.config4.bits(),
-            GenIntConfig::Gen2Int(config) => config.config4.bits() != device_config.gen2int_config.config4.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config4.bits() != device_config.gen1int_config.config4.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config4.bits() != device_config.gen2int_config.config4.bits()
+            }
         }
     }
     fn has_config5_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config5.bits() != device_config.gen1int_config.config5.bits(),
-            GenIntConfig::Gen2Int(config) => config.config5.bits() != device_config.gen2int_config.config5.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config5.bits() != device_config.gen1int_config.config5.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config5.bits() != device_config.gen2int_config.config5.bits()
+            }
         }
     }
     fn has_config6_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config6.bits() != device_config.gen1int_config.config6.bits(),
-            GenIntConfig::Gen2Int(config) => config.config6.bits() != device_config.gen2int_config.config6.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config6.bits() != device_config.gen1int_config.config6.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config6.bits() != device_config.gen2int_config.config6.bits()
+            }
         }
     }
     fn has_config7_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config7.bits() != device_config.gen1int_config.config7.bits(),
-            GenIntConfig::Gen2Int(config) => config.config7.bits() != device_config.gen2int_config.config7.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config7.bits() != device_config.gen1int_config.config7.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config7.bits() != device_config.gen2int_config.config7.bits()
+            }
         }
     }
     fn has_config8_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config8.bits() != device_config.gen1int_config.config8.bits(),
-            GenIntConfig::Gen2Int(config) => config.config8.bits() != device_config.gen2int_config.config8.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config8.bits() != device_config.gen1int_config.config8.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config8.bits() != device_config.gen2int_config.config8.bits()
+            }
         }
     }
     fn has_config9_changes_from(&self, device_config: &Config) -> bool {
         match &self.config {
-            GenIntConfig::Gen1Int(config) => config.config9.bits() != device_config.gen1int_config.config9.bits(),
-            GenIntConfig::Gen2Int(config) => config.config9.bits() != device_config.gen2int_config.config9.bits(),
+            GenIntConfig::Gen1Int(config) => {
+                config.config9.bits() != device_config.gen1int_config.config9.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config9.bits() != device_config.gen2int_config.config9.bits()
+            }
         }
     }
 }
@@ -460,23 +567,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
     use crate::{
-        i2c::I2CInterface, BMA400Error,
+        tests::get_test_device,
+        BMA400Error,
     };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
-    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
-        BMA400::new_i2c(Mock::new(expected)).unwrap()
-    }
     #[test]
     fn test_axes() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_axes(false, false, true);
@@ -488,7 +585,7 @@ mod tests {
             assert_eq!(config.config0.bits(), 0x40);
         }
         let builder = builder.with_axes(true, false, false);
-        if let GenIntConfig::Gen1Int(config) =&builder.config {
+        if let GenIntConfig::Gen1Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x20);
         }
 
@@ -509,7 +606,7 @@ mod tests {
     }
     #[test]
     fn test_src() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_src(DataSource::AccFilt2Lp);
@@ -542,7 +639,7 @@ mod tests {
     }
     #[test]
     fn test_reference_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_reference_mode(GenIntRefMode::OneTime);
@@ -583,7 +680,7 @@ mod tests {
     }
     #[test]
     fn test_hysteresis() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_hysteresis(Hysteresis::Hyst96mg);
@@ -624,7 +721,7 @@ mod tests {
     }
     #[test]
     fn test_criterion_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_criterion_mode(GenIntCriterionMode::Activity);
@@ -649,7 +746,7 @@ mod tests {
     }
     #[test]
     fn test_logic_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_logic_mode(GenIntLogicMode::And);
@@ -674,7 +771,7 @@ mod tests {
     }
     #[test]
     fn test_threshold() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_threshold(0xFF);
@@ -699,7 +796,7 @@ mod tests {
     }
     #[test]
     fn test_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_duration(0xFF00);
@@ -728,32 +825,28 @@ mod tests {
     }
     #[test]
     fn test_int1_config_err() {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            Transaction::write(ADDR, [0x3F, 0x10].into()),
-            Transaction::write(ADDR, [0x1F, 0x04].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Change the data source to AccFilt2
         assert!(matches!(device.config_gen1_int().with_src(DataSource::AccFilt2).write(), Ok(())));
         // Enable the interrupt
         assert!(matches!(device.config_interrupts().with_gen1_int(true).write(), Ok(())));
         // Try to change the data source back to AccFilt1 while the interrupt is enabled
-        assert!(matches!(device.config_gen1_int().with_src(DataSource::AccFilt1).write(), Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            device.config_gen1_int().with_src(DataSource::AccFilt1).write(),
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
     #[test]
     fn test_int2_config_err() {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            Transaction::write(ADDR, [0x4A, 0x10].into()),
-            Transaction::write(ADDR, [0x1F, 0x08].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Change the data source to AccFilt2
         assert!(matches!(device.config_gen2_int().with_src(DataSource::AccFilt2).write(), Ok(())));
         // Enable the interrupt
         assert!(matches!(device.config_interrupts().with_gen2_int(true).write(), Ok(())));
         // Try to change the data source back to AccFilt1 while the interrupt is enabled
-        assert!(matches!(device.config_gen2_int().with_src(DataSource::AccFilt1).write(), Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            device.config_gen2_int().with_src(DataSource::AccFilt1).write(),
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
 }

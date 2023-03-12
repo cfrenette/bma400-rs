@@ -1,5 +1,17 @@
-
-use crate::{registers::{TapConfig0, TapConfig1}, interface::WriteToRegister, BMA400, ConfigError, Axis, TapSensitivity, MinTapDuration, DoubleTapDuration, MaxTapDuration};
+use crate::{
+    interface::WriteToRegister,
+    registers::{
+        TapConfig0,
+        TapConfig1,
+    },
+    Axis,
+    ConfigError,
+    DoubleTapDuration,
+    MaxTapDuration,
+    MinTapDuration,
+    TapSensitivity,
+    BMA400,
+};
 
 #[derive(Clone, Default)]
 pub struct TapConfig {
@@ -7,19 +19,21 @@ pub struct TapConfig {
     tap_config1: TapConfig1,
 }
 
-pub struct TapConfigBuilder<'a, Interface: WriteToRegister> 
-{
+pub struct TapConfigBuilder<'a, Interface: WriteToRegister> {
     config: TapConfig,
     device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> TapConfigBuilder<'a, Interface> 
+impl<'a, Interface, E> TapConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
-        TapConfigBuilder { config: device.config.tap_config.clone(), device }
+    pub(crate) fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
+        TapConfigBuilder {
+            config: device.config.tap_config.clone(),
+            device,
+        }
     }
     // TapConfig0
 
@@ -36,31 +50,38 @@ where
 
     // TapConfig1
 
-    /// Select the minimum number of samples that must elapse between two peaks for it to be considered as a separate tap
+    /// Select the minimum number of samples that must elapse between two peaks for it to be
+    /// considered as a separate tap
     pub fn with_min_duration_btn_taps(mut self, duration: MinTapDuration) -> Self {
         self.config.tap_config1 = self.config.tap_config1.with_min_tap_duration(duration);
         self
     }
-    /// Select the maximum number of samples that can elapse between two peaks for it to be considered as a double tap
+    /// Select the maximum number of samples that can elapse between two peaks for it to be
+    /// considered as a double tap
     pub fn with_max_double_tap_window(mut self, duration: DoubleTapDuration) -> Self {
         self.config.tap_config1 = self.config.tap_config1.with_double_tap_duration(duration);
         self
     }
-    /// Select the maximuim number of samples that can elapse between the high and low peak of a tap for it to be considered a tap
+    /// Select the maximuim number of samples that can elapse between the high and low peak of a tap
+    /// for it to be considered a tap
     pub fn with_max_tap_duration(mut self, duration: MaxTapDuration) -> Self {
         self.config.tap_config1 = self.config.tap_config1.with_max_tap_duration(duration);
         self
     }
 
     pub fn write(self) -> Result<(), E> {
-
-        let tap1_changes = self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
-        let tap2_changes = self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
+        let tap1_changes =
+            self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
+        let tap2_changes =
+            self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
         let tap_changes = tap1_changes || tap2_changes;
-        let mut tmp_int_config = self.device.config.int_config.get_config1().clone();
+        let mut tmp_int_config = self.device.config.int_config.get_config1();
 
         // Disable the interrupt, if active
-        if (self.device.config.int_config.get_config1().d_tap_int() || self.device.config.int_config.get_config1().d_tap_int()) && tap_changes {
+        if (self.device.config.int_config.get_config1().d_tap_int()
+            || self.device.config.int_config.get_config1().d_tap_int())
+            && tap_changes
+        {
             tmp_int_config = tmp_int_config.with_s_tap_int(false).with_d_tap_int(false);
             self.device.interface.write_register(tmp_int_config)?;
         }
@@ -83,20 +104,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
-    use crate::{
-        i2c::I2CInterface,
-    };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into_iter().collect(), [0x90].into_iter().collect())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
+    use crate::tests::get_test_device;
     #[test]
     fn test_axis() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_axis(Axis::Y);
         assert_eq!(builder.config.tap_config0.bits(), 0x08);
@@ -107,7 +118,7 @@ mod tests {
     }
     #[test]
     fn test_sensitivity() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_sensitivity(TapSensitivity::SENS1);
         assert_eq!(builder.config.tap_config0.bits(), 0x01);
@@ -128,7 +139,7 @@ mod tests {
     }
     #[test]
     fn test_min_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_min_duration_btn_taps(MinTapDuration::Samples8);
         assert_eq!(builder.config.tap_config1.bits(), 0x16);
@@ -141,7 +152,7 @@ mod tests {
     }
     #[test]
     fn test_double_tap_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_max_double_tap_window(DoubleTapDuration::Samples80);
         assert_eq!(builder.config.tap_config1.bits(), 0x06);
@@ -154,7 +165,7 @@ mod tests {
     }
     #[test]
     fn test_max_tap_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_max_tap_duration(MaxTapDuration::Samples9);
         assert_eq!(builder.config.tap_config1.bits(), 0x05);

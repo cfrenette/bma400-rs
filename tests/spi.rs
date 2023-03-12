@@ -1,10 +1,20 @@
-use embedded_hal_mock::{
-    spi::{Mock as MockSPI, Transaction},
-    pin::{Mock as MockPin, State, Transaction as PinTransaction},
-    delay::MockNoop,
+use bma400::{
+    spi::SPIInterface,
+    types::*,
+    BMA400,
 };
-use bma400::spi::SPIInterface;
-use bma400::{BMA400, types::*};
+use embedded_hal_mock::{
+    delay::MockNoop,
+    pin::{
+        Mock as MockPin,
+        State,
+        Transaction as PinTransaction,
+    },
+    spi::{
+        Mock as MockSPI,
+        Transaction,
+    },
+};
 
 fn new(expected_io: &[Transaction], expected_pin: &[PinTransaction]) -> BMA400<SPIInterface<MockSPI, MockPin>> {
     BMA400::new_spi(MockSPI::new(expected_io), MockPin::new(expected_pin)).unwrap()
@@ -131,7 +141,7 @@ fn get_status() {
     assert!(!status.cmd_rdy());
     assert!(!status.int_active());
     assert!(matches!(status.power_mode(), PowerMode::LowPower));
-    
+
     // power_mode == Normal
     let status = device.get_status().unwrap();
     assert!(!status.drdy_stat());
@@ -154,7 +164,10 @@ fn get_unscaled_data() {
     init(&mut expected_io, &mut expected_pin);
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00], vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07]));
+    expected_io.push(Transaction::transfer(
+        vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+        vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
+    ));
     expected_pin.push(PinTransaction::set(State::High));
     let mut device = new(&expected_io, &expected_pin);
     let m = device.get_unscaled_data().unwrap();
@@ -177,13 +190,19 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
     if let Scale::Range4G = scale {
         // The default setting is 4G so we shouldn't see any configuration write
         expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-        expected_io.push(Transaction::transfer(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00], vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07]));
+        expected_io.push(Transaction::transfer(
+            vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
+        ));
     } else {
         expected_io.push(Transaction::write(vec![0x1A, byte]));
         expected_pin.push(PinTransaction::set(State::High));
         expected_pin.push(PinTransaction::set(State::Low));
         expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-        expected_io.push(Transaction::transfer(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00], vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07]))
+        expected_io.push(Transaction::transfer(
+            vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
+        ))
     }
     expected_pin.push(PinTransaction::set(State::High));
     let mut device = new(&expected_io, &expected_pin);
@@ -457,7 +476,6 @@ fn get_int_status1() {
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
     assert!(matches!(status.step_int_stat(), StepIntStatus::OneStepDetect));
-
 }
 
 #[test]
@@ -554,7 +572,13 @@ fn read_fifo_frames() {
     init(&mut expected_io, &mut expected_pin);
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x94, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(Vec::from([0u8; 15]), vec![0x48, 0x6E, 0x9E, 0x01, 0x80, 0x0F, 0xFF, 0x0F, 0x7F, 0xA0, 0xF8, 0xFF, 0xFF, 0x80, 0x00]));
+    expected_io.push(Transaction::transfer(
+        Vec::from([0u8; 15]),
+        vec![
+            0x48, 0x6E, 0x9E, 0x01, 0x80, 0x0F, 0xFF, 0x0F, 0x7F, 0xA0, 0xF8, 0xFF, 0xFF, 0x80,
+            0x00,
+        ],
+    ));
     expected_pin.push(PinTransaction::set(State::High));
     let mut device = new(&expected_io, &expected_pin);
     let mut buffer = [0u8; 15];
@@ -563,20 +587,20 @@ fn read_fifo_frames() {
     for frame in frames {
         match frame.frame_type() {
             FrameType::Data => {
-                assert_eq!(frame.x(), -2047);
-                assert_eq!(frame.y(), -1);
-                assert_eq!(frame.z(), 2047);
-            },
+                assert_eq!(frame.x(), Some(-2047));
+                assert_eq!(frame.y(), Some(-1));
+                assert_eq!(frame.z(), Some(2047));
+            }
             FrameType::Time => {
-                assert_eq!(frame.time(),  0xFFFFF8);
-            },
+                assert_eq!(frame.time(), Some(0xFFFFF8));
+            }
             FrameType::Control => {
-                assert!(frame.fifo_chg());
-                assert!(frame.acc0_chg());
-                assert!(frame.acc1_chg());
+                assert!(frame.fifo_src_chg().unwrap());
+                assert!(frame.filt1_bw_chg().unwrap());
+                assert!(frame.acc1_chg().unwrap());
             }
         }
-        count +=1;
+        count += 1;
     }
     assert_eq!(count, 3);
 }
@@ -599,7 +623,7 @@ fn get_step_count() {
     let mut expected_io = Vec::new();
     let mut expected_pin = Vec::new();
     init(&mut expected_io, &mut expected_pin);
-    
+
     // Step Count = 15793920 (test byte order)
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x95, 0x00], vec![0x00, 0x00]));
@@ -666,7 +690,6 @@ fn config_accel() {
     expected_io.push(Transaction::write(vec![0x1B, 0x08]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x19, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -680,26 +703,32 @@ fn config_accel() {
     expected_pin.push(PinTransaction::set(State::High));
 
     let mut device = new(&expected_io, &expected_pin);
-    
+
     // Set Everything
-    device.config_accel()
-    .with_filt1_bw(Filter1Bandwidth::Low)
-    .with_osr_lp(OversampleRate::OSR3)
-    .with_power_mode(PowerMode::Normal)
-    .with_scale(Scale::Range16G)
-    .with_osr(OversampleRate::OSR3)
-    .with_odr(OutputDataRate::Hz800)
-    .with_reg_dta_src(DataSource::AccFilt2Lp).write().unwrap();
+    device
+        .config_accel()
+        .with_filt1_bw(Filter1Bandwidth::Low)
+        .with_osr_lp(OversampleRate::OSR3)
+        .with_power_mode(PowerMode::Normal)
+        .with_scale(Scale::Range16G)
+        .with_osr(OversampleRate::OSR3)
+        .with_odr(OutputDataRate::Hz800)
+        .with_reg_dta_src(DataSource::AccFilt2Lp)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_accel()
-    .with_filt1_bw(Filter1Bandwidth::High)
-    .with_osr_lp(OversampleRate::OSR0)
-    .with_power_mode(PowerMode::Sleep)
-    .with_scale(Scale::Range2G)
-    .with_osr(OversampleRate::OSR0)
-    .with_odr(OutputDataRate::Hz12_5)
-    .with_reg_dta_src(DataSource::AccFilt1).write().unwrap();
+    device
+        .config_accel()
+        .with_filt1_bw(Filter1Bandwidth::High)
+        .with_osr_lp(OversampleRate::OSR0)
+        .with_power_mode(PowerMode::Sleep)
+        .with_scale(Scale::Range2G)
+        .with_osr(OversampleRate::OSR0)
+        .with_odr(OutputDataRate::Hz12_5)
+        .with_reg_dta_src(DataSource::AccFilt1)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -720,7 +749,6 @@ fn config_interrupts() {
     expected_io.push(Transaction::write(vec![0x4A, 0x10]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x1F, 0xEE]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -728,7 +756,6 @@ fn config_interrupts() {
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x20, 0x9D]));
     expected_pin.push(PinTransaction::set(State::High));
-
 
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x1F, 0x00]));
@@ -741,40 +768,43 @@ fn config_interrupts() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
-    device.config_actchg_int()
-    .with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen1_int()
-    .with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen2_int()
-    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
 
     // Set Everything
-    device.config_interrupts()
-    .with_actch_int(true)
-    .with_d_tap_int(true)
-    .with_dta_rdy_int(true)
-    .with_ffull_int(true)
-    .with_fwm_int(true)
-    .with_gen1_int(true)
-    .with_gen2_int(true)
-    .with_latch_int(true)
-    .with_orientch_int(true)
-    .with_s_tap_int(true)
-    .with_step_int(true).write().unwrap();
+    device
+        .config_interrupts()
+        .with_actch_int(true)
+        .with_d_tap_int(true)
+        .with_dta_rdy_int(true)
+        .with_ffull_int(true)
+        .with_fwm_int(true)
+        .with_gen1_int(true)
+        .with_gen2_int(true)
+        .with_latch_int(true)
+        .with_orientch_int(true)
+        .with_s_tap_int(true)
+        .with_step_int(true)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_interrupts()
-    .with_actch_int(false)
-    .with_d_tap_int(false)
-    .with_dta_rdy_int(false)
-    .with_ffull_int(false)
-    .with_fwm_int(false)
-    .with_gen1_int(false)
-    .with_gen2_int(false)
-    .with_latch_int(false)
-    .with_orientch_int(false)
-    .with_s_tap_int(false)
-    .with_step_int(false).write().unwrap();
+    device
+        .config_interrupts()
+        .with_actch_int(false)
+        .with_d_tap_int(false)
+        .with_dta_rdy_int(false)
+        .with_ffull_int(false)
+        .with_fwm_int(false)
+        .with_gen1_int(false)
+        .with_gen2_int(false)
+        .with_latch_int(false)
+        .with_orientch_int(false)
+        .with_s_tap_int(false)
+        .with_step_int(false)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -786,7 +816,7 @@ fn config_int_pins() {
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x21, 0xFF]));
     expected_pin.push(PinTransaction::set(State::High));
-    
+
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x22, 0xFF]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -799,7 +829,6 @@ fn config_int_pins() {
     expected_io.push(Transaction::write(vec![0x24, 0x66]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x21, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -811,7 +840,6 @@ fn config_int_pins() {
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x24, 0x60]));
     expected_pin.push(PinTransaction::set(State::High));
-
 
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x22, 0x00]));
@@ -828,53 +856,59 @@ fn config_int_pins() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_int_pins()
-    .with_drdy(InterruptPins::Both)
-    .with_fifo_wm(InterruptPins::Both)
-    .with_ffull(InterruptPins::Both)
-    .with_ieng_ovrrn(InterruptPins::Both)
-    .with_gen2(InterruptPins::Both)
-    .with_gen1(InterruptPins::Both)
-    .with_orientch(InterruptPins::Both)
-    .with_wkup(InterruptPins::Both)
-    .with_actch(InterruptPins::Both)
-    .with_tap(InterruptPins::Both)
-    .with_step(InterruptPins::Both)
-    .with_int1_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh))
-    .with_int2_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh))
-    .write().unwrap();
+    device
+        .config_int_pins()
+        .with_drdy(InterruptPins::Both)
+        .with_fifo_wm(InterruptPins::Both)
+        .with_ffull(InterruptPins::Both)
+        .with_ieng_ovrrn(InterruptPins::Both)
+        .with_gen2(InterruptPins::Both)
+        .with_gen1(InterruptPins::Both)
+        .with_orientch(InterruptPins::Both)
+        .with_wkup(InterruptPins::Both)
+        .with_actch(InterruptPins::Both)
+        .with_tap(InterruptPins::Both)
+        .with_step(InterruptPins::Both)
+        .with_int1_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh))
+        .with_int2_cfg(PinOutputConfig::OpenDrain(PinOutputLevel::ActiveHigh))
+        .write()
+        .unwrap();
 
     // Un-Set Pin1
-    device.config_int_pins()
-    .with_drdy(InterruptPins::Int2)
-    .with_fifo_wm(InterruptPins::Int2)
-    .with_ffull(InterruptPins::Int2)
-    .with_ieng_ovrrn(InterruptPins::Int2)
-    .with_gen2(InterruptPins::Int2)
-    .with_gen1(InterruptPins::Int2)
-    .with_orientch(InterruptPins::Int2)
-    .with_wkup(InterruptPins::Int2)
-    .with_actch(InterruptPins::Int2)
-    .with_tap(InterruptPins::Int2)
-    .with_step(InterruptPins::Int2)
-    .with_int1_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
-    .write().unwrap();
+    device
+        .config_int_pins()
+        .with_drdy(InterruptPins::Int2)
+        .with_fifo_wm(InterruptPins::Int2)
+        .with_ffull(InterruptPins::Int2)
+        .with_ieng_ovrrn(InterruptPins::Int2)
+        .with_gen2(InterruptPins::Int2)
+        .with_gen1(InterruptPins::Int2)
+        .with_orientch(InterruptPins::Int2)
+        .with_wkup(InterruptPins::Int2)
+        .with_actch(InterruptPins::Int2)
+        .with_tap(InterruptPins::Int2)
+        .with_step(InterruptPins::Int2)
+        .with_int1_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
+        .write()
+        .unwrap();
 
     // Un-Set Pin2
-    device.config_int_pins()
-    .with_drdy(InterruptPins::None)
-    .with_fifo_wm(InterruptPins::None)
-    .with_ffull(InterruptPins::None)
-    .with_ieng_ovrrn(InterruptPins::None)
-    .with_gen2(InterruptPins::None)
-    .with_gen1(InterruptPins::None)
-    .with_orientch(InterruptPins::None)
-    .with_wkup(InterruptPins::None)
-    .with_actch(InterruptPins::None)
-    .with_tap(InterruptPins::None)
-    .with_step(InterruptPins::None)
-    .with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
-    .write().unwrap();
+    device
+        .config_int_pins()
+        .with_drdy(InterruptPins::None)
+        .with_fifo_wm(InterruptPins::None)
+        .with_ffull(InterruptPins::None)
+        .with_ieng_ovrrn(InterruptPins::None)
+        .with_gen2(InterruptPins::None)
+        .with_gen1(InterruptPins::None)
+        .with_orientch(InterruptPins::None)
+        .with_wkup(InterruptPins::None)
+        .with_actch(InterruptPins::None)
+        .with_tap(InterruptPins::None)
+        .with_step(InterruptPins::None)
+        .with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -899,7 +933,6 @@ fn config_fifo() {
     expected_io.push(Transaction::write(vec![0x29, 0x01]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x26, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -919,28 +952,32 @@ fn config_fifo() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_fifo()
-    .with_8bit_mode(true)
-    .with_axes(true, true, true)
-    .with_src(DataSource::AccFilt2)
-    .with_send_time_on_empty(true)
-    .with_stop_on_full(true)
-    .with_auto_flush(true)
-    .with_watermark_thresh(1023)
-    .with_read_disabled(true)
-    .write().unwrap();
+    device
+        .config_fifo()
+        .with_8bit_mode(true)
+        .with_axes(true, true, true)
+        .with_src(DataSource::AccFilt2)
+        .with_send_time_on_empty(true)
+        .with_stop_on_full(true)
+        .with_auto_flush(true)
+        .with_watermark_thresh(1023)
+        .with_read_disabled(true)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_fifo()
-    .with_8bit_mode(false)
-    .with_axes(false, false, false)
-    .with_src(DataSource::AccFilt1)
-    .with_send_time_on_empty(false)
-    .with_stop_on_full(false)
-    .with_auto_flush(false)
-    .with_watermark_thresh(0)
-    .with_read_disabled(false)
-    .write().unwrap();
+    device
+        .config_fifo()
+        .with_8bit_mode(false)
+        .with_axes(false, false, false)
+        .with_src(DataSource::AccFilt1)
+        .with_send_time_on_empty(false)
+        .with_stop_on_full(false)
+        .with_auto_flush(false)
+        .with_watermark_thresh(0)
+        .with_read_disabled(false)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -957,7 +994,6 @@ fn config_auto_lp() {
     expected_io.push(Transaction::write(vec![0x2B, 0xFB]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x2A, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -969,20 +1005,24 @@ fn config_auto_lp() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_auto_lp()
-    .with_timeout(0xFFF)
-    .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset)
-    .with_drdy_trigger(true)
-    .with_gen1_int_trigger(true)
-    .write().unwrap();
+    device
+        .config_auto_lp()
+        .with_timeout(0xFFF)
+        .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset)
+        .with_drdy_trigger(true)
+        .with_gen1_int_trigger(true)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_auto_lp()
-    .with_timeout(0)
-    .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutDisabled)
-    .with_drdy_trigger(false)
-    .with_gen1_int_trigger(false)
-    .write().unwrap();
+    device
+        .config_auto_lp()
+        .with_timeout(0)
+        .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutDisabled)
+        .with_drdy_trigger(false)
+        .with_gen1_int_trigger(false)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -999,7 +1039,6 @@ fn config_autowkup() {
     expected_io.push(Transaction::write(vec![0x2D, 0xF6]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x2C, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -1011,18 +1050,22 @@ fn config_autowkup() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_autowkup()
-    .with_wakeup_period(0xFFF)
-    .with_periodic_wakeup(true)
-    .with_activity_int(true)
-    .write().unwrap();
+    device
+        .config_autowkup()
+        .with_wakeup_period(0xFFF)
+        .with_periodic_wakeup(true)
+        .with_activity_int(true)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_autowkup()
-    .with_wakeup_period(0)
-    .with_periodic_wakeup(false)
-    .with_activity_int(false)
-    .write().unwrap();
+    device
+        .config_autowkup()
+        .with_wakeup_period(0)
+        .with_periodic_wakeup(false)
+        .with_activity_int(false)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -1081,22 +1124,26 @@ fn config_wkup_int() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_wkup_int()
-    .with_axes(true, true, true)
-    .with_num_samples(8)
-    .with_ref_mode(WakeupIntRefMode::EveryTime)
-    .with_threshold(0xFF)
-    .with_ref_accel(-1, -1, -1)
-    .write().unwrap();
+    device
+        .config_wkup_int()
+        .with_axes(true, true, true)
+        .with_num_samples(8)
+        .with_ref_mode(WakeupIntRefMode::EveryTime)
+        .with_threshold(0xFF)
+        .with_ref_accel(-1, -1, -1)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_wkup_int()
-    .with_axes(false, false, false)
-    .with_num_samples(1)
-    .with_ref_mode(WakeupIntRefMode::Manual)
-    .with_threshold(0)
-    .with_ref_accel(0, 0, 0)
-    .write().unwrap();
+    device
+        .config_wkup_int()
+        .with_axes(false, false, false)
+        .with_num_samples(1)
+        .with_ref_mode(WakeupIntRefMode::Manual)
+        .with_threshold(0)
+        .with_ref_accel(0, 0, 0)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -1134,24 +1181,28 @@ fn config_orientchg_int() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_orientchg_int()
-    .with_axes(true, true, true)
-    .with_src(DataSource::AccFilt2Lp)
-    .with_ref_mode(OrientIntRefMode::AccFilt2Lp)
-    .with_threshold(0xFF)
-    .with_duration(0xFF)
-    .with_ref_accel(-1, -1, -1)
-    .write().unwrap();
+    device
+        .config_orientchg_int()
+        .with_axes(true, true, true)
+        .with_src(DataSource::AccFilt2Lp)
+        .with_ref_mode(OrientIntRefMode::AccFilt2Lp)
+        .with_threshold(0xFF)
+        .with_duration(0xFF)
+        .with_ref_accel(-1, -1, -1)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_orientchg_int()
-    .with_axes(false, false, false)
-    .with_src(DataSource::AccFilt2)
-    .with_ref_mode(OrientIntRefMode::Manual)
-    .with_threshold(0)
-    .with_duration(0)
-    .with_ref_accel(0, 0, 0)
-    .write().unwrap();
+    device
+        .config_orientchg_int()
+        .with_axes(false, false, false)
+        .with_src(DataSource::AccFilt2)
+        .with_ref_mode(OrientIntRefMode::Manual)
+        .with_threshold(0)
+        .with_duration(0)
+        .with_ref_accel(0, 0, 0)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -1193,30 +1244,34 @@ fn config_gen1_int() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_gen1_int()
-    .with_axes(true, true, true)
-    .with_src(DataSource::AccFilt2)
-    .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
-    .with_hysteresis(Hysteresis::Hyst96mg)
-    .with_criterion_mode(GenIntCriterionMode::Activity)
-    .with_logic_mode(GenIntLogicMode::And)
-    .with_threshold(0xFF)
-    .with_duration(0xFFFF)
-    .with_ref_accel(-1, -1, -1)
-    .write().unwrap();
+    device
+        .config_gen1_int()
+        .with_axes(true, true, true)
+        .with_src(DataSource::AccFilt2)
+        .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+        .with_hysteresis(Hysteresis::Hyst96mg)
+        .with_criterion_mode(GenIntCriterionMode::Activity)
+        .with_logic_mode(GenIntLogicMode::And)
+        .with_threshold(0xFF)
+        .with_duration(0xFFFF)
+        .with_ref_accel(-1, -1, -1)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_gen1_int()
-    .with_axes(false, false, false)
-    .with_src(DataSource::AccFilt1)
-    .with_reference_mode(GenIntRefMode::Manual)
-    .with_hysteresis(Hysteresis::None)
-    .with_criterion_mode(GenIntCriterionMode::Inactivity)
-    .with_logic_mode(GenIntLogicMode::Or)
-    .with_threshold(0)
-    .with_duration(0)
-    .with_ref_accel(0, 0, 0)
-    .write().unwrap();
+    device
+        .config_gen1_int()
+        .with_axes(false, false, false)
+        .with_src(DataSource::AccFilt1)
+        .with_reference_mode(GenIntRefMode::Manual)
+        .with_hysteresis(Hysteresis::None)
+        .with_criterion_mode(GenIntCriterionMode::Inactivity)
+        .with_logic_mode(GenIntLogicMode::Or)
+        .with_threshold(0)
+        .with_duration(0)
+        .with_ref_accel(0, 0, 0)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -1258,30 +1313,34 @@ fn config_gen2_int() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_gen2_int()
-    .with_axes(true, true, true)
-    .with_src(DataSource::AccFilt2)
-    .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
-    .with_hysteresis(Hysteresis::Hyst96mg)
-    .with_criterion_mode(GenIntCriterionMode::Activity)
-    .with_logic_mode(GenIntLogicMode::And)
-    .with_threshold(0xFF)
-    .with_duration(0xFFFF)
-    .with_ref_accel(-1, -1, -1)
-    .write().unwrap();
+    device
+        .config_gen2_int()
+        .with_axes(true, true, true)
+        .with_src(DataSource::AccFilt2)
+        .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+        .with_hysteresis(Hysteresis::Hyst96mg)
+        .with_criterion_mode(GenIntCriterionMode::Activity)
+        .with_logic_mode(GenIntLogicMode::And)
+        .with_threshold(0xFF)
+        .with_duration(0xFFFF)
+        .with_ref_accel(-1, -1, -1)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_gen2_int()
-    .with_axes(false, false, false)
-    .with_src(DataSource::AccFilt1)
-    .with_reference_mode(GenIntRefMode::Manual)
-    .with_hysteresis(Hysteresis::None)
-    .with_criterion_mode(GenIntCriterionMode::Inactivity)
-    .with_logic_mode(GenIntLogicMode::Or)
-    .with_threshold(0)
-    .with_duration(0)
-    .with_ref_accel(0, 0, 0)
-    .write().unwrap();
+    device
+        .config_gen2_int()
+        .with_axes(false, false, false)
+        .with_src(DataSource::AccFilt1)
+        .with_reference_mode(GenIntRefMode::Manual)
+        .with_hysteresis(Hysteresis::None)
+        .with_criterion_mode(GenIntCriterionMode::Inactivity)
+        .with_logic_mode(GenIntLogicMode::Or)
+        .with_threshold(0)
+        .with_duration(0)
+        .with_ref_accel(0, 0, 0)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -1298,7 +1357,6 @@ fn config_actchg_int() {
     expected_io.push(Transaction::write(vec![0x56, 0xF4]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x55, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -1307,23 +1365,27 @@ fn config_actchg_int() {
     expected_io.push(Transaction::write(vec![0x56, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
 
-    let mut device = new(&mut expected_io, &mut expected_pin);
+    let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_actchg_int()
-    .with_threshold(0xFF)
-    .with_axes(true, true, true)
-    .with_src(DataSource::AccFilt2)
-    .with_obs_period(ActChgObsPeriod::Samples512)
-    .write().unwrap();
+    device
+        .config_actchg_int()
+        .with_threshold(0xFF)
+        .with_axes(true, true, true)
+        .with_src(DataSource::AccFilt2)
+        .with_obs_period(ActChgObsPeriod::Samples512)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_actchg_int()
-    .with_threshold(0)
-    .with_axes(false, false, false)
-    .with_src(DataSource::AccFilt1)
-    .with_obs_period(ActChgObsPeriod::Samples32)
-    .write().unwrap();
+    device
+        .config_actchg_int()
+        .with_threshold(0)
+        .with_axes(false, false, false)
+        .with_src(DataSource::AccFilt1)
+        .with_obs_period(ActChgObsPeriod::Samples32)
+        .write()
+        .unwrap();
 }
 
 #[test]
@@ -1340,7 +1402,6 @@ fn config_tap() {
     expected_io.push(Transaction::write(vec![0x58, 0x3F]));
     expected_pin.push(PinTransaction::set(State::High));
 
-
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x57, 0x00]));
     expected_pin.push(PinTransaction::set(State::High));
@@ -1352,22 +1413,26 @@ fn config_tap() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Everything
-    device.config_tap()
-    .with_axis(Axis::X)
-    .with_sensitivity(TapSensitivity::SENS7)
-    .with_min_duration_btn_taps(MinTapDuration::Samples16)
-    .with_max_double_tap_window(DoubleTapDuration::Samples120)
-    .with_max_tap_duration(MaxTapDuration::Samples18)
-    .write().unwrap();
+    device
+        .config_tap()
+        .with_axis(Axis::X)
+        .with_sensitivity(TapSensitivity::SENS7)
+        .with_min_duration_btn_taps(MinTapDuration::Samples16)
+        .with_max_double_tap_window(DoubleTapDuration::Samples120)
+        .with_max_tap_duration(MaxTapDuration::Samples18)
+        .write()
+        .unwrap();
 
     // Un-Set Everything
-    device.config_tap()
-    .with_axis(Axis::Z)
-    .with_sensitivity(TapSensitivity::SENS0)
-    .with_min_duration_btn_taps(MinTapDuration::Samples4)
-    .with_max_double_tap_window(DoubleTapDuration::Samples60)
-    .with_max_tap_duration(MaxTapDuration::Samples6)
-    .write().unwrap();
+    device
+        .config_tap()
+        .with_axis(Axis::Z)
+        .with_sensitivity(TapSensitivity::SENS0)
+        .with_min_duration_btn_taps(MinTapDuration::Samples4)
+        .with_max_double_tap_window(DoubleTapDuration::Samples60)
+        .with_max_tap_duration(MaxTapDuration::Samples6)
+        .write()
+        .unwrap();
 }
 
 fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
@@ -1430,8 +1495,13 @@ fn restore_config(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<Pin
     expected_pin.push(PinTransaction::set(State::High));
 }
 
-fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
-
+fn self_test(
+    x_fail: bool,
+    y_fail: bool,
+    z_fail: bool,
+    expected_io: &mut Vec<Transaction>,
+    expected_pin: &mut Vec<PinTransaction>,
+) {
     const PASS_X_POS: i16 = 767;
     const PASS_X_NEG: i16 = -734;
     const PASS_Y_POS: i16 = 401;
@@ -1444,11 +1514,23 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected_io: &mut Vec<Tra
     const FAIL_Z_NEG: i16 = 300;
 
     let x_pos = PASS_X_POS;
-    let x_neg = if x_fail {FAIL_X_NEG} else {PASS_X_NEG};
-    let y_pos = if y_fail {FAIL_Y_POS} else {PASS_Y_POS};
+    let x_neg = if x_fail {
+        FAIL_X_NEG
+    } else {
+        PASS_X_NEG
+    };
+    let y_pos = if y_fail {
+        FAIL_Y_POS
+    } else {
+        PASS_Y_POS
+    };
     let y_neg = PASS_Y_NEG;
     let z_pos = PASS_Z_POS;
-    let z_neg = if z_fail {FAIL_Z_NEG} else {PASS_Z_NEG};
+    let z_neg = if z_fail {
+        FAIL_Z_NEG
+    } else {
+        PASS_Z_NEG
+    };
 
     // Disable Interrupts, Set Test Config
     self_test_setup(expected_io, expected_pin);
@@ -1461,9 +1543,19 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected_io: &mut Vec<Tra
     // Read Results
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(Vec::from([0u8; 6]), vec![x_pos.to_le_bytes()[0], x_pos.to_le_bytes()[1], y_pos.to_le_bytes()[0], y_pos.to_le_bytes()[1], z_pos.to_le_bytes()[0], z_pos.to_le_bytes()[1]]));
+    expected_io.push(Transaction::transfer(
+        Vec::from([0u8; 6]),
+        vec![
+            x_pos.to_le_bytes()[0],
+            x_pos.to_le_bytes()[1],
+            y_pos.to_le_bytes()[0],
+            y_pos.to_le_bytes()[1],
+            z_pos.to_le_bytes()[0],
+            z_pos.to_le_bytes()[1],
+        ],
+    ));
     expected_pin.push(PinTransaction::set(State::High));
-    
+
     // Write Negative Test Parameters
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write(vec![0x7D, 0x0F]));
@@ -1472,7 +1564,17 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected_io: &mut Vec<Tra
     // Read Results
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(Vec::from([0u8; 6]), vec![x_neg.to_le_bytes()[0], x_neg.to_le_bytes()[1], y_neg.to_le_bytes()[0], y_neg.to_le_bytes()[1], z_neg.to_le_bytes()[0], z_neg.to_le_bytes()[1]]));
+    expected_io.push(Transaction::transfer(
+        Vec::from([0u8; 6]),
+        vec![
+            x_neg.to_le_bytes()[0],
+            x_neg.to_le_bytes()[1],
+            y_neg.to_le_bytes()[0],
+            y_neg.to_le_bytes()[1],
+            z_neg.to_le_bytes()[0],
+            z_neg.to_le_bytes()[1],
+        ],
+    ));
     expected_pin.push(PinTransaction::set(State::High));
 
     // Disable Self-Test
@@ -1545,51 +1647,60 @@ fn perform_self_test() {
     let mut device = new(&expected_io, &expected_pin);
 
     // ActChgConfig
-    device.config_actchg_int()
-    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
     // Gen1IntConfig
-    device.config_gen1_int()
-    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
     // Gen2IntConfig
-    device.config_gen2_int()
-    .with_src(DataSource::AccFilt2).write().unwrap();
+    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
 
     // AccConfig
-    device.config_accel()
-    .with_filt1_bw(Filter1Bandwidth::Low)
-    .with_osr_lp(OversampleRate::OSR3)
-    .with_scale(Scale::Range2G)
-    .with_osr(OversampleRate::OSR0)
-    .with_odr(OutputDataRate::Hz200).write().unwrap();
+    device
+        .config_accel()
+        .with_filt1_bw(Filter1Bandwidth::Low)
+        .with_osr_lp(OversampleRate::OSR3)
+        .with_scale(Scale::Range2G)
+        .with_osr(OversampleRate::OSR0)
+        .with_odr(OutputDataRate::Hz200)
+        .write()
+        .unwrap();
 
     // IntConfig
-    device.config_interrupts()
-    .with_actch_int(true)
-    .with_d_tap_int(true)
-    .with_dta_rdy_int(true)
-    .with_ffull_int(true)
-    .with_fwm_int(true)
-    .with_gen1_int(true)
-    .with_gen2_int(true)
-    .with_latch_int(true)
-    .with_orientch_int(true)
-    .with_s_tap_int(true)
-    .with_step_int(true).write().unwrap();
+    device
+        .config_interrupts()
+        .with_actch_int(true)
+        .with_d_tap_int(true)
+        .with_dta_rdy_int(true)
+        .with_ffull_int(true)
+        .with_fwm_int(true)
+        .with_gen1_int(true)
+        .with_gen2_int(true)
+        .with_latch_int(true)
+        .with_orientch_int(true)
+        .with_s_tap_int(true)
+        .with_step_int(true)
+        .write()
+        .unwrap();
 
     // Wakeup Int
-    device.config_autowkup()
-    .with_periodic_wakeup(true)
-    .with_wakeup_period(0x0F)
-    .with_activity_int(true).write().unwrap();
+    device
+        .config_autowkup()
+        .with_periodic_wakeup(true)
+        .with_wakeup_period(0x0F)
+        .with_activity_int(true)
+        .write()
+        .unwrap();
 
     // FIFO
-    device.config_fifo()
-    .with_axes(true, true, true)
-    .with_8bit_mode(true)
-    .with_src(DataSource::AccFilt2)
-    .with_send_time_on_empty(true)
-    .with_stop_on_full(true)
-    .with_auto_flush(true).write().unwrap();
+    device
+        .config_fifo()
+        .with_axes(true, true, true)
+        .with_8bit_mode(true)
+        .with_src(DataSource::AccFilt2)
+        .with_send_time_on_empty(true)
+        .with_stop_on_full(true)
+        .with_auto_flush(true)
+        .write()
+        .unwrap();
 
     let mut timer = MockNoop::new();
 
@@ -1608,7 +1719,6 @@ fn perform_self_test() {
     // Fail Z
     let result = device.perform_self_test(&mut timer);
     assert!(matches!(result, Err(BMA400Error::SelfTestFailedError)));
-
 }
 
 #[test]
