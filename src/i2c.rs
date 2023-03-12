@@ -26,7 +26,7 @@ where
     type Error = BMA400Error<E, ()>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        self.i2c.write(ADDR, &[register.addr(), register.to_byte()]).map_err(|e| BMA400Error::IOError(e))
+        self.i2c.write(ADDR, &[register.addr(), register.to_byte()]).map_err(BMA400Error::IOError)
     }
 }
 
@@ -37,7 +37,7 @@ where
     type Error = BMA400Error<E, ()>;
 
     fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.i2c.write_read(ADDR, &[register.addr()], buffer).map_err(|e| BMA400Error::IOError(e))
+        self.i2c.write_read(ADDR, &[register.addr()], buffer).map_err(BMA400Error::IOError)
     }
 }
 

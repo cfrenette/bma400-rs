@@ -22,9 +22,9 @@ where
     type Error = BMA400Error<InterfaceError, PinError>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        self.csb.set_low().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
-        self.spi.write(&[register.addr(), register.to_byte()]).map_err(|e| BMA400Error::IOError(e))?;
-        self.csb.set_high().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        self.csb.set_low().map_err(BMA400Error::ChipSelectPinError)?;
+        self.spi.write(&[register.addr(), register.to_byte()]).map_err(BMA400Error::IOError)?;
+        self.csb.set_high().map_err(BMA400Error::ChipSelectPinError)?;
         Ok(())
     }
 }
@@ -37,10 +37,10 @@ where
     type Error = BMA400Error<InterfaceError, PinError>;
 
     fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.csb.set_low().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
-        self.spi.transfer(&mut [register.addr() | 1 << 7, 0]).map_err(|e| BMA400Error::IOError(e))?;
-        self.spi.transfer(buffer).map_err(|e| BMA400Error::IOError(e))?;
-        self.csb.set_high().map_err(|e| BMA400Error::ChipSelectPinError(e))?;
+        self.csb.set_low().map_err(BMA400Error::ChipSelectPinError)?;
+        self.spi.transfer(&mut [register.addr() | 1 << 7, 0]).map_err(BMA400Error::IOError)?;
+        self.spi.transfer(buffer).map_err(BMA400Error::IOError)?;
+        self.csb.set_high().map_err(BMA400Error::ChipSelectPinError)?;
         Ok(())
     }
 }
