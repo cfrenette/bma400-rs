@@ -1,10 +1,15 @@
 use crate::{
-    registers::{Int1Map, Int2Map, Int12Map, Int12IOCtrl},
     interface::WriteToRegister,
+    registers::{
+        Int12IOCtrl,
+        Int12Map,
+        Int1Map,
+        Int2Map,
+    },
+    ConfigError,
+    InterruptPins,
+    PinOutputConfig,
     BMA400,
-    ConfigError, 
-    PinOutputConfig, 
-    InterruptPins, 
 };
 
 #[derive(Clone, Default)]
@@ -71,13 +76,16 @@ fn match_mapped(mapped_to: InterruptPins) -> (bool, bool) {
     }
 }
 
-impl<'a, Interface, E> IntPinConfigBuilder<'a, Interface> 
+impl<'a, Interface, E> IntPinConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
-        IntPinConfigBuilder { config: device.config.int_pin_config.clone(), device }
+        IntPinConfigBuilder {
+            config: device.config.int_pin_config.clone(),
+            device,
+        }
     }
     // Int1Map / Int2Map
     /// Map Data Ready Interrupt to [InterruptPins]
@@ -148,8 +156,8 @@ where
     /// Map Tap Interrupt to [InterruptPins]
     pub fn with_tap(mut self, mapped_to: InterruptPins) -> Self {
         let (int1, int2) = match_mapped(mapped_to);
-    self.config.int12_map = self.config.int12_map.with_tap1(int1).with_tap2(int2);
-    self
+        self.config.int12_map = self.config.int12_map.with_tap1(int1).with_tap2(int2);
+        self
     }
     /// Map Step Interrupt to [InterruptPins]
     pub fn with_step(mut self, mapped_to: InterruptPins) -> Self {
@@ -161,14 +169,14 @@ where
     //Int12IOCtrl
 
     /// Int1 Pin Output Mode
-    /// 
+    ///
     /// See Datasheet p.39
     pub fn with_int1_cfg(mut self, config: PinOutputConfig) -> Self {
         self.config.int12_io_ctrl = self.config.int12_io_ctrl.with_int1_cfg(config);
         self
     }
     /// Int2 Pin Output Mode
-    /// 
+    ///
     /// See Datasheet p.39
     pub fn with_int2_cfg(mut self, config: PinOutputConfig) -> Self {
         self.config.int12_io_ctrl = self.config.int12_io_ctrl.with_int2_cfg(config);
@@ -177,9 +185,9 @@ where
     // Clippy: ignore lint for intentional XOR with self, avoiding an awkward import / function call
     #[allow(clippy::eq_op)]
     pub fn write(mut self) -> Result<(), E> {
-        // Any change of an interrupt configuration must be executed when the corresponding interrupt is
-        // disabled. (Datasheet p. 40)
-        
+        // Any change of an interrupt configuration must be executed when the corresponding
+        // interrupt is disabled. (Datasheet p. 40)
+
         // Collect IntConfig0 interrupts with changes
         let int_config0 = self.device.config.int_config.get_config0();
         let mut tmp_int_config0 = int_config0;
@@ -190,7 +198,9 @@ where
         let wkup_int_config0 = self.device.config.wkup_int_config.get_config0();
         let mut tmp_wkup_int_config0 = wkup_int_config0;
         // If there are electrical configuration changes
-        if self.device.config.int_pin_config.int12_io_ctrl.bits() != self.config.int12_io_ctrl.bits() {
+        if self.device.config.int_pin_config.int12_io_ctrl.bits()
+            != self.config.int12_io_ctrl.bits()
+        {
             // Disable Everything
             tmp_int_config0 = tmp_int_config0 ^ tmp_int_config0;
             tmp_int_config1 = tmp_int_config1 ^ tmp_int_config1;
@@ -216,22 +226,29 @@ where
                 tmp_int_config0 = tmp_int_config0.with_gen2_int(false);
             }
             // Orientation Change
-            if int_config0.orientch_int() && !matches!(self.config.orientch_map(), InterruptPins::None) {
+            if int_config0.orientch_int()
+                && !matches!(self.config.orientch_map(), InterruptPins::None)
+            {
                 tmp_int_config0 = tmp_int_config0.with_orientch_int(false);
             }
             // Wakeup
-            if self.device.config.wkup_int_config.is_int_en() && !matches!(self.config.wkup_map(), InterruptPins::None) {
-                tmp_wkup_int_config0 = tmp_wkup_int_config0.with_x_axis(false).with_y_axis(false).with_z_axis(false);
+            if self.device.config.wkup_int_config.is_int_en()
+                && !matches!(self.config.wkup_map(), InterruptPins::None)
+            {
+                tmp_wkup_int_config0 =
+                    tmp_wkup_int_config0.with_x_axis(false).with_y_axis(false).with_z_axis(false);
             }
             // Activity Change
             if int_config1.actch_int() && !matches!(self.config.actch_map(), InterruptPins::None) {
                 tmp_int_config1 = tmp_int_config1.with_actch_int(false);
             }
-            // Tap 
-            if (int_config1.s_tap_int() || int_config1.d_tap_int()) && !matches!(self.config.tap_map(), InterruptPins::None) {
+            // Tap
+            if (int_config1.s_tap_int() || int_config1.d_tap_int())
+                && !matches!(self.config.tap_map(), InterruptPins::None)
+            {
                 tmp_int_config1 = tmp_int_config1.with_d_tap_int(false).with_s_tap_int(false);
             }
-            // Step 
+            // Step
             if int_config1.step_int() && !matches!(self.config.step_map(), InterruptPins::None) {
                 tmp_int_config1 = tmp_int_config1.with_step_int(false);
             }
@@ -259,7 +276,9 @@ where
             self.device.interface.write_register(self.config.int12_map)?;
             self.device.config.int_pin_config.int12_map = self.config.int12_map;
         }
-        if self.device.config.int_pin_config.int12_io_ctrl.bits() != self.config.int12_io_ctrl.bits() {
+        if self.device.config.int_pin_config.int12_io_ctrl.bits()
+            != self.config.int12_io_ctrl.bits()
+        {
             self.device.interface.write_register(self.config.int12_io_ctrl)?;
             self.device.config.int_pin_config.int12_io_ctrl = self.config.int12_io_ctrl;
         }

@@ -1,8 +1,12 @@
 use crate::{
-    registers::{AutoLowPow0, AutoLowPow1},
     interface::WriteToRegister,
+    registers::{
+        AutoLowPow0,
+        AutoLowPow1,
+    },
+    AutoLPTimeoutTrigger,
+    ConfigError,
     BMA400,
-    ConfigError, AutoLPTimeoutTrigger, 
 };
 
 #[derive(Clone, Default)]
@@ -11,23 +15,27 @@ pub struct AutoLpConfig {
     auto_low_pow1: AutoLowPow1,
 }
 
-pub struct AutoLpConfigBuilder<'a, Interface:WriteToRegister> {
+pub struct AutoLpConfigBuilder<'a, Interface: WriteToRegister> {
     config: AutoLpConfig,
-    device: &'a mut BMA400<Interface>
+    device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> AutoLpConfigBuilder<'a, Interface> 
+impl<'a, Interface, E> AutoLpConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
-        AutoLpConfigBuilder { config: device.config.auto_lp_config.clone(), device }
+        AutoLpConfigBuilder {
+            config: device.config.auto_lp_config.clone(),
+            device,
+        }
     }
     // AutoLowPow0 + AutoLowPow1
 
-    /// Set the timeout counter for auto low power mode. This value is 12-bits, and is incremented every 2.5ms
-    /// 
+    /// Set the timeout counter for auto low power mode. This value is 12-bits, and is incremented
+    /// every 2.5ms
+    ///
     /// This value is clamped to \[0, 4095\]
     pub fn with_timeout(mut self, count: u16) -> Self {
         let timeout = count.clamp(0, 4095);
@@ -54,11 +62,15 @@ where
     }
 
     pub fn write(self) -> Result<(), E> {
-        if self.device.config.auto_lp_config.auto_low_pow0.bits() != self.config.auto_low_pow0.bits() {
+        if self.device.config.auto_lp_config.auto_low_pow0.bits()
+            != self.config.auto_low_pow0.bits()
+        {
             self.device.interface.write_register(self.config.auto_low_pow0)?;
             self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
         }
-        if self.device.config.auto_lp_config.auto_low_pow1.bits() != self.config.auto_low_pow1.bits() {
+        if self.device.config.auto_lp_config.auto_low_pow1.bits()
+            != self.config.auto_low_pow1.bits()
+        {
             self.device.interface.write_register(self.config.auto_low_pow1)?;
             self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
         }
@@ -87,7 +99,8 @@ mod tests {
         let builder = device.config_auto_lp();
         let builder = builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledNoReset);
         assert_eq!(builder.config.auto_low_pow1.bits(), 0x04);
-        let builder = builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset);
+        let builder =
+            builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset);
         assert_eq!(builder.config.auto_low_pow1.bits(), 0x08);
         let builder = builder.with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutDisabled);
         assert_eq!(builder.config.auto_low_pow1.bits(), 0x00);

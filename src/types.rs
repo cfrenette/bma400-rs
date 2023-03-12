@@ -72,7 +72,9 @@ pub struct IntStatus0 {
 
 impl IntStatus0 {
     pub fn new(status_byte: u8) -> Self {
-        IntStatus0 {bits: status_byte }
+        IntStatus0 {
+            bits: status_byte,
+        }
     }
     pub fn drdy_stat(&self) -> bool {
         (self.bits & 0b1000_0000) != 0
@@ -106,7 +108,9 @@ pub struct IntStatus1 {
 
 impl IntStatus1 {
     pub fn new(status_byte: u8) -> Self {
-        IntStatus1 { bits: status_byte }
+        IntStatus1 {
+            bits: status_byte,
+        }
     }
     pub fn ieng_overrun_stat(&self) -> bool {
         (self.bits & 0b0001_0000) != 0
@@ -132,7 +136,9 @@ pub struct IntStatus2 {
 
 impl IntStatus2 {
     pub fn new(status_byte: u8) -> Self {
-        IntStatus2 { bits: status_byte }
+        IntStatus2 {
+            bits: status_byte,
+        }
     }
     pub fn ieng_overrun_stat(&self) -> bool {
         (self.bits & 0b0001_0000) != 0
@@ -149,11 +155,11 @@ impl IntStatus2 {
 }
 
 /// A 3-axis acceleration measurement with 3 fields
-/// 
+///
 /// x: x-axis data,
-/// 
+///
 /// y: y-axis data,
-/// 
+///
 /// z: z-axis data
 #[derive(Debug)]
 pub struct Measurement {
@@ -167,13 +173,17 @@ pub struct Measurement {
 
 impl Measurement {
     fn new(x: i16, y: i16, z: i16) -> Self {
-        Measurement { x, y, z }
+        Measurement {
+            x,
+            y,
+            z,
+        }
     }
     pub fn from_bytes_unscaled(bytes: &[u8]) -> Self {
         Self::new(
             Self::to_i16(bytes[0], bytes[1]),
             Self::to_i16(bytes[2], bytes[3]),
-            Self::to_i16(bytes[4], bytes[5])
+            Self::to_i16(bytes[4], bytes[5]),
         )
     }
     pub fn from_bytes_scaled(scale: Scale, bytes: &[u8]) -> Self {
@@ -186,15 +196,21 @@ impl Measurement {
         Self::new(
             Self::to_i16(bytes[0], bytes[1]) << shift,
             Self::to_i16(bytes[2], bytes[3]) << shift,
-            Self::to_i16(bytes[4], bytes[5]) << shift
+            Self::to_i16(bytes[4], bytes[5]) << shift,
         )
     }
     fn to_i16(lsb: u8, msb: u8) -> i16 {
         let clear_rsvd_bits = msb & 0x0F;
-        i16::from_le_bytes([lsb, if (clear_rsvd_bits >> 3) == 0u8 { clear_rsvd_bits } else { clear_rsvd_bits | 0xF0 }])
+        i16::from_le_bytes([
+            lsb,
+            if (clear_rsvd_bits >> 3) == 0u8 {
+                clear_rsvd_bits
+            } else {
+                clear_rsvd_bits | 0xF0
+            },
+        ])
     }
 }
-
 
 /// The BMA400's Hardware Interrupt Pins, Int1 and Int2
 pub enum InterruptPins {
@@ -221,7 +237,7 @@ pub enum PinOutputConfig {
 }
 
 /// The Measurement scale of the accelerometer
-/// 
+///
 /// 2g/4g/8g/16g
 pub enum Scale {
     /// -2g to 2g
@@ -235,23 +251,23 @@ pub enum Scale {
 }
 
 /// Data Source Configuration
-/// 
-/// Select one of three possible data sources to feed the data registers and the interrupt engine. 
-/// 
+///
+/// Select one of three possible data sources to feed the data registers and the interrupt engine.
+///
 /// The FIFO buffer can only use either [DataSource::AccFilt1] or [DataSource::AccFilt2]
 #[derive(Debug)]
 pub enum DataSource {
-    /// Selectable [OutputDataRate], choice of two low pass filter bandwidths 
-    /// 
+    /// Selectable [OutputDataRate], choice of two low pass filter bandwidths
+    ///
     /// Recommended to feed data registers / FIFO buffer
     /// (See: [Filter1Bandwidth])
     AccFilt1,
     /// Fixed [OutputDataRate] of 100Hz, fixed low pass filter bandwidth (48Hz)
-    /// 
+    ///
     /// Recommended for interrupts except Tap Sensing Interrupt (which requires 200Hz ODR)
     AccFilt2,
     /// Fixed [OutputDataRate] of 100Hz, fixed low pass filter bandwidth (1Hz)
-    /// 
+    ///
     /// Cannot be used by the FIFO buffer
     AccFilt2Lp,
 }
@@ -284,30 +300,30 @@ pub enum OutputDataRate {
 
 #[derive(Debug)]
 /// Oversample Rate
-/// 
+///
 /// Higher values reduce data noise at the cost of power consumption
-/// 
+///
 /// See p. 21 of datasheet
 pub enum OversampleRate {
     /// Lowest Precision / Power Draw
-    /// 
+    ///
     /// [PowerMode::LowPower] 0.85uA
-    /// 
+    ///
     /// [PowerMode::Normal]  3.5uA
     OSR0,
-    /// [PowerMode::LowPower] 0.93uA 
-    /// 
-    /// [PowerMode::Normal] 5.8uA 
+    /// [PowerMode::LowPower] 0.93uA
+    ///
+    /// [PowerMode::Normal] 5.8uA
     OSR1,
     /// [PowerMode::LowPower] 1.1uA
-    /// 
-    /// [PowerMode::Normal] 9.5uA 
+    ///
+    /// [PowerMode::Normal] 9.5uA
     OSR2,
     /// Highest Precision / Power Draw
-    /// 
-    /// [PowerMode::LowPower] 1.35uA 
-    /// 
-    /// [PowerMode::Normal] 14.5uA 
+    ///
+    /// [PowerMode::LowPower] 1.35uA
+    ///
+    /// [PowerMode::Normal] 14.5uA
     OSR3,
 }
 
@@ -324,22 +340,22 @@ pub enum Axis {
 }
 
 /// An individual frame read from the FIFO buffer.
-/// 
+///
 /// The frame can be one of three [FrameType]s:
-/// 
+///
 /// [FrameType::Data] - Contains an accelerometer reading for the axes enabled
 /// at the time of measurement
-/// 
+///
 /// [FrameType::Control] - This frame type is sent when there are changes to
-/// either: 
+/// either:
 /// - the [DataSource] configured for the FIFO
-/// - [Filter1Bandwidth] or 
+/// - [Filter1Bandwidth] or
 /// - [OutputDataRate], [OversampleRate] and/or [Scale]
-/// 
+///
 /// [FrameType::Time] - Only sent if FIFO is configured with send_time_on_empty
 /// enabled. This is the sensor as of reading past the last byte of the FIFO
 pub struct Frame<'a> {
-    slice: &'a [u8]
+    slice: &'a [u8],
 }
 
 impl<'a> Frame<'a> {
@@ -358,7 +374,11 @@ impl<'a> Frame<'a> {
         if !matches!(header.frame_type(), FrameType::Data) || !header.has_y_data() {
             return None;
         }
-        let offset = if header.has_x_data() {1} else {0};
+        let offset = if header.has_x_data() {
+            1
+        } else {
+            0
+        };
         Some(self.data_at_offset(offset, header.resolution_is_12bit()))
     }
     pub fn z(&self) -> Option<i16> {
@@ -366,7 +386,15 @@ impl<'a> Frame<'a> {
         if !matches!(header.frame_type(), FrameType::Data) || !header.has_z_data() {
             return None;
         }
-        let offset = if header.has_x_data() {1} else {0} + if header.has_y_data() {1} else {0};
+        let offset = if header.has_x_data() {
+            1
+        } else {
+            0
+        } + if header.has_y_data() {
+            1
+        } else {
+            0
+        };
         Some(self.data_at_offset(offset, header.resolution_is_12bit()))
     }
     pub fn time(&self) -> Option<u32> {
@@ -384,7 +412,7 @@ impl<'a> Frame<'a> {
     }
     pub fn filt1_bw_chg(&self) -> Option<bool> {
         if let FrameType::Control = self.frame_type() {
-            Some(self.slice[1] & 0b0100 !=0)
+            Some(self.slice[1] & 0b0100 != 0)
         } else {
             None
         }
@@ -398,14 +426,21 @@ impl<'a> Frame<'a> {
     }
     fn data_at_offset(&self, offset: usize, resolution_is_12bit: bool) -> i16 {
         let (lsb, msb);
-                if resolution_is_12bit {
-                    lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset * 2 + 2] << 4);
-                    msb = self.slice[offset * 2 + 2] >> 4;
-                } else  {
-                    lsb = self.slice[offset + 1] << 4;
-                    msb = self.slice[offset + 1] >> 4;
-                }
-        i16::from_le_bytes([lsb, if (msb >> 3) == 0u8 { msb } else { msb | 0xF0 }])
+        if resolution_is_12bit {
+            lsb = (self.slice[offset * 2 + 1] & 0xF) | (self.slice[offset * 2 + 2] << 4);
+            msb = self.slice[offset * 2 + 2] >> 4;
+        } else {
+            lsb = self.slice[offset + 1] << 4;
+            msb = self.slice[offset + 1] >> 4;
+        }
+        i16::from_le_bytes([
+            lsb,
+            if (msb >> 3) == 0u8 {
+                msb
+            } else {
+                msb | 0xF0
+            },
+        ])
     }
 }
 
@@ -423,7 +458,10 @@ pub struct FifoFrames<'a> {
 
 impl<'a> FifoFrames<'a> {
     pub fn new(bytes: &[u8]) -> FifoFrames {
-        FifoFrames { index: 0, bytes }
+        FifoFrames {
+            index: 0,
+            bytes,
+        }
     }
 }
 
@@ -432,7 +470,7 @@ impl<'a> Iterator for FifoFrames<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.bytes.len() {
-            return None
+            return None;
         }
         let header_idx = self.index;
         let header = Header::from_bits_truncate(self.bytes[header_idx]);
@@ -445,11 +483,13 @@ impl<'a> Iterator for FifoFrames<'a> {
         if self.index > self.bytes.len() {
             return None;
         }
-        Some(Frame{slice: &self.bytes[header_idx .. self.index]})
+        Some(Frame {
+            slice: &self.bytes[header_idx..self.index],
+        })
     }
 }
 
-bitflags!{
+bitflags! {
     struct Header: u8 {
         const FH_MODE1  = 0b1000_0000;
         const FH_MODE0  = 0b0100_0000;
@@ -477,17 +517,13 @@ impl Header {
     }
     pub const fn resolution_is_12bit(&self) -> bool {
         match self.frame_type() {
-            FrameType::Data => {
-                self.intersects(Self::RESOLUTION)
-            },
+            FrameType::Data => self.intersects(Self::RESOLUTION),
             _ => false,
         }
     }
     pub const fn has_data(&self) -> bool {
         match self.frame_type() {
-            FrameType::Data => {
-                self.intersects(Self::AXES)
-            },
+            FrameType::Data => self.intersects(Self::AXES),
             _ => false,
         }
     }
@@ -509,40 +545,34 @@ impl Header {
                 } else {
                     num_axes
                 }
-            },
+            }
             FrameType::Control => 1,
         }
     }
     pub const fn has_x_data(&self) -> bool {
         match self.frame_type() {
-            FrameType::Data => {
-                self.intersects(Self::FH_PARAM0)
-            },
+            FrameType::Data => self.intersects(Self::FH_PARAM0),
             _ => false,
         }
     }
     pub const fn has_y_data(&self) -> bool {
         match self.frame_type() {
-            FrameType::Data => {
-                self.intersects(Self::FH_PARAM1)
-            },
+            FrameType::Data => self.intersects(Self::FH_PARAM1),
             _ => false,
         }
     }
     pub const fn has_z_data(&self) -> bool {
         match self.frame_type() {
-            FrameType::Data => {
-                self.intersects(Self::FH_PARAM2)
-            },
+            FrameType::Data => self.intersects(Self::FH_PARAM2),
             _ => false,
         }
     }
 }
 
 /// Automatically enter low power mode after a defined timeout
-/// 
+///
 /// Non-timed triggers are still supported if timeout is disabled
-/// 
+///
 /// See datasheet p.25
 pub enum AutoLPTimeoutTrigger {
     /// Timed trigger to enter low power mode disabled
@@ -554,13 +584,13 @@ pub enum AutoLPTimeoutTrigger {
 }
 
 /// Wake-up interrupt activity reference update mode
-/// 
+///
 /// [WakeupIntRefMode::Manual] - The reference acceleration is set manually by the host MCU
-/// 
+///
 /// [WakeupIntRefMode::OneTime] - A snapshot of the acceleration each time the device enters
 ///  low power mode is used as reference
-/// 
-/// [WakeupIntRefMode::EveryTime] - The reference acceleration is continuously updated in 
+///
+/// [WakeupIntRefMode::EveryTime] - The reference acceleration is continuously updated in
 /// low power mode (25Hz) waking up on changes in acceleration samples larger than threshold
 pub enum WakeupIntRefMode {
     /// Manually set reference acceleration
@@ -568,19 +598,17 @@ pub enum WakeupIntRefMode {
     /// Automatically snapshot acceleration upon entering low power mode
     OneTime,
     /// Continuously update reference acceleration in low power mode
-    EveryTime
+    EveryTime,
 }
 
 /// Orientation Changed reference update mode
-/// 
-
 pub enum OrientIntRefMode {
     /// Manually set reference acceleration
     Manual,
     /// Automatically snapshot acceleration from AccFilt2
     AccFilt2,
     /// Automatically snapshot acceleration from AccFilt2Lp (1Hz bandwidth filter)
-    AccFilt2Lp
+    AccFilt2Lp,
 }
 
 /// Number of samples to observe to determine baseline acceleration
@@ -593,7 +621,7 @@ pub enum ActChgObsPeriod {
 }
 
 /// Tap Sensitivity
-/// 
+///
 /// 0 = Highest, 7 = Lowest
 pub enum TapSensitivity {
     SENS0,
@@ -606,7 +634,8 @@ pub enum TapSensitivity {
     SENS7,
 }
 
-/// The minimum number of samples that must elapse between detected peaks for it to be considered part of a separate tap
+/// The minimum number of samples that must elapse between detected peaks for it to be considered
+/// part of a separate tap
 pub enum MinTapDuration {
     Samples4,
     Samples8,
@@ -614,7 +643,8 @@ pub enum MinTapDuration {
     Samples16,
 }
 
-/// The maximum number of samples that can elapse between two detected peaks for it to be considered a double tap
+/// The maximum number of samples that can elapse between two detected peaks for it to be considered
+/// a double tap
 pub enum DoubleTapDuration {
     Samples60,
     Samples80,
@@ -622,7 +652,8 @@ pub enum DoubleTapDuration {
     Samples120,
 }
 
-/// The maxiumum number of samples that can elapse between high and low peak of a tap for it to be considered a tap
+/// The maxiumum number of samples that can elapse between high and low peak of a tap for it to be
+/// considered a tap
 pub enum MaxTapDuration {
     Samples6,
     Samples9,
@@ -634,11 +665,14 @@ pub enum MaxTapDuration {
 pub enum GenIntRefMode {
     /// Reference is not updated automatically and must be set by using `with_ref_accel()`
     Manual,
-    /// A reference acceleration snapshot is taken from the selected data source once upon triggering the interrupt or entering normal mode
+    /// A reference acceleration snapshot is taken from the selected data source once upon
+    /// triggering the interrupt or entering normal mode
     OneTime,
-    /// A reference acceleration snapshot is taken from the selected data source each time the interrupt condition is evaluated
+    /// A reference acceleration snapshot is taken from the selected data source each time the
+    /// interrupt condition is evaluated
     EveryTimeFromSrc,
-    /// A reference acceleration snapshot is taken from AccFilt2Lp (1Hz) each time the interrupt condition is evaluated
+    /// A reference acceleration snapshot is taken from AccFilt2Lp (1Hz) each time the interrupt
+    /// condition is evaluated
     EveryTimeFromLp,
 }
 
@@ -654,7 +688,7 @@ pub enum Hysteresis {
     Hyst96mg,
 }
 
-/// Select whether the interrupt triggers on detecting acceleration 
+/// Select whether the interrupt triggers on detecting acceleration
 /// either outside or inside the \[`ref_accel`-`threshold`,`ref_accel`+`threshold`\] window
 pub enum GenIntCriterionMode {
     /// Interrupt triggers on acceleration inside reference +/- threshold (Inactivity Detection)

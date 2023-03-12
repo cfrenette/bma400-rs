@@ -1,4 +1,7 @@
-use crate::registers::{ReadReg, ConfigReg};
+use crate::registers::{
+    ConfigReg,
+    ReadReg,
+};
 
 pub trait WriteToRegister {
     type Error;

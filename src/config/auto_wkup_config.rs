@@ -1,8 +1,11 @@
 use crate::{
-    registers::{AutoWakeup0, AutoWakeup1},
     interface::WriteToRegister,
-    BMA400,
+    registers::{
+        AutoWakeup0,
+        AutoWakeup1,
+    },
     ConfigError,
+    BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -22,17 +25,20 @@ pub struct AutoWakeupConfigBuilder<'a, Interface> {
     device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> AutoWakeupConfigBuilder<'a, Interface> 
-where 
+impl<'a, Interface, E> AutoWakeupConfigBuilder<'a, Interface>
+where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoWakeupConfigBuilder<'a, Interface> {
-        AutoWakeupConfigBuilder { config: device.config.auto_wkup_config.clone(), device }
+        AutoWakeupConfigBuilder {
+            config: device.config.auto_wkup_config.clone(),
+            device,
+        }
     }
 
-    /// Set the timer counter threshold for periodic auto wake-up. The counter is 12-bits and is incremented every 2.5ms,
-    /// so this value is clamped to \[0, 4095\]
+    /// Set the timer counter threshold for periodic auto wake-up. The counter is 12-bits and is
+    /// incremented every 2.5ms, so this value is clamped to \[0, 4095\]
     pub fn with_wakeup_period(mut self, count: u16) -> Self {
         let timeout = count.clamp(0, 4095);
         self.config.auto_wakeup0 = self.config.auto_wakeup0.with_wakeup_timeout_msb(timeout);
@@ -50,11 +56,15 @@ where
         self
     }
     pub fn write(self) -> Result<(), E> {
-        if self.device.config.auto_wkup_config.auto_wakeup0.bits() != self.config.auto_wakeup0.bits() {
+        if self.device.config.auto_wkup_config.auto_wakeup0.bits()
+            != self.config.auto_wakeup0.bits()
+        {
             self.device.interface.write_register(self.config.auto_wakeup0)?;
             self.device.config.auto_wkup_config.auto_wakeup0 = self.config.auto_wakeup0;
         }
-        if self.device.config.auto_wkup_config.auto_wakeup1.bits() != self.config.auto_wakeup1.bits() {
+        if self.device.config.auto_wkup_config.auto_wakeup1.bits()
+            != self.config.auto_wakeup1.bits()
+        {
             self.device.interface.write_register(self.config.auto_wakeup1)?;
             self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
         }

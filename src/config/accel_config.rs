@@ -1,17 +1,17 @@
 use crate::{
+    interface::WriteToRegister,
     registers::{
         AccConfig0,
         AccConfig1,
-        AccConfig2
+        AccConfig2,
     },
-    Scale,
-    interface::WriteToRegister,
     ConfigError,
-    PowerMode,
-    OversampleRate,
+    DataSource,
     Filter1Bandwidth,
     OutputDataRate,
-    DataSource,
+    OversampleRate,
+    PowerMode,
+    Scale,
     BMA400,
 };
 
@@ -38,26 +38,28 @@ impl AccConfig {
 }
 
 /// Configure basic accelerometer settings like Output Data Rate (ODR)
-pub struct AccConfigBuilder<'a, Interface: WriteToRegister> 
-{
+pub struct AccConfigBuilder<'a, Interface: WriteToRegister> {
     config: AccConfig,
     device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> AccConfigBuilder<'a, Interface> 
+impl<'a, Interface, E> AccConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AccConfigBuilder<'a, Interface> {
-        AccConfigBuilder { config: device.config.acc_config.clone(), device }
+        AccConfigBuilder {
+            config: device.config.acc_config.clone(),
+            device,
+        }
     }
     // AccConfig0
     /// Set Power Mode
-    /// 
+    ///
     /// Note: Other settings can result in the power automatically changing,
     /// for example auto wakeup and auto low-power mode.
-    /// 
+    ///
     /// To read the current power mode use `get_status()`
     pub fn with_power_mode(mut self, power_mode: PowerMode) -> Self {
         self.config.acc_config0 = self.config.acc_config0.with_power_mode(power_mode);
@@ -68,13 +70,13 @@ where
         self.config.acc_config0 = self.config.acc_config0.with_osr_lp(osr);
         self
     }
-    /// Set the [Filter1Bandwidth] for [DataSource::AccFilt1] 
+    /// Set the [Filter1Bandwidth] for [DataSource::AccFilt1]
     pub fn with_filt1_bw(mut self, bandwidth: Filter1Bandwidth) -> Self {
         self.config.acc_config0 = self.config.acc_config0.with_filt1_bw(bandwidth);
         self
     }
     // AccConfig1
-    /// Output Data Rate for [DataSource::AccFilt1] 
+    /// Output Data Rate for [DataSource::AccFilt1]
     pub fn with_odr(mut self, odr: OutputDataRate) -> Self {
         self.config.acc_config1 = self.config.acc_config1.with_odr(odr);
         self
@@ -239,7 +241,10 @@ mod tests {
         assert!(matches!(device.config_interrupts().with_actch_int(true).write(), Ok(())));
         // Try to change the OutputDataRate back to 200Hz
         let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
     #[test]
     fn test_gen1_int_config_err() {
@@ -250,7 +255,10 @@ mod tests {
         assert!(matches!(device.config_interrupts().with_gen1_int(true).write(), Ok(())));
         // Try to change the OutputDataRate back to 200Hz
         let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
     #[test]
     fn test_gen2_int_config_err() {
@@ -261,7 +269,10 @@ mod tests {
         assert!(matches!(device.config_interrupts().with_gen2_int(true).write(), Ok(())));
         // Try to change the OutputDataRate back to 200Hz
         let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
     #[test]
     fn test_tap_int_config_err() {
@@ -272,13 +283,19 @@ mod tests {
         assert!(matches!(device.config_interrupts().with_s_tap_int(true).write(), Ok(())));
         // Try to change the OutputDataRate to 100Hz
         let result = device.config_accel().with_odr(OutputDataRate::Hz100).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+        ));
         // Disable the Single Tap Interrupt
         assert!(matches!(device.config_interrupts().with_s_tap_int(false).write(), Ok(())));
         // Enable the Double Tap Interrupt
         assert!(matches!(device.config_interrupts().with_d_tap_int(true).write(), Ok(())));
         // Try to change the OutputDataRate to 100Hz
         let result = device.config_accel().with_odr(OutputDataRate::Hz100).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+        ));
     }
 }

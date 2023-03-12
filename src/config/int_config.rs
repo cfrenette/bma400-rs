@@ -1,14 +1,14 @@
 use crate::{
-    registers::{
-        IntConfig0, IntConfig1
-    }, 
     interface::WriteToRegister,
+    registers::{
+        IntConfig0,
+        IntConfig1,
+    },
     ConfigError,
-    BMA400,
-    OutputDataRate,
     DataSource,
+    OutputDataRate,
+    BMA400,
 };
-
 
 #[derive(Clone, Default)]
 pub struct IntConfig {
@@ -26,19 +26,21 @@ impl IntConfig {
     }
 }
 
-pub struct IntConfigBuilder<'a, Interface: WriteToRegister> 
-{
+pub struct IntConfigBuilder<'a, Interface: WriteToRegister> {
     config: IntConfig,
     device: &'a mut BMA400<Interface>,
 }
 
-impl<'a, Interface, E> IntConfigBuilder<'a, Interface> 
+impl<'a, Interface, E> IntConfigBuilder<'a, Interface>
 where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
-        IntConfigBuilder { config: device.config.int_config.clone(), device }
+        IntConfigBuilder {
+            config: device.config.int_config.clone(),
+            device,
+        }
     }
     // IntConfig0
     /// Enable/Disable the Data Ready Interrupt
@@ -75,7 +77,7 @@ where
     // IntConfig1
 
     /// Enable/Disable latched interrupt mode
-    /// 
+    ///
     /// When enabled, all interrupts persist until the corresponding IntStatus is read
     pub fn with_latch_int(mut self, enabled: bool) -> Self {
         self.config.int_config1 = self.config.int_config1.with_latch_int(enabled);
@@ -102,22 +104,33 @@ where
         self
     }
     pub fn write(self) -> Result<(), E> {
-        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int()) && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200) {
+        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200)
+        {
             return Err(ConfigError::TapIntEnabledInvalidODR.into());
         }
-        
+
         // Check DataSource for each enabled interrupt that can use Filt1 and validate
 
         // Gen 1
-        if self.config.int_config0.gen1_int() && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && matches!(self.device.config.gen1int_config.src(), DataSource::AccFilt1) {
+        if self.config.int_config0.gen1_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.device.config.gen1int_config.src(), DataSource::AccFilt1)
+        {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
         // Gen 2
-        if self.config.int_config0.gen2_int() && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && matches!(self.device.config.gen2int_config.src(), DataSource::AccFilt1) {
+        if self.config.int_config0.gen2_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.device.config.gen2int_config.src(), DataSource::AccFilt1)
+        {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
         // Activity Change
-        if self.config.int_config1.actch_int() && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100) && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1) {
+        if self.config.int_config1.actch_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1)
+        {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
 
@@ -224,33 +237,48 @@ mod tests {
         assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
         // Try to enable the single tap interrupt
         let result = device.config_interrupts().with_s_tap_int(true).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+        ));
         // Try to enable the double tap interrupt
         let result = device.config_interrupts().with_d_tap_int(true).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+        ));
     }
     #[test]
     fn test_gen1_int_config_err() {
         let mut device = get_test_device();
-        // By default Generic Interrupts are set to use Filt1 and default ODR is 200Hz, so no need to set manually
-        // Try to enable the gen1 interrupt
+        // By default Generic Interrupts are set to use Filt1 and default ODR is 200Hz, so no need
+        // to set manually Try to enable the gen1 interrupt
         let result = device.config_interrupts().with_gen1_int(true).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
     #[test]
     fn test_gen2_int_config_err() {
         let mut device = get_test_device();
-        // By default Generic Interrupts are set to use Filt1 and default ODR is 200Hz, so no need to set manually
-        // Try to enable the gen1 interrupt
+        // By default Generic Interrupts are set to use Filt1 and default ODR is 200Hz, so no need
+        // to set manually Try to enable the gen1 interrupt
         let result = device.config_interrupts().with_gen2_int(true).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
     #[test]
     fn test_actch_config_err() {
         let mut device = get_test_device();
-        // By default Activity Change is set to use Filt1 and default ODR is 200Hz, so no need to set manually
-        // Try to enable the activity change interrupt
+        // By default Activity Change is set to use Filt1 and default ODR is 200Hz, so no need to
+        // set manually Try to enable the activity change interrupt
         let result = device.config_interrupts().with_actch_int(true).write();
-        assert!(matches!(result, Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))));
+        assert!(matches!(
+            result,
+            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+        ));
     }
 }

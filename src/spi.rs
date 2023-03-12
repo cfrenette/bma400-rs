@@ -1,12 +1,26 @@
 use embedded_hal::digital::v2::OutputPin;
-use crate::hal::blocking::spi::{Write, Transfer};
+
 use crate::{
-    interface::{WriteToRegister, ReadFromRegister},
-    registers::{ReadReg, ConfigReg, ChipId, InterfaceConfig}, 
-    BMA400, Config, BMA400Error
+    hal::blocking::spi::{
+        Transfer,
+        Write,
+    },
+    interface::{
+        ReadFromRegister,
+        WriteToRegister,
+    },
+    registers::{
+        ChipId,
+        ConfigReg,
+        InterfaceConfig,
+        ReadReg,
+    },
+    BMA400Error,
+    Config,
+    BMA400,
 };
 
-// Wrapper class to instantiate BMA400 with an SPI interface 
+// Wrapper class to instantiate BMA400 with an SPI interface
 // (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
 #[derive(Debug)]
 pub struct SPIInterface<SPI, CSBPin> {
@@ -14,7 +28,7 @@ pub struct SPIInterface<SPI, CSBPin> {
     csb: CSBPin,
 }
 
-impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI, CSBPin> 
+impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI, CSBPin>
 where
     SPI: Write<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
@@ -29,7 +43,7 @@ where
     }
 }
 
-impl<SPI, CSBPin, InterfaceError, PinError> ReadFromRegister for SPIInterface<SPI, CSBPin> 
+impl<SPI, CSBPin, InterfaceError, PinError> ReadFromRegister for SPIInterface<SPI, CSBPin>
 where
     SPI: Transfer<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,

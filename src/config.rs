@@ -11,15 +11,14 @@ use auto_lp_config::AutoLpConfig;
 mod auto_wkup_config;
 use auto_wkup_config::AutoWakeupConfig;
 mod wkup_int_config;
-use wkup_int_config::WakeupIntConfig;
-
 // Re-export builders
 pub use accel_config::AccConfigBuilder;
-pub use int_config::IntConfigBuilder;
-pub use int_pin_config::IntPinConfigBuilder;
-pub use fifo_config::FifoConfigBuilder;
 pub use auto_lp_config::AutoLpConfigBuilder;
 pub use auto_wkup_config::AutoWakeupConfigBuilder;
+pub use fifo_config::FifoConfigBuilder;
+pub use int_config::IntConfigBuilder;
+pub use int_pin_config::IntPinConfigBuilder;
+use wkup_int_config::WakeupIntConfig;
 pub use wkup_int_config::WakeupIntConfigBuilder;
 
 mod orientch_config;
@@ -27,7 +26,10 @@ use orientch_config::OrientChgConfig;
 pub use orientch_config::OrientChgConfigBuilder;
 mod gen_int_config;
 pub use gen_int_config::GenIntConfigBuilder;
-use gen_int_config::{Gen1IntConfig, Gen2IntConfig};
+use gen_int_config::{
+    Gen1IntConfig,
+    Gen2IntConfig,
+};
 mod actchg_config;
 use actchg_config::ActChgConfig;
 pub use actchg_config::ActChgConfigBuilder;
@@ -36,12 +38,14 @@ use tap_config::TapConfig;
 pub use tap_config::TapConfigBuilder;
 
 use crate::{
-    Scale, 
+    interface::WriteToRegister,
     registers::{
-        IntConfig0, IntConfig1, 
         AccConfig1,
-    }, 
-    BMA400Error, interface::WriteToRegister
+        IntConfig0,
+        IntConfig1,
+    },
+    BMA400Error,
+    Scale,
 };
 
 #[derive(Default, Clone)]
@@ -56,7 +60,7 @@ pub(crate) struct Config {
 
     // Maybe #[cfg(feature = "adv-int-orientchg")]
     orientch_config: OrientChgConfig,
-    
+
     // Maybe #[cfg(feature = "adv-int-generic")]
     gen1int_config: Gen1IntConfig,
     // Maybe #[cfg(feature = "adv-int-generic")]
@@ -76,8 +80,11 @@ impl Config {
     pub fn is_fifo_read_disabled(&self) -> bool {
         self.fifo_config.is_read_disabled()
     }
-    pub fn setup_self_test<Interface, InterfaceError, PinError>(&self, interface: &mut Interface) -> Result<(), BMA400Error<InterfaceError, PinError>>
-    where 
+    pub fn setup_self_test<Interface, InterfaceError, PinError>(
+        &self,
+        interface: &mut Interface,
+    ) -> Result<(), BMA400Error<InterfaceError, PinError>>
+    where
         Interface: WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
     {
         // Disable Interrupts
@@ -85,15 +92,22 @@ impl Config {
         interface.write_register(IntConfig1::from_bits_truncate(0x00))?;
         interface.write_register(self.auto_wkup_config.get_config1().with_wakeup_int(false))?;
         // Disable FIFO
-        interface.write_register(self.fifo_config.get_config0().with_fifo_x(false).with_fifo_y(false).with_fifo_z(false))?;
+        interface.write_register(
+            self.fifo_config.get_config0().with_fifo_x(false).with_fifo_y(false).with_fifo_z(false),
+        )?;
 
         // Set PowerMode = Normal
-        interface.write_register(self.acc_config.get_config0().with_power_mode(crate::PowerMode::Normal))?;
+        interface.write_register(
+            self.acc_config.get_config0().with_power_mode(crate::PowerMode::Normal),
+        )?;
         // Set Range = 4G, OSR = OSR3, ODR = 100Hz
         interface.write_register(AccConfig1::from_bits_truncate(0x78))?;
         Ok(())
     }
-    pub fn cleanup_self_test<Interface, InterfaceError, PinError>(&self, interface: &mut Interface) -> Result<(), BMA400Error<InterfaceError, PinError>> 
+    pub fn cleanup_self_test<Interface, InterfaceError, PinError>(
+        &self,
+        interface: &mut Interface,
+    ) -> Result<(), BMA400Error<InterfaceError, PinError>>
     where
         Interface: WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
     {

@@ -1,23 +1,27 @@
 use crate::{
     types::{
-        Filter1Bandwidth, 
-        OversampleRate, 
-        PowerMode, 
-        Scale, 
-        OutputDataRate, 
-        DataSource, 
-        PinOutputConfig, 
-        PinOutputLevel, 
-        AutoLPTimeoutTrigger, 
-        WakeupIntRefMode, 
-        OrientIntRefMode, 
         ActChgObsPeriod,
+        AutoLPTimeoutTrigger,
         Axis,
-        TapSensitivity,
-        MinTapDuration,
-        MaxTapDuration,
+        DataSource,
         DoubleTapDuration,
-    }, GenIntRefMode, Hysteresis, GenIntCriterionMode, GenIntLogicMode
+        Filter1Bandwidth,
+        MaxTapDuration,
+        MinTapDuration,
+        OrientIntRefMode,
+        OutputDataRate,
+        OversampleRate,
+        PinOutputConfig,
+        PinOutputLevel,
+        PowerMode,
+        Scale,
+        TapSensitivity,
+        WakeupIntRefMode,
+    },
+    GenIntCriterionMode,
+    GenIntLogicMode,
+    GenIntRefMode,
+    Hysteresis,
 };
 
 pub trait ReadReg {
@@ -27,9 +31,9 @@ pub trait ReadReg {
     }
 }
 
-pub trait ConfigReg: ReadReg 
+pub trait ConfigReg: ReadReg
 where
-    Self: Sized
+    Self: Sized,
 {
     fn to_byte(&self) -> u8;
 }
@@ -123,7 +127,6 @@ impl AccConfig0 {
         }
     }
     pub const fn with_power_mode(self, power_mode: PowerMode) -> Self {
-        
         match power_mode {
             PowerMode::Sleep => self.difference(Self::PWR_MODE),
             PowerMode::LowPower => self.difference(Self::PWR_MODE).union(Self::PW_CFG0),
@@ -186,8 +189,7 @@ impl AccConfig1 {
         }
     }
     pub const fn with_odr(self, odr: OutputDataRate) -> Self {
-        self.difference(Self::ACC_ODR).union(
-        match odr {
+        self.difference(Self::ACC_ODR).union(match odr {
             OutputDataRate::Hz12_5 => Self::ACC_ODR2.union(Self::ACC_ODR0),
             OutputDataRate::Hz25 => Self::ACC_ODR2.union(Self::ACC_ODR1),
             OutputDataRate::Hz50 => Self::ACC_ODR2.union(Self::ACC_ODR1).union(Self::ACC_ODR0),
@@ -218,7 +220,7 @@ impl AccConfig2 {
     }
 }
 
-cfg_register!{
+cfg_register! {
     IntConfig0: 0x1F = 0x00 {
         const DRDY_INT_EN     = 0b1000_0000;
         const FWM_INT_EN      = 0b0100_0000;
@@ -292,7 +294,7 @@ impl IntConfig0 {
     }
 }
 
-cfg_register!{
+cfg_register! {
     IntConfig1: 0x20 = 0x00 {
         const LATCH_INT = 0b1000_0000;
         const ACTCH_INT = 0b0001_0000;
@@ -538,7 +540,7 @@ impl Int2Map {
     }
 }
 
-cfg_register!{
+cfg_register! {
     Int12Map: 0x23 = 0x00 {
         const ACTCH2 = 0b1000_0000;
         const TAP2   = 0b0100_0000;
@@ -744,7 +746,7 @@ cfg_register! {
         const FIFO_THRESH_MSB2 = 0b0000_0100;
         const FIFO_THRESH_MSB1 = 0b0000_0010;
         const FIFO_THRESH_MSB0 = 0b0000_0001;
-        
+
         const FIFO_THRESH_MSB = Self::FIFO_THRESH_MSB2.bits | Self::FIFO_THRESH_MSB1.bits | Self::FIFO_THRESH_MSB0.bits;
     }
 }
@@ -811,13 +813,18 @@ cfg_register! {
 
 impl AutoLowPow1 {
     pub const fn with_auto_lp_timeout_lsb(self, timeout: u16) -> Self {
-        self.difference(Self::LP_TIMEOUT_LSB).union(Self::from_bits_truncate((timeout << 4).to_le_bytes()[0]))
+        self.difference(Self::LP_TIMEOUT_LSB)
+            .union(Self::from_bits_truncate((timeout << 4).to_le_bytes()[0]))
     }
     pub const fn with_auto_lp_timeout_mode(self, mode: AutoLPTimeoutTrigger) -> Self {
         match mode {
             AutoLPTimeoutTrigger::TimeoutDisabled => self.difference(Self::AUTO_LP_TIMEOUT),
-            AutoLPTimeoutTrigger::TimeoutEnabledNoReset => self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT0),
-            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT1),
+            AutoLPTimeoutTrigger::TimeoutEnabledNoReset => {
+                self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT0)
+            }
+            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => {
+                self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT1)
+            }
         }
     }
     pub const fn with_gen1_int_trigger(self, enabled: bool) -> Self {
@@ -855,7 +862,7 @@ impl AutoWakeup0 {
     }
 }
 
-cfg_register!{
+cfg_register! {
     AutoWakeup1: 0x2D = 0x00 {
         const WKUP_TIMEOUT_LSB3 = 0b1000_0000;
         const WKUP_TIMEOUT_LSB2 = 0b0100_0000;
@@ -870,7 +877,8 @@ cfg_register!{
 
 impl AutoWakeup1 {
     pub const fn with_wakeup_timeout_lsb(self, timeout: u16) -> Self {
-        self.difference(Self::WKUP_TIMEOUT_LSB).union(Self::from_bits_truncate((timeout << 4).to_le_bytes()[0]))
+        self.difference(Self::WKUP_TIMEOUT_LSB)
+            .union(Self::from_bits_truncate((timeout << 4).to_le_bytes()[0]))
     }
     pub const fn with_wakeup_timeout(self, enabled: bool) -> Self {
         if enabled {
@@ -888,7 +896,7 @@ impl AutoWakeup1 {
     }
 }
 
-cfg_register!{
+cfg_register! {
     WakeupIntConfig0: 0x2F = 0x00 {
         const WKUP_Z_EN = 0b1000_0000;
         const WKUP_Y_EN = 0b0100_0000;
@@ -905,7 +913,7 @@ cfg_register!{
 }
 
 impl WakeupIntConfig0 {
-    pub const fn wkup_int_en(&self ) -> bool {
+    pub const fn wkup_int_en(&self) -> bool {
         self.intersects(Self::WKUP_X_EN.union(Self::WKUP_Y_EN).union(Self::WKUP_Z_EN))
     }
     pub const fn with_z_axis(self, enabled: bool) -> Self {
@@ -1061,8 +1069,12 @@ impl OrientChgConfig0 {
     pub const fn with_update_mode(self, update_mode: OrientIntRefMode) -> Self {
         match update_mode {
             OrientIntRefMode::Manual => self.difference(Self::ORIENT_REFU),
-            OrientIntRefMode::AccFilt2 => self.difference(Self::ORIENT_REFU).union(Self::ORIENT_REFU0),
-            OrientIntRefMode::AccFilt2Lp => self.difference(Self::ORIENT_REFU).union(Self::ORIENT_REFU1),
+            OrientIntRefMode::AccFilt2 => {
+                self.difference(Self::ORIENT_REFU).union(Self::ORIENT_REFU0)
+            }
+            OrientIntRefMode::AccFilt2Lp => {
+                self.difference(Self::ORIENT_REFU).union(Self::ORIENT_REFU1)
+            }
         }
     }
 }
@@ -1216,7 +1228,7 @@ cfg_register! {
         const ACT_REFU1 = 0b0000_1000;
         const ACT_REFU0 = 0b0000_0100;
         const ACT_HYST1 = 0b0000_0010;
-        const ACT_HYST0 = 0b0000_0001; 
+        const ACT_HYST0 = 0b0000_0001;
 
         const ACT_REFU_MODE = Self::ACT_REFU1.bits | Self::ACT_REFU0.bits;
         const ACT_HYST = Self::ACT_HYST1.bits | Self::ACT_HYST0.bits;
@@ -1263,7 +1275,9 @@ impl Gen1IntConfig0 {
         match mode {
             GenIntRefMode::Manual => self.difference(Self::ACT_REFU_MODE),
             GenIntRefMode::OneTime => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU0),
-            GenIntRefMode::EveryTimeFromSrc => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU1),
+            GenIntRefMode::EveryTimeFromSrc => {
+                self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU1)
+            }
             GenIntRefMode::EveryTimeFromLp => self.union(Self::ACT_REFU_MODE),
         }
     }
@@ -1467,7 +1481,7 @@ cfg_register! {
         const ACT_REFU1 = 0b0000_1000;
         const ACT_REFU0 = 0b0000_0100;
         const ACT_HYST1 = 0b0000_0010;
-        const ACT_HYST0 = 0b0000_0001; 
+        const ACT_HYST0 = 0b0000_0001;
 
         const ACT_REFU_MODE = Self::ACT_REFU1.bits | Self::ACT_REFU0.bits;
         const ACT_HYST = Self::ACT_HYST1.bits | Self::ACT_HYST0.bits;
@@ -1514,7 +1528,9 @@ impl Gen2IntConfig0 {
         match mode {
             GenIntRefMode::Manual => self.difference(Self::ACT_REFU_MODE),
             GenIntRefMode::OneTime => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU0),
-            GenIntRefMode::EveryTimeFromSrc => self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU1),
+            GenIntRefMode::EveryTimeFromSrc => {
+                self.difference(Self::ACT_REFU_MODE).union(Self::ACT_REFU1)
+            }
             GenIntRefMode::EveryTimeFromLp => self.union(Self::ACT_REFU_MODE),
         }
     }
@@ -1782,10 +1798,18 @@ impl ActChgConfig1 {
     pub const fn with_observation_period(self, period: ActChgObsPeriod) -> Self {
         match period {
             ActChgObsPeriod::Samples32 => self.difference(Self::NUM_SAMPLES),
-            ActChgObsPeriod::Samples64 => self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS0),
-            ActChgObsPeriod::Samples128 => self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS1),
-            ActChgObsPeriod::Samples256 => self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS1).union(Self::NUM_SMPLS0),
-            ActChgObsPeriod::Samples512 => self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS2),
+            ActChgObsPeriod::Samples64 => {
+                self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS0)
+            }
+            ActChgObsPeriod::Samples128 => {
+                self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS1)
+            }
+            ActChgObsPeriod::Samples256 => {
+                self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS1).union(Self::NUM_SMPLS0)
+            }
+            ActChgObsPeriod::Samples512 => {
+                self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS2)
+            }
         }
     }
 }
@@ -1816,10 +1840,16 @@ impl TapConfig0 {
             TapSensitivity::SENS0 => self.difference(Self::TAP_SENS),
             TapSensitivity::SENS1 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS0),
             TapSensitivity::SENS2 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS1),
-            TapSensitivity::SENS3 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS1).union(Self::TAP_SENS0),
+            TapSensitivity::SENS3 => {
+                self.difference(Self::TAP_SENS).union(Self::TAP_SENS1).union(Self::TAP_SENS0)
+            }
             TapSensitivity::SENS4 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS2),
-            TapSensitivity::SENS5 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS2).union(Self::TAP_SENS0),
-            TapSensitivity::SENS6 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS2).union(Self::TAP_SENS1),
+            TapSensitivity::SENS5 => {
+                self.difference(Self::TAP_SENS).union(Self::TAP_SENS2).union(Self::TAP_SENS0)
+            }
+            TapSensitivity::SENS6 => {
+                self.difference(Self::TAP_SENS).union(Self::TAP_SENS2).union(Self::TAP_SENS1)
+            }
             TapSensitivity::SENS7 => self.union(Self::TAP_SENS),
         }
     }
@@ -1867,14 +1897,14 @@ impl TapConfig1 {
     }
 }
 
-#[cfg(any(feature="spi", test))]
+#[cfg(any(feature = "spi", test))]
 cfg_register! {
     InterfaceConfig: 0x7C = 0x00 {
         const SPI3 = 0b0000_0001;
     }
 }
 
-#[cfg(any(feature="spi", test))]
+#[cfg(any(feature = "spi", test))]
 impl InterfaceConfig {
     pub const fn with_spi_3wire_mode(self, enabled: bool) -> Self {
         if enabled {

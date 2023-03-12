@@ -1,9 +1,20 @@
-use crate::hal::blocking::i2c::{Write, WriteRead};
-use crate::registers::ChipId;
 use crate::{
-    interface::{WriteToRegister, ReadFromRegister},
-    registers::{ReadReg, ConfigReg}, 
-    BMA400, Config, BMA400Error,
+    hal::blocking::i2c::{
+        Write,
+        WriteRead,
+    },
+    interface::{
+        ReadFromRegister,
+        WriteToRegister,
+    },
+    registers::{
+        ChipId,
+        ConfigReg,
+        ReadReg,
+    },
+    BMA400Error,
+    Config,
+    BMA400,
 };
 
 // This is set by the SDO Pin level. (p. 108 of datasheet)
@@ -12,7 +23,7 @@ pub const ADDR: u8 = 0b00010100;
 #[cfg(feature = "i2c-alt")]
 pub const ADDR: u8 = 0b00010101;
 
-// Wrapper class to instantiate BMA400 with an I2C interface 
+// Wrapper class to instantiate BMA400 with an I2C interface
 // (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
 #[derive(Debug)]
 pub struct I2CInterface<I2C> {
@@ -30,7 +41,7 @@ where
     }
 }
 
-impl<I2C, E> ReadFromRegister for I2CInterface<I2C> 
+impl<I2C, E> ReadFromRegister for I2CInterface<I2C>
 where
     I2C: WriteRead<Error = E>,
 {
