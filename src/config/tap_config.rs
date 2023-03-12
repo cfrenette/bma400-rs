@@ -83,20 +83,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
-    use crate::{
-        i2c::I2CInterface,
-    };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
+    use crate::tests::get_test_device;
     #[test]
     fn test_axis() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_axis(Axis::Y);
         assert_eq!(builder.config.tap_config0.bits(), 0x08);
@@ -107,7 +97,7 @@ mod tests {
     }
     #[test]
     fn test_sensitivity() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_sensitivity(TapSensitivity::SENS1);
         assert_eq!(builder.config.tap_config0.bits(), 0x01);
@@ -128,7 +118,7 @@ mod tests {
     }
     #[test]
     fn test_min_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_min_duration_btn_taps(MinTapDuration::Samples8);
         assert_eq!(builder.config.tap_config1.bits(), 0x16);
@@ -141,7 +131,7 @@ mod tests {
     }
     #[test]
     fn test_double_tap_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_max_double_tap_window(DoubleTapDuration::Samples80);
         assert_eq!(builder.config.tap_config1.bits(), 0x06);
@@ -154,7 +144,7 @@ mod tests {
     }
     #[test]
     fn test_max_tap_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_tap();
         let builder = builder.with_max_tap_duration(MaxTapDuration::Samples9);
         assert_eq!(builder.config.tap_config1.bits(), 0x05);

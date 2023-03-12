@@ -460,23 +460,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
     use crate::{
-        i2c::I2CInterface, BMA400Error,
+        tests::get_test_device,
+        BMA400Error,
     };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
-    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
-        BMA400::new_i2c(Mock::new(expected)).unwrap()
-    }
     #[test]
     fn test_axes() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_axes(false, false, true);
@@ -509,7 +499,7 @@ mod tests {
     }
     #[test]
     fn test_src() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_src(DataSource::AccFilt2Lp);
@@ -542,7 +532,7 @@ mod tests {
     }
     #[test]
     fn test_reference_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_reference_mode(GenIntRefMode::OneTime);
@@ -583,7 +573,7 @@ mod tests {
     }
     #[test]
     fn test_hysteresis() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_hysteresis(Hysteresis::Hyst96mg);
@@ -624,7 +614,7 @@ mod tests {
     }
     #[test]
     fn test_criterion_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_criterion_mode(GenIntCriterionMode::Activity);
@@ -649,7 +639,7 @@ mod tests {
     }
     #[test]
     fn test_logic_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_logic_mode(GenIntLogicMode::And);
@@ -674,7 +664,7 @@ mod tests {
     }
     #[test]
     fn test_threshold() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_threshold(0xFF);
@@ -699,7 +689,7 @@ mod tests {
     }
     #[test]
     fn test_duration() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
         let builder = builder.with_duration(0xFF00);
@@ -728,12 +718,7 @@ mod tests {
     }
     #[test]
     fn test_int1_config_err() {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            Transaction::write(ADDR, [0x3F, 0x10].into()),
-            Transaction::write(ADDR, [0x1F, 0x04].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Change the data source to AccFilt2
         assert!(matches!(device.config_gen1_int().with_src(DataSource::AccFilt2).write(), Ok(())));
         // Enable the interrupt
@@ -743,12 +728,7 @@ mod tests {
     }
     #[test]
     fn test_int2_config_err() {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            Transaction::write(ADDR, [0x4A, 0x10].into()),
-            Transaction::write(ADDR, [0x1F, 0x08].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Change the data source to AccFilt2
         assert!(matches!(device.config_gen2_int().with_src(DataSource::AccFilt2).write(), Ok(())));
         // Enable the interrupt

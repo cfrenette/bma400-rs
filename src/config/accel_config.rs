@@ -137,24 +137,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
     use crate::{
+        tests::get_test_device,
         BMA400Error,
-        i2c::I2CInterface,
     };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
-    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
-        BMA400::new_i2c(Mock::new(expected)).unwrap()
-    }
     #[test]
     fn test_power_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_power_mode(PowerMode::Sleep);
         assert_eq!(builder.config.acc_config0.bits(), 0x00);
@@ -165,7 +154,7 @@ mod tests {
     }
     #[test]
     fn test_lp_osr() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_osr_lp(OversampleRate::OSR0);
         assert_eq!(builder.config.acc_config0.bits(), 0x00);
@@ -178,7 +167,7 @@ mod tests {
     }
     #[test]
     fn test_filt1_bw() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_filt1_bw(Filter1Bandwidth::Low);
         assert_eq!(builder.config.acc_config0.bits(), 0x80);
@@ -187,7 +176,7 @@ mod tests {
     }
     #[test]
     fn test_odr() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_odr(OutputDataRate::Hz12_5);
         assert_eq!(builder.config.acc_config1.bits(), 0x45);
@@ -206,7 +195,7 @@ mod tests {
     }
     #[test]
     fn test_osr() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_osr(OversampleRate::OSR0);
         assert_eq!(builder.config.acc_config1.bits(), 0x49);
@@ -219,7 +208,7 @@ mod tests {
     }
     #[test]
     fn test_scale() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_scale(Scale::Range2G);
         assert_eq!(builder.config.acc_config1.bits(), 0x09);
@@ -232,7 +221,7 @@ mod tests {
     }
     #[test]
     fn test_dta_src() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_accel();
         let builder = builder.with_reg_dta_src(DataSource::AccFilt1);
         assert_eq!(builder.config.acc_config2.bits(), 0x00);
@@ -243,15 +232,7 @@ mod tests {
     }
     #[test]
     fn test_actch_config_err() {
-        let expected = [
-            // Chip Read (during initialization)
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            // Set OutputDataRate to 100Hz
-            Transaction::write(ADDR, [0x1A, 0x48].into()),
-            // Enable Activity Change Interrupt
-            Transaction::write(ADDR, [0x20, 0x10].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Set the OutputDataRate to 100Hz
         assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
         // Enable the Activity Change Interrupt
@@ -262,15 +243,7 @@ mod tests {
     }
     #[test]
     fn test_gen1_int_config_err() {
-        let expected = [
-            // Chip Read
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            // Set OutputDataRate to 100Hz
-            Transaction::write(ADDR, [0x1A, 0x48].into()),
-            // Enable Generic Interrupt 1
-            Transaction::write(ADDR, [0x1F, 0x04].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Set the OutputDataRate to 100Hz
         assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
         // Enable Generic Interrupt 1
@@ -281,15 +254,7 @@ mod tests {
     }
     #[test]
     fn test_gen2_int_config_err() {
-        let expected = [
-            // Chip Read
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            // Set OutputDataRate to 100Hz
-            Transaction::write(ADDR, [0x1A, 0x48].into()),
-            // Enable Generic Interrupt 1
-            Transaction::write(ADDR, [0x1F, 0x08].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Set the OutputDataRate to 100Hz
         assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
         // Enable Generic Interrupt 1
@@ -300,17 +265,7 @@ mod tests {
     }
     #[test]
     fn test_tap_int_config_err() {
-        let expected = [
-            // Chip Read (during initialization)
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            // Enable Single Tap Interrupt
-            Transaction::write(ADDR, [0x20, 0x04].into()),
-            // Disable Single Tap Interrupt
-            Transaction::write(ADDR, [0x20, 0x00].into()),
-            // Enable Double Tap Interrupt
-            Transaction::write(ADDR, [0x20, 0x08].into())
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Set the OutputDataRate to 200Hz (no write performed since default is 200Hz)
         assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz200).write(), Ok(())));
         // Enable the Single Tap Interrupt

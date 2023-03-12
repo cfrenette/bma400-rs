@@ -306,3 +306,31 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{interface::{ReadFromRegister, WriteToRegister}, BMA400};
+    pub struct NoOpInterface;
+    #[derive(Debug)]
+    pub struct NoOpError;
+    impl ReadFromRegister for NoOpInterface {
+        type Error = BMA400Error<NoOpError, ()>;
+
+        fn read_register<T: crate::registers::ReadReg>(&mut self, _register: T, _buffer: &mut [u8]) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+    impl WriteToRegister for NoOpInterface {
+        type Error = BMA400Error<NoOpError, ()>;
+
+        fn write_register<T: crate::registers::ConfigReg>(&mut self, _register: T) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+    pub fn get_test_device() -> BMA400<NoOpInterface> {
+        BMA400 {
+            interface: NoOpInterface,
+            config: Config::default(),
+        }
+    }
+}

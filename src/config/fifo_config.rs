@@ -139,20 +139,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
-    use crate::{
-        i2c::I2CInterface,
-    };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
+    use crate::tests::get_test_device;
     #[test]
     fn test_read_disabled() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_read_disabled(true);
         assert_eq!(builder.config.fifo_pwr_config.bits(), 0x01);
@@ -161,7 +151,7 @@ mod tests {
     }
     #[test]
     fn test_axes() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_axes(true, false, false);
         assert_eq!(builder.config.fifo_config0.bits(), 0x20);
@@ -172,7 +162,7 @@ mod tests {
     }
     #[test]
     fn test_8bit_mode() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_8bit_mode(true);
         assert_eq!(builder.config.fifo_config0.bits(), 0x10);
@@ -181,7 +171,7 @@ mod tests {
     }
     #[test]
     fn test_src() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_src(DataSource::AccFilt2);
         assert_eq!(builder.config.fifo_config0.bits(), 0x08);
@@ -192,7 +182,7 @@ mod tests {
     }
     #[test]
     fn test_send_time_on_empty() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_send_time_on_empty(true);
         assert_eq!(builder.config.fifo_config0.bits(), 0x04);
@@ -201,7 +191,7 @@ mod tests {
     }
     #[test]
     fn test_stop_on_full() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_stop_on_full(true);
         assert_eq!(builder.config.fifo_config0.bits(), 0x02);
@@ -210,7 +200,7 @@ mod tests {
     }
     #[test]
     fn test_auto_flush() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_auto_flush(true);
         assert_eq!(builder.config.fifo_config0.bits(), 0x01);
@@ -219,7 +209,7 @@ mod tests {
     }
     #[test]
     fn test_watermark_thresh() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_fifo();
         let builder = builder.with_watermark_thresh(2048);
         assert_eq!(builder.config.fifo_config1.bits(), 0x00);

@@ -64,21 +64,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
-    use crate::{
-        i2c::I2CInterface,
-    };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
+    use crate::tests::get_test_device;
     #[test]
     fn test_wakeup_period() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_autowkup();
         let builder = builder.with_wakeup_period(4097);
         assert_eq!(builder.config.auto_wakeup0.bits(), 0xFF);
@@ -89,7 +78,7 @@ mod tests {
     }
     #[test]
     fn test_periodic_wakeup() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_autowkup();
         let builder = builder.with_periodic_wakeup(true);
         assert_eq!(builder.config.auto_wakeup1.bits(), 0x04);
@@ -98,7 +87,7 @@ mod tests {
     }
     #[test]
     fn test_activity_int() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_autowkup();
         let builder = builder.with_activity_int(true);
         assert_eq!(builder.config.auto_wakeup1.bits(), 0x02);

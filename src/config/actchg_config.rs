@@ -106,23 +106,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
     use crate::{
-        i2c::I2CInterface, BMA400Error,
+        tests::get_test_device,
+        BMA400Error,
     };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
-    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
-        BMA400::new_i2c(Mock::new(expected)).unwrap()
-    }
     #[test]
     fn test_threshold() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_actchg_int();
         let builder = builder.with_threshold(255);
         assert_eq!(builder.config.actchg_config0.bits(), 0xFF);
@@ -131,7 +121,7 @@ mod tests {
     }
     #[test]
     fn test_axes() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_actchg_int();
         let builder = builder.with_axes(false, false, true);
         assert_eq!(builder.config.actchg_config1.bits(), 0x80);
@@ -142,7 +132,7 @@ mod tests {
     }
     #[test]
     fn test_src() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_actchg_int();
         let builder = builder.with_src(DataSource::AccFilt2Lp);
         assert_eq!(builder.config.actchg_config1.bits(), 0x10);
@@ -153,7 +143,7 @@ mod tests {
     }
     #[test]
     fn test_obs_period() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_actchg_int();
         let builder = builder.with_obs_period(ActChgObsPeriod::Samples64);
         assert_eq!(builder.config.actchg_config1.bits(), 0x01);
@@ -168,12 +158,7 @@ mod tests {
     }
     #[test]
     fn test_config_err() {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            Transaction::write(ADDR, [0x56, 0x10].into()),
-            Transaction::write(ADDR, [0x20, 0x10].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Change the data source to AccFilt2
         assert!(matches!(device.config_actchg_int().with_src(DataSource::AccFilt2).write(), Ok(())));
         // Enable the interrupt

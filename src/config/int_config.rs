@@ -136,106 +136,90 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_mock::i2c::{Mock, Transaction};
     use crate::{
+        tests::get_test_device,
         BMA400Error,
-        i2c::I2CInterface,
     };
-    const ADDR: u8 = crate::i2c::ADDR;
-    fn device_no_write() -> BMA400<I2CInterface<Mock>> {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into())
-        ];
-        BMA400::new_i2c(Mock::new(&expected)).unwrap()
-    }
-    fn device_write(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
-        BMA400::new_i2c(Mock::new(expected)).unwrap()
-    }
     #[test]
     fn test_dta_rdy() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_dta_rdy_int(true);
         assert_eq!(builder.config.int_config0.bits(), 0x80);
     }
     #[test]
     fn test_fwm() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_fwm_int(true);
         assert_eq!(builder.config.int_config0.bits(), 0x40);
     }
     #[test]
     fn test_ffull() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_ffull_int(true);
         assert_eq!(builder.config.int_config0.bits(), 0x20);
     }
     #[test]
     fn test_gen2() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_gen2_int(true);
         assert_eq!(builder.config.int_config0.bits(), 0x08);
     }
     #[test]
     fn test_gen1() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_gen1_int(true);
         assert_eq!(builder.config.int_config0.bits(), 0x04);
     }
     #[test]
     fn test_orientch() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_orientch_int(true);
         assert_eq!(builder.config.int_config0.bits(), 0x02);
     }
     #[test]
     fn test_latch() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_latch_int(true);
         assert_eq!(builder.config.int_config1.bits(), 0x80);
     }
     #[test]
     fn test_actch() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_actch_int(true);
         assert_eq!(builder.config.int_config1.bits(), 0x10);
     }
     #[test]
     fn test_dtap() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_d_tap_int(true);
         assert_eq!(builder.config.int_config1.bits(), 0x08);
     }
     #[test]
     fn test_stap() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_s_tap_int(true);
         assert_eq!(builder.config.int_config1.bits(), 0x04);
     }
     #[test]
     fn test_step() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         let builder = device.config_interrupts();
         let builder = builder.with_step_int(true);
         assert_eq!(builder.config.int_config1.bits(), 0x01);
     }
     #[test]
     fn test_tap_int_config_err() {
-        let expected = [
-            Transaction::write_read(ADDR, [0x00].into(), [0x90].into()),
-            // Set the Output Data Rate to 100Hz
-            Transaction::write(ADDR, [0x1A, 0x48].into()),
-        ];
-        let mut device = device_write(&expected);
+        let mut device = get_test_device();
         // Set the output data rate to 100Hz
         assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
         // Try to enable the single tap interrupt
@@ -247,7 +231,7 @@ mod tests {
     }
     #[test]
     fn test_gen1_int_config_err() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         // By default Generic Interrupts are set to use Filt1 and default ODR is 200Hz, so no need to set manually
         // Try to enable the gen1 interrupt
         let result = device.config_interrupts().with_gen1_int(true).write();
@@ -255,7 +239,7 @@ mod tests {
     }
     #[test]
     fn test_gen2_int_config_err() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         // By default Generic Interrupts are set to use Filt1 and default ODR is 200Hz, so no need to set manually
         // Try to enable the gen1 interrupt
         let result = device.config_interrupts().with_gen2_int(true).write();
@@ -263,7 +247,7 @@ mod tests {
     }
     #[test]
     fn test_actch_config_err() {
-        let mut device = device_no_write();
+        let mut device = get_test_device();
         // By default Activity Change is set to use Filt1 and default ODR is 200Hz, so no need to set manually
         // Try to enable the activity change interrupt
         let result = device.config_interrupts().with_actch_int(true).write();
