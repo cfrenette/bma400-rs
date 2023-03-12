@@ -109,7 +109,7 @@ where
         let wm1_changes = self.device.config.fifo_config.fifo_config1.bits() != self.config.fifo_config1.bits();
         let wm2_changes = self.device.config.fifo_config.fifo_config2.bits() != self.config.fifo_config2.bits();
         let fifo_wm_changes = wm1_changes || wm2_changes;
-        let mut tmp_int_config = self.device.config.int_config.get_config0().clone();
+        let mut tmp_int_config = self.device.config.int_config.get_config0();
 
         // If enabled, temporarily disable the FIFO Watermark Interrupt to change the config
         if self.device.config.int_config.get_config0().fwm_int() && fifo_wm_changes {

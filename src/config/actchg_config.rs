@@ -71,7 +71,7 @@ where
             return Ok(());
         }
 
-        let mut tmp_int_config1 = self.device.config.int_config.get_config1().clone();
+        let mut tmp_int_config1 = self.device.config.int_config.get_config1();
         let int_enabled = tmp_int_config1.actch_int();
 
         // If the interrupt is enabled and we're trying to change the Data Source to AccFilt1, the ODR must be 100Hz

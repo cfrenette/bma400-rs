@@ -57,7 +57,7 @@ where
         let tap1_changes = self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
         let tap2_changes = self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
         let tap_changes = tap1_changes || tap2_changes;
-        let mut tmp_int_config = self.device.config.int_config.get_config1().clone();
+        let mut tmp_int_config = self.device.config.int_config.get_config1();
 
         // Disable the interrupt, if active
         if (self.device.config.int_config.get_config1().d_tap_int() || self.device.config.int_config.get_config1().d_tap_int()) && tap_changes {

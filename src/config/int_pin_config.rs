@@ -180,13 +180,13 @@ where
         
         // Collect IntConfig0 interrupts with changes
         let int_config0 = self.device.config.int_config.get_config0();
-        let mut tmp_int_config0 = int_config0.clone();
+        let mut tmp_int_config0 = int_config0;
         // Collect IntConfig1 interrupts with changes
         let int_config1 = self.device.config.int_config.get_config1();
-        let mut tmp_int_config1 = int_config1.clone();
+        let mut tmp_int_config1 = int_config1;
         // Wakeup Interrupt
         let wkup_int_config0 = self.device.config.wkup_int_config.get_config0();
-        let mut tmp_wkup_int_config0 = wkup_int_config0.clone();
+        let mut tmp_wkup_int_config0 = wkup_int_config0;
         // If there are electrical configuration changes
         if self.device.config.int_pin_config.int12_io_ctrl.bits() != self.config.int12_io_ctrl.bits() {
             // Disable Everything

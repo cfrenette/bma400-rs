@@ -477,11 +477,11 @@ bitflags!{
 impl Header {
     pub const fn frame_type(&self) -> FrameType {
         if self.contains(Self::TIME) {
-            return FrameType::Time
+            FrameType::Time
         } else if self.intersects(Self::FH_MODE0) {
-            return FrameType::Control
+            FrameType::Control
         } else {
-            return FrameType::Data
+            FrameType::Data
         }
     }
     pub const fn resolution_is_12bit(&self) -> bool {

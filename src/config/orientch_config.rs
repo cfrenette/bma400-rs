@@ -103,7 +103,7 @@ where
         let has_changes = has_config0_changes || has_config1_changes || has_config3_changes || has_config4_changes || has_config5_changes ||
                                 has_config6_changes || has_config7_changes || has_config8_changes || has_config9_changes;
 
-        let mut tmp_int_config0 = self.device.config.int_config.get_config0().clone();
+        let mut tmp_int_config0 = self.device.config.int_config.get_config0();
 
         // Temporarily disable interrupt, if active
         if tmp_int_config0.orientch_int() && has_changes {

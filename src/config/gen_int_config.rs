@@ -226,7 +226,7 @@ where
             return Ok(());
         }
         // Clone the existing enabled interrupts
-        let mut int_config0 = self.device.config.int_config.get_config0().clone();
+        let mut int_config0 = self.device.config.int_config.get_config0();
         let int_enabled = match &self.config {
             GenIntConfig::Gen1Int(_) => int_config0.gen1_int(),
             GenIntConfig::Gen2Int(_) => int_config0.gen2_int(),
