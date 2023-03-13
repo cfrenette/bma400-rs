@@ -1,6 +1,6 @@
 #![allow(clippy::vec_init_then_push)]
 use bma400::{
-    i2c::I2CInterface,
+    I2CInterface,
     types::*,
     BMA400,
 };
@@ -937,7 +937,7 @@ fn config_gen1_int() {
         .config_gen1_int()
         .with_axes(true, true, true)
         .with_src(DataSource::AccFilt2)
-        .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+        .with_ref_mode(GenIntRefMode::EveryTimeFromLp)
         .with_hysteresis(Hysteresis::Hyst96mg)
         .with_criterion_mode(GenIntCriterionMode::Activity)
         .with_logic_mode(GenIntLogicMode::And)
@@ -952,7 +952,7 @@ fn config_gen1_int() {
         .config_gen1_int()
         .with_axes(false, false, false)
         .with_src(DataSource::AccFilt1)
-        .with_reference_mode(GenIntRefMode::Manual)
+        .with_ref_mode(GenIntRefMode::Manual)
         .with_hysteresis(Hysteresis::None)
         .with_criterion_mode(GenIntCriterionMode::Inactivity)
         .with_logic_mode(GenIntLogicMode::Or)
@@ -999,7 +999,7 @@ fn config_gen2_int() {
         .config_gen2_int()
         .with_axes(true, true, true)
         .with_src(DataSource::AccFilt2)
-        .with_reference_mode(GenIntRefMode::EveryTimeFromLp)
+        .with_ref_mode(GenIntRefMode::EveryTimeFromLp)
         .with_hysteresis(Hysteresis::Hyst96mg)
         .with_criterion_mode(GenIntCriterionMode::Activity)
         .with_logic_mode(GenIntLogicMode::And)
@@ -1014,7 +1014,7 @@ fn config_gen2_int() {
         .config_gen2_int()
         .with_axes(false, false, false)
         .with_src(DataSource::AccFilt1)
-        .with_reference_mode(GenIntRefMode::Manual)
+        .with_ref_mode(GenIntRefMode::Manual)
         .with_hysteresis(Hysteresis::None)
         .with_criterion_mode(GenIntCriterionMode::Inactivity)
         .with_logic_mode(GenIntLogicMode::Or)

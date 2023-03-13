@@ -19,6 +19,13 @@ pub struct TapConfig {
     tap_config1: TapConfig1,
 }
 
+/// Configure Advanced Tap Interrupt Settings
+/// 
+/// - Set the axis evaluated for the interrupt trigger condition using [`with_axis()`](TapConfigBuilder::with_axis)
+/// - [TapSensitivity] using [`with_sensitivity()`](TapConfigBuilder::with_sensitivity)
+/// - [MinTapDuration] using [`with_min_duration_btn_taps()`](TapConfigBuilder::with_min_duration_btn_taps)
+/// - [DoubleTapDuration] using [`with_max_double_tap_window()`](TapConfigBuilder::with_max_double_tap_window)
+/// - [MaxTapDuration] using [`with_max_tap_duration()`](TapConfigBuilder::with_max_tap_duration)
 pub struct TapConfigBuilder<'a, Interface: WriteToRegister> {
     config: TapConfig,
     device: &'a mut BMA400<Interface>,
@@ -68,7 +75,7 @@ where
         self.config.tap_config1 = self.config.tap_config1.with_max_tap_duration(duration);
         self
     }
-
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let tap1_changes =
             self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();

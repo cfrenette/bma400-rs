@@ -23,7 +23,8 @@ pub const ADDR: u8 = 0b00010100;
 #[cfg(feature = "i2c-alt")]
 pub const ADDR: u8 = 0b00010101;
 
-// Wrapper class to instantiate BMA400 with an I2C interface
+/// I²C Interface wrapper
+// Wrapper class to instantiate BMA400 with an I²C interface
 // (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
 #[derive(Debug)]
 pub struct I2CInterface<I2C> {
@@ -56,6 +57,7 @@ impl<I2C, E> BMA400<I2CInterface<I2C>>
 where
     I2C: WriteRead<Error = E> + Write<Error = E>,
 {
+    /// Create a new instance of the BMA400 using I²C
     pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E, ()>> {
         let mut interface = I2CInterface { i2c };
         let config = Config::default();

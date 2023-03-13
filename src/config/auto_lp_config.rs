@@ -15,6 +15,12 @@ pub struct AutoLpConfig {
     auto_low_pow1: AutoLowPow1,
 }
 
+/// Configure Auto Low Power settings
+/// 
+/// - Set the timeout counter for low power mode using [`with_timeout()`](AutoLPConfigBuilder::with_timeout)
+/// - [AutoLPTimeoutTrigger] (trigger and timer reset condition) using [`with_auto_lp_trigger()`](AutoLPConfigBuilder::with_auto_lp_trigger)
+/// - Set Generic Interrupt 1 as a trigger condition for auto low power using [`with_gen1_int_trigger()`](AutoLPConfigBuilder::with_gen1_int_trigger)
+/// - Set Data Ready as a trigger condition for auto low power using [`with_drdy_trigger()`](AutoLPConfigBuilder::with_drdy_trigger)
 pub struct AutoLpConfigBuilder<'a, Interface: WriteToRegister> {
     config: AutoLpConfig,
     device: &'a mut BMA400<Interface>,
@@ -60,7 +66,7 @@ where
         self.config.auto_low_pow1 = self.config.auto_low_pow1.with_drdy_trigger(enabled);
         self
     }
-
+    /// Write the configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.auto_lp_config.auto_low_pow0.bits()
             != self.config.auto_low_pow0.bits()

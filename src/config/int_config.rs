@@ -26,6 +26,9 @@ impl IntConfig {
     }
 }
 
+/// Enable or disable interrupts[^except] and set interrupt latch mode
+/// 
+/// [^except]: To enable the Auto-Wakeup Interrupt see [`config_autowkup()`](BMA400::config_autowkup)
 pub struct IntConfigBuilder<'a, Interface: WriteToRegister> {
     config: IntConfig,
     device: &'a mut BMA400<Interface>,
@@ -103,6 +106,7 @@ where
         self.config.int_config1 = self.config.int_config1.with_step_int(enabled);
         self
     }
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
             && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200)

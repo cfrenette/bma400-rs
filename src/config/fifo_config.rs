@@ -28,6 +28,16 @@ impl FifoConfig {
     }
 }
 
+/// Configure the 1024 byte FIFO Buffer Behavior
+/// 
+/// - Enable / Disable writing data for axes using [`with_axes()`](FifoConfigBuilder::with_axes)
+/// - Enable / Disable 8 bit mode (truncate the 4 least significant bits) to save space in the buffer
+/// - [DataSource] for the FIFO Buffer using [`with_src()`](FifoConfigBuilder::with_src)
+/// - Enable / Disable sending a clock reading (once) on overreading the buffer using [`with_send_time_on_empty()`](FifoConfigBuilder::with_send_time_on_empty)
+/// - Enable / Disable overwriting oldest frames using [`with_stop_on_full()`](FifoConfigBuilder::with_stop_on_full)
+/// - Enable / Disable automatic flush on power mode change using [`with_auto_flush()`](FifoConfigBuilder::with_auto_flush)
+/// - Set the fill threshold for the FIFO watermark interrupt using [`with_watermark_thresh()`](FifoConfigBuilder::with_watermark_thresh)
+/// - Manually Enable / Disable the FIFO read circuit using [`with_read_disabled()`](FifoConfigBuilder::with_read_disabled)
 pub struct FifoConfigBuilder<'a, Interface: WriteToRegister> {
     config: FifoConfig,
     device: &'a mut BMA400<Interface>,
@@ -114,7 +124,7 @@ where
         self.config.fifo_config2 = self.config.fifo_config2.with_fifo_wtrmk_threshold(bytes[1]);
         self
     }
-
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
             self.device.interface.write_register(self.config.fifo_config0)?;

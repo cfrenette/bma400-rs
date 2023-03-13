@@ -20,6 +20,7 @@ use crate::{
     BMA400,
 };
 
+/// SPI Interface wrapper
 // Wrapper class to instantiate BMA400 with an SPI interface
 // (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
 #[derive(Debug)]
@@ -64,6 +65,7 @@ where
     SPI: Transfer<u8, Error = InterfaceError> + Write<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
+    /// Create a new instance of the BMA400 using 4-wire SPI
     pub fn new_spi(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();
@@ -78,6 +80,7 @@ where
             Ok(BMA400 { interface, config })
         }
     }
+    /// Create a new instance of the BMA400 using 3-wire SPI
     pub fn new_spi_3wire(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();

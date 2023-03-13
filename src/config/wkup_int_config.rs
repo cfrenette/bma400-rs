@@ -30,10 +30,13 @@ impl WakeupIntConfig {
     }
 }
 
-/// The BMA400 can be configured to generate an interrupt
-/// (and optionally automatically switch to normal power mode)
-/// upon detecting an absolute acceleration above a set threshold
-/// from some reference acceleration.
+/// Configure Wake-up Interrupt settings
+/// 
+/// - [WakeupIntRefMode] using [`with_ref_mode()`](WakeupIntConfigBuilder::with_ref_mode)
+/// - Set the number of consecutive samples that must satisfy the condition before the interrupt is triggered using [`with_num_samples()`](WakeupIntConfigBuilder::with_num_samples)
+/// - Enable / Disable axes to be evaluated against the condition using [`with_axes()`](WakeupIntConfigBuilder::with_axes)
+/// - Set the interrupt trigger threshold using [`with_threshold()`](WakeupIntConfigBuilder::with_threshold)
+/// - Set the reference acceleration using [`with_ref_accel()`](WakeupIntConfigBuilder::with_ref_accel)
 pub struct WakeupIntConfigBuilder<'a, Interface: WriteToRegister> {
     config: WakeupIntConfig,
     device: &'a mut BMA400<Interface>,
@@ -104,6 +107,7 @@ where
             self.config.wkup_int_config4.with_z_ref(z_ref.to_le_bytes()[0]);
         self
     }
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let has_wkup_config0_changes = self.device.config.wkup_int_config.wkup_int_config0.bits()
             != self.config.wkup_int_config0.bits();

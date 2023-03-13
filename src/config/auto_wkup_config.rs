@@ -20,6 +20,11 @@ impl AutoWakeupConfig {
     }
 }
 
+/// Configure Auto Wake-up settings
+/// 
+/// - Set the length of time between each wake-up using [`with_wakeup_period()`](AutoWakeupConfigBuilder::with_wakeup_period)
+/// - Enable / Disable periodic wakeup using [`with_periodic_wakeup()`](AutoWakeupConfigBuilder::with_periodic_wakeup)
+/// - Enable / Disable wake-up interrupt using [`with_activity_int()`](AutoWakeupConfigBuilder::with_activity_int)
 pub struct AutoWakeupConfigBuilder<'a, Interface> {
     config: AutoWakeupConfig,
     device: &'a mut BMA400<Interface>,
@@ -55,6 +60,7 @@ where
         self.config.auto_wakeup1 = self.config.auto_wakeup1.with_wakeup_int(enabled);
         self
     }
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.auto_wkup_config.auto_wakeup0.bits()
             != self.config.auto_wakeup0.bits()

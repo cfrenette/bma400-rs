@@ -1,8 +1,10 @@
+//! The structs and enums making up the driver API
+
 use bitflags::bitflags;
 /// Error types
 #[derive(Debug)]
 pub enum BMA400Error<InterfaceError, PinError> {
-    /// I2C / SPI Error
+    /// I²C / SPI Error
     IOError(InterfaceError),
     /// Chip Select Pin Error
     ChipSelectPinError(PinError),
@@ -37,17 +39,20 @@ pub struct Status {
 }
 
 impl Status {
-    pub fn new(status_byte: u8) -> Self {
+    pub(crate) fn new(status_byte: u8) -> Self {
         Status {
             bits: status_byte,
         }
     }
+    /// Returns `true` if there is new data ready to be read
     pub fn drdy_stat(&self) -> bool {
         (self.bits & 0b1000_0000) != 0
     }
+    /// Returns true if the command register is ready to receive a command
     pub fn cmd_rdy(&self) -> bool {
         (self.bits & 0b0001_0000) != 0
     }
+    /// Returns the device's current [PowerMode]
     pub fn power_mode(&self) -> PowerMode {
         match (self.bits & 0b0000_0110) >> 1 {
             0 => PowerMode::Sleep,
@@ -55,72 +60,93 @@ impl Status {
             _ => PowerMode::Normal,
         }
     }
+    /// Returns `true` if at least one of the interrupts is triggered
     pub fn int_active(&self) -> bool {
         (self.bits & 0b0000_0001) != 0
     }
 }
 
+/// The Step Interrupt Status
 pub enum StepIntStatus {
+    /// No Step Detected
     None,
+    /// One step detected
     OneStepDetect,
+    /// More than one step detected
     ManyStepDetect,
 }
 
+/// Interrupt statuses from the INT_STAT0 register
 pub struct IntStatus0 {
     bits: u8,
 }
 
 impl IntStatus0 {
-    pub fn new(status_byte: u8) -> Self {
+    pub(crate) fn new(status_byte: u8) -> Self {
         IntStatus0 {
             bits: status_byte,
         }
     }
+    /// Returns `true` if the Data Ready Interrupt is triggered
     pub fn drdy_stat(&self) -> bool {
         (self.bits & 0b1000_0000) != 0
     }
+    /// Returns `true` if the FIFO Watermark Interrupt is triggered
     pub fn fwm_stat(&self) -> bool {
         (self.bits & 0b0100_0000) != 0
     }
+    /// Returns `true` if the FIFO Full Interrupt is triggered
     pub fn ffull_stat(&self) -> bool {
         (self.bits & 0b0010_0000) != 0
     }
+    /// Returns `true` if the Interrupt Engine could not complete 
+    /// calculation of all enabled interrupts in time
     pub fn ieng_overrun_stat(&self) -> bool {
         (self.bits & 0b0001_0000) != 0
     }
+    /// Returns `true` if Generic Interrupt 2 is triggered
     pub fn gen2_stat(&self) -> bool {
         (self.bits & 0b0000_1000) != 0
     }
+    /// Returns `true` if Generic Interrupt 1 is triggered
     pub fn gen1_stat(&self) -> bool {
         (self.bits & 0b0000_0100) != 0
     }
+    /// Returns `true` if the Orientation Change Interrupt is triggered
     pub fn orientch_stat(&self) -> bool {
         (self.bits & 0b0000_0010) != 0
     }
+    /// Returns `true` if the Wake-Up Interrupt is triggered
     pub fn wkup_stat(&self) -> bool {
         (self.bits & 0b0000_0001) != 0
     }
 }
 
+/// Interrupt statuses from the INT_STAT1 register
 pub struct IntStatus1 {
     bits: u8,
 }
 
 impl IntStatus1 {
-    pub fn new(status_byte: u8) -> Self {
+    pub(crate) fn new(status_byte: u8) -> Self {
         IntStatus1 {
             bits: status_byte,
         }
     }
+    /// Returns `true` if the Interrupt Engine could not complete 
+    /// calculation of all enabled interrupts in time
     pub fn ieng_overrun_stat(&self) -> bool {
         (self.bits & 0b0001_0000) != 0
     }
+    /// Returns `true` if the Double Tap Interrupt is triggered
     pub fn d_tap_stat(&self) -> bool {
         (self.bits & 0b0000_1000) != 0
     }
+    /// Returns `true` if the Single Tap Interrupt is triggered
     pub fn s_tap_stat(&self) -> bool {
         (self.bits & 0b0000_0100) != 0
     }
+    /// Returns `true` if the Step Interrupt is triggered
     pub fn step_int_stat(&self) -> StepIntStatus {
         match self.bits & 0b0000_0011 {
             0x00 => StepIntStatus::None,
@@ -130,25 +156,31 @@ impl IntStatus1 {
     }
 }
 
+/// Interrupt statuses from the INT_STAT2 register
 pub struct IntStatus2 {
     bits: u8,
 }
 
 impl IntStatus2 {
-    pub fn new(status_byte: u8) -> Self {
+    pub(crate) fn new(status_byte: u8) -> Self {
         IntStatus2 {
             bits: status_byte,
         }
     }
+    /// Returns `true` if the Interrupt Engine could not complete 
+    /// calculation of all enabled interrupts in time
     pub fn ieng_overrun_stat(&self) -> bool {
         (self.bits & 0b0001_0000) != 0
     }
+    /// Returns `true` if the Activity Change Interrupt was triggered along the z-axis
     pub fn actch_z_stat(&self) -> bool {
         (self.bits & 0b0000_0100) != 0
     }
+    /// Returns `true` if the Activity Change Interrupt was triggered along the y-axis
     pub fn actch_y_stat(&self) -> bool {
         (self.bits & 0b0000_0010) != 0
     }
+    /// Returns `true` if the Activity Change Interrupt was triggered along the x-axis
     pub fn actch_x_stat(&self) -> bool {
         (self.bits & 0b0000_0001) != 0
     }
@@ -179,14 +211,14 @@ impl Measurement {
             z,
         }
     }
-    pub fn from_bytes_unscaled(bytes: &[u8]) -> Self {
+    pub(crate) fn from_bytes_unscaled(bytes: &[u8]) -> Self {
         Self::new(
             Self::to_i16(bytes[0], bytes[1]),
             Self::to_i16(bytes[2], bytes[3]),
             Self::to_i16(bytes[4], bytes[5]),
         )
     }
-    pub fn from_bytes_scaled(scale: Scale, bytes: &[u8]) -> Self {
+    pub(crate) fn from_bytes_scaled(scale: Scale, bytes: &[u8]) -> Self {
         let shift = match scale {
             Scale::Range2G => 0,
             Scale::Range4G => 1,
@@ -214,9 +246,13 @@ impl Measurement {
 
 /// The BMA400's Hardware Interrupt Pins, Int1 and Int2
 pub enum InterruptPins {
+    /// The interrupt is mapped to neither pin
     None,
+    /// Map the interrupt to only the Int1 pin
     Int1,
+    /// Map the interrupt to only the Int2 pin
     Int2,
+    /// Map the interrupt to both Int1 and Int2 pins
     Both,
 }
 
@@ -303,39 +339,57 @@ pub enum OutputDataRate {
 ///
 /// Higher values reduce data noise at the cost of power consumption
 ///
-/// See p. 21 of datasheet
+/// See [p. 21 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=21)
 pub enum OversampleRate {
     /// Lowest Precision / Power Draw
     ///
-    /// [PowerMode::LowPower] 0.85uA
+    /// [`PowerMode::LowPower`] 0.85μA
     ///
-    /// [PowerMode::Normal]  3.5uA
+    /// [`PowerMode::Normal`]  3.5μA
     OSR0,
-    /// [PowerMode::LowPower] 0.93uA
+    /// [`PowerMode::LowPower`] 0.93μA
     ///
-    /// [PowerMode::Normal] 5.8uA
+    /// [`PowerMode::Normal`] 5.8μA
     OSR1,
-    /// [PowerMode::LowPower] 1.1uA
+    /// [`PowerMode::LowPower`] 1.1μA
     ///
-    /// [PowerMode::Normal] 9.5uA
+    /// [`PowerMode::Normal`] 9.5μA
     OSR2,
     /// Highest Precision / Power Draw
     ///
-    /// [PowerMode::LowPower] 1.35uA
+    /// [`PowerMode::LowPower`] 1.35μA
     ///
-    /// [PowerMode::Normal] 14.5uA
+    /// [`PowerMode::Normal`] 14.5μA
     OSR3,
 }
 
+/// The Power Mode of the device
+/// 
+/// [`PowerMode::Sleep`] lowest power - no data output, no FIFO Read or Write
+/// 
+/// [`PowerMode::LowPower`] Data is output at 25Hz to be used with Activity Detection and Auto Wakeup, no FIFO Write
+/// 
+/// [`PowerMode::Normal`] highest power - All functionality available
+/// 
+/// See [p.19 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=19)
 pub enum PowerMode {
+    /// Sleep Mode: lowest power - no data output, no FIFO Read or Write
     Sleep,
+    /// Low Power Mode: Data is output at 25Hz to be used with Activity Detection and Auto Wakeup, no FIFO Write
     LowPower,
+    /// Normal Mode: highest power - All functionality available
     Normal,
 }
 
+/// Measurement Axis relative to the orientation of the sensor
+/// 
+/// See [p. 115 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=115)
 pub enum Axis {
+    /// x axis
     X,
+    /// y-axis
     Y,
+    /// z-axis
     Z,
 }
 
@@ -343,25 +397,27 @@ pub enum Axis {
 ///
 /// The frame can be one of three [FrameType]s:
 ///
-/// [FrameType::Data] - Contains an accelerometer reading for the axes enabled
+/// [`FrameType::Data`] - Contains an accelerometer reading for the axes enabled
 /// at the time of measurement
 ///
-/// [FrameType::Control] - This frame type is sent when there are changes to
+/// [`FrameType::Control`] - This frame type is sent when there are changes to
 /// either:
 /// - the [DataSource] configured for the FIFO
 /// - [Filter1Bandwidth] or
 /// - [OutputDataRate], [OversampleRate] and/or [Scale]
 ///
-/// [FrameType::Time] - Only sent if FIFO is configured with send_time_on_empty
-/// enabled. This is the sensor as of reading past the last byte of the FIFO
+/// [`FrameType::Time`] - Only sent if FIFO is configured with send_time_on_empty
+/// enabled. This is the sensor clock reading as of reading past the last byte of the FIFO
 pub struct Frame<'a> {
     slice: &'a [u8],
 }
 
 impl<'a> Frame<'a> {
+    /// Returns the [FrameType] of the [Frame]
     pub fn frame_type(&self) -> FrameType {
         Header::from_bits_truncate(self.slice[0]).frame_type()
     }
+    /// If the [Frame] has x-axis data returns a result containing the x-axis measurement, None otherwise
     pub fn x(&self) -> Option<i16> {
         let header = Header::from_bits_truncate(self.slice[0]);
         if !matches!(header.frame_type(), FrameType::Data) || !header.has_x_data() {
@@ -369,6 +425,7 @@ impl<'a> Frame<'a> {
         }
         Some(self.data_at_offset(0, header.resolution_is_12bit()))
     }
+    /// If the [Frame] has y-axis data returns a result containing the y-axis measurement, None otherwise
     pub fn y(&self) -> Option<i16> {
         let header = Header::from_bits_truncate(self.slice[0]);
         if !matches!(header.frame_type(), FrameType::Data) || !header.has_y_data() {
@@ -381,6 +438,7 @@ impl<'a> Frame<'a> {
         };
         Some(self.data_at_offset(offset, header.resolution_is_12bit()))
     }
+    /// If the [Frame] has z-axis data returns a result containing the z-axis measurement, None otherwise
     pub fn z(&self) -> Option<i16> {
         let header = Header::from_bits_truncate(self.slice[0]);
         if !matches!(header.frame_type(), FrameType::Data) || !header.has_z_data() {
@@ -397,12 +455,14 @@ impl<'a> Frame<'a> {
         };
         Some(self.data_at_offset(offset, header.resolution_is_12bit()))
     }
+    /// If the [FrameType] is [`FrameType::Time`], returns a result containing the sensor time, None otherwise
     pub fn time(&self) -> Option<u32> {
         if !matches!(self.frame_type(), FrameType::Time) {
             return None;
         }
         Some(u32::from_le_bytes([self.slice[1], self.slice[2], self.slice[3], 0]))
     }
+    /// If the [FrameType] is [`FrameType::Control`], returns a result containing whether a FIFO data source change was indicated
     pub fn fifo_src_chg(&self) -> Option<bool> {
         if let FrameType::Control = self.frame_type() {
             Some(self.slice[1] & 0b0010 != 0)
@@ -410,6 +470,7 @@ impl<'a> Frame<'a> {
             None
         }
     }
+    /// If the [FrameType] is [`FrameType::Control`], returns a result containing whether a [Filter1Bandwidth] change was indicated
     pub fn filt1_bw_chg(&self) -> Option<bool> {
         if let FrameType::Control = self.frame_type() {
             Some(self.slice[1] & 0b0100 != 0)
@@ -417,6 +478,8 @@ impl<'a> Frame<'a> {
             None
         }
     }
+    /// If the [FrameType] is [`FrameType::Control`], returns a result containing whether a [OutputDataRate], 
+    /// [OversampleRate] and/or [Scale] change was indicated
     pub fn acc1_chg(&self) -> Option<bool> {
         if let FrameType::Control = self.frame_type() {
             Some(self.slice[1] & 0b1000 != 0)
@@ -444,20 +507,24 @@ impl<'a> Frame<'a> {
     }
 }
 
+/// The type of the FIFO Frame
 pub enum FrameType {
+    /// Acceleration Data
     Data,
+    /// Sensor Time
     Time,
+    /// Configuration Change
     Control,
 }
 
-/// An interator over the buffer provided to `read_fifo_frames()`
+/// An interator over the buffer provided to [`read_fifo_frames()`](BMA400::read_fifo_frames)
 pub struct FifoFrames<'a> {
     index: usize,
     bytes: &'a [u8],
 }
 
 impl<'a> FifoFrames<'a> {
-    pub fn new(bytes: &[u8]) -> FifoFrames {
+    pub(crate) fn new(bytes: &[u8]) -> FifoFrames {
         FifoFrames {
             index: 0,
             bytes,
@@ -573,7 +640,7 @@ impl Header {
 ///
 /// Non-timed triggers are still supported if timeout is disabled
 ///
-/// See datasheet p.25
+/// See [p.25 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=25)
 pub enum AutoLPTimeoutTrigger {
     /// Timed trigger to enter low power mode disabled
     TimeoutDisabled,
@@ -585,7 +652,7 @@ pub enum AutoLPTimeoutTrigger {
 
 /// Wake-up interrupt activity reference update mode
 ///
-/// [WakeupIntRefMode::Manual] - The reference acceleration is set manually by the host MCU
+/// [WakeupIntRefMode::Manual] - The reference acceleration must be set manually
 ///
 /// [WakeupIntRefMode::OneTime] - A snapshot of the acceleration each time the device enters
 ///  low power mode is used as reference
@@ -602,6 +669,14 @@ pub enum WakeupIntRefMode {
 }
 
 /// Orientation Changed reference update mode
+/// 
+/// [OrientIntRefMode::Manual] - The reference acceleration must be set manually
+/// 
+/// [OrientIntRefMode::AccFilt2] - A snapshot of the acceleration from AccFilt2
+/// is written when stable orientation is detected
+/// 
+/// [OrientIntRefMode::AccFilt2Lp] - A snapshot of the acceleration from AccFilt2Lp
+///  (1Hz bandwidth filter) is written when stable orientation is detected
 pub enum OrientIntRefMode {
     /// Manually set reference acceleration
     Manual,
@@ -613,51 +688,78 @@ pub enum OrientIntRefMode {
 
 /// Number of samples to observe to determine baseline acceleration
 pub enum ActChgObsPeriod {
+    /// 32 Samples
     Samples32,
+    /// 64 Samples
     Samples64,
+    /// 128 Samples
     Samples128,
+    /// 256 Samples
     Samples256,
+    /// 512 Samples
     Samples512,
 }
 
 /// Tap Sensitivity
 ///
 /// 0 = Highest, 7 = Lowest
+/// 
+/// See [p. 45 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=45)
 pub enum TapSensitivity {
+    /// Setting 0 - Highest
     SENS0,
+    /// Setting 1
     SENS1,
+    /// Setting 2
     SENS2,
+    /// Setting 3
     SENS3,
+    /// Setting 4
     SENS4,
+    /// Setting 5
     SENS5,
+    /// Setting 6
     SENS6,
+    /// Setting 7 - Lowest
     SENS7,
 }
 
 /// The minimum number of samples that must elapse between detected peaks for it to be considered
 /// part of a separate tap
 pub enum MinTapDuration {
+    /// 4 Samples
     Samples4,
+    /// 8 Samples
     Samples8,
+    /// 12 Samples
     Samples12,
+    /// 16 Samples
     Samples16,
 }
 
 /// The maximum number of samples that can elapse between two detected peaks for it to be considered
 /// a double tap
 pub enum DoubleTapDuration {
+    /// 60 Samples
     Samples60,
+    /// 80 Samples
     Samples80,
+    /// 100 Samples
     Samples100,
+    /// 120 Samples
     Samples120,
 }
 
 /// The maxiumum number of samples that can elapse between high and low peak of a tap for it to be
 /// considered a tap
 pub enum MaxTapDuration {
+    /// 6 Samples
     Samples6,
+    /// 9 Samples
     Samples9,
+    /// 12 Samples
     Samples12,
+    /// 18 Samples
     Samples18,
 }
 

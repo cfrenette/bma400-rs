@@ -53,6 +53,11 @@ impl IntPinConfig {
     }
 }
 
+/// Map interrupts to the [InterruptPins::Int1] / [InterruptPins::Int2] hardware interrupt pins
+///  
+/// - Control the pin electrical behavior using [`with_int1_cfg()`](IntPinConfigBuilder::with_int1_cfg) / [`with_int2_cfg()`](IntPinConfigBuilder::with_int2_cfg)
+///    - [`PinOutputConfig::PushPull`] High = VDDIO, Low = GND
+///    - [`PinOutputConfig::OpenDrain`] High = VDDIO, Low = High Impedance
 pub struct IntPinConfigBuilder<'a, Interface> {
     config: IntPinConfig,
     device: &'a mut BMA400<Interface>,
@@ -87,6 +92,7 @@ where
             device,
         }
     }
+    
     // Int1Map / Int2Map
     /// Map Data Ready Interrupt to [InterruptPins]
     pub fn with_drdy(mut self, mapped_to: InterruptPins) -> Self {
@@ -146,7 +152,6 @@ where
     }
 
     // Int12Map
-
     /// Map Activity Changed Interrupt to [InterruptPins]
     pub fn with_actch(mut self, mapped_to: InterruptPins) -> Self {
         let (int1, int2) = match_mapped(mapped_to);
@@ -167,7 +172,6 @@ where
     }
 
     //Int12IOCtrl
-
     /// Int1 Pin Output Mode
     ///
     /// See Datasheet p.39
@@ -182,6 +186,7 @@ where
         self.config.int12_io_ctrl = self.config.int12_io_ctrl.with_int2_cfg(config);
         self
     }
+    /// Write this configuration to device registers
     // Clippy: ignore lint for intentional XOR with self, avoiding an awkward import / function call
     #[allow(clippy::eq_op)]
     pub fn write(mut self) -> Result<(), E> {

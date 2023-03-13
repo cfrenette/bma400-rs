@@ -57,19 +57,10 @@ pub(crate) struct Config {
     auto_lp_config: AutoLpConfig,
     auto_wkup_config: AutoWakeupConfig,
     wkup_int_config: WakeupIntConfig,
-
-    // Maybe #[cfg(feature = "adv-int-orientchg")]
     orientch_config: OrientChgConfig,
-
-    // Maybe #[cfg(feature = "adv-int-generic")]
     gen1int_config: Gen1IntConfig,
-    // Maybe #[cfg(feature = "adv-int-generic")]
     gen2int_config: Gen2IntConfig,
-
-    // Maybe #[cfg(feature = "adv-int-actchg")]
     actchg_config: ActChgConfig,
-
-    // Maybe #[cfg(feature = "adv-int-tap")]
     tap_config: TapConfig,
 }
 

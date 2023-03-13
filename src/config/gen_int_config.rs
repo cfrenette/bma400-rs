@@ -91,6 +91,17 @@ impl GenIntConfig {
     }
 }
 
+/// Configure Generic Interrupt settings
+/// 
+/// - Enable / Disable axes evaluated for the interrupt trigger condition using [`with_axes()`](GenIntConfigBuilder::with_axes)
+/// - [DataSource] used for evaluating the trigger condition using [`with_src()`](OrientChgConfigBuilder::with_src)
+/// - Set the [GenIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](GenIntConfigBuilder::with_ref_mode)
+/// - Set the [Hysteresis] adjustment amplitude using [`with_hysteresis()`](GenIntConfigBuilder::with_hysteresis)
+/// - Set the [GenIntCriterionMode] (trigger on activity / inactivity) using [`with_criterion_mode()`](GenIntConfigBuilder::with_criterion_mode)
+/// - Set the [GenIntLogicMode] (trigger on any / all axes) using [`with_logic_mode()`](GenIntConfigBuilder::with_logic_mode)
+/// - Set the interrupt trigger threshold using [`with_threshold()`](GenIntConfigBuilder::with_threshold)
+/// - Set the number of cycles that the interrupt condition must be true before the interrupt triggers using [`with_duration()`](GenIntConfigBuilder::with_duration)
+/// - Manually set the reference acceleration for the interrupt trigger condition using [`with_ref_accel()`](GenIntConfigBuilder::with_ref_accel)
 pub struct GenIntConfigBuilder<'a, Interface: WriteToRegister> {
     config: GenIntConfig,
     device: &'a mut BMA400<Interface>,
@@ -151,7 +162,7 @@ where
         self
     }
     /// Set the reference acceleration update mode for the generic interrupt
-    pub fn with_reference_mode(mut self, mode: GenIntRefMode) -> Self {
+    pub fn with_ref_mode(mut self, mode: GenIntRefMode) -> Self {
         match &mut self.config {
             GenIntConfig::Gen1Int(config) => config.config0 = config.config0.with_refu_mode(mode),
             GenIntConfig::Gen2Int(config) => config.config0 = config.config0.with_refu_mode(mode),
@@ -254,6 +265,7 @@ where
         }
         self
     }
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let has_config0_changes = self.has_config0_changes_from(&self.device.config);
         let has_config1_changes = self.has_config1_changes_from(&self.device.config);
@@ -642,38 +654,38 @@ mod tests {
         let mut device = get_test_device();
         let builder = device.config_gen1_int();
         assert!(matches!(builder.config, GenIntConfig::Gen1Int(_)));
-        let builder = builder.with_reference_mode(GenIntRefMode::OneTime);
+        let builder = builder.with_ref_mode(GenIntRefMode::OneTime);
         if let GenIntConfig::Gen1Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x04);
         }
-        let builder = builder.with_reference_mode(GenIntRefMode::EveryTimeFromSrc);
+        let builder = builder.with_ref_mode(GenIntRefMode::EveryTimeFromSrc);
         if let GenIntConfig::Gen1Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x08);
         }
-        let builder = builder.with_reference_mode(GenIntRefMode::EveryTimeFromLp);
+        let builder = builder.with_ref_mode(GenIntRefMode::EveryTimeFromLp);
         if let GenIntConfig::Gen1Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x0C);
         }
-        let builder = builder.with_reference_mode(GenIntRefMode::Manual);
+        let builder = builder.with_ref_mode(GenIntRefMode::Manual);
         if let GenIntConfig::Gen1Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x00);
         }
 
         let builder = device.config_gen2_int();
         assert!(matches!(builder.config, GenIntConfig::Gen2Int(_)));
-        let builder = builder.with_reference_mode(GenIntRefMode::OneTime);
+        let builder = builder.with_ref_mode(GenIntRefMode::OneTime);
         if let GenIntConfig::Gen2Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x04);
         }
-        let builder = builder.with_reference_mode(GenIntRefMode::EveryTimeFromSrc);
+        let builder = builder.with_ref_mode(GenIntRefMode::EveryTimeFromSrc);
         if let GenIntConfig::Gen2Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x08);
         }
-        let builder = builder.with_reference_mode(GenIntRefMode::EveryTimeFromLp);
+        let builder = builder.with_ref_mode(GenIntRefMode::EveryTimeFromLp);
         if let GenIntConfig::Gen2Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x0C);
         }
-        let builder = builder.with_reference_mode(GenIntRefMode::Manual);
+        let builder = builder.with_ref_mode(GenIntRefMode::Manual);
         if let GenIntConfig::Gen2Int(config) = &builder.config {
             assert_eq!(config.config0.bits(), 0x00);
         }

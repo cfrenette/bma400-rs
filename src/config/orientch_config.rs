@@ -30,6 +30,13 @@ pub struct OrientChgConfig {
     orientch_config9: OrientChgConfig9,
 }
 
+/// Configure Orientation Change Interrupt settings
+/// 
+/// - Enable / Disable axes evaluated for the interrupt trigger condition using [`with_axes()`](OrientChgConfigBuilder::with_axes)
+/// - [DataSource] used for evaluating the trigger condition [`with_src()`](OrientChgConfigBuilder::with_src)
+/// - Set the [OrientIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](OrientChgConfigBuilder::with_ref_mode)
+/// - Set the number of samples that a newly detected orientation must be in effect before the interrupt is triggered with [`with_duration()`](OrientChgConfigBuilder::with_duration)
+/// - Manually set the reference acceleration for the interrupt trigger condition using [`with_ref_accel()`](OrientChgConfigBuilder::with_ref_accel)
 pub struct OrientChgConfigBuilder<'a, Interface> {
     config: OrientChgConfig,
     device: &'a mut BMA400<Interface>,
@@ -110,6 +117,7 @@ where
 
         self
     }
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let has_config0_changes = self.device.config.orientch_config.orientch_config0.bits()
             != self.config.orientch_config0.bits();

@@ -37,7 +37,14 @@ impl AccConfig {
     }
 }
 
-/// Configure basic accelerometer settings like Output Data Rate (ODR)
+/// Configure how the accelerometer samples, filters and ouputs data 
+/// 
+/// - [PowerMode] using [`with_power_mode()`](AccConfigBuilder::with_power_mode)
+/// - [DataSource] for [`get_data()`](BMA400::get_data) and [`get_unscaled_data()`](BMA400::get_unscaled_data) using [`with_reg_dta_src()`](AccConfigBuilder::with_reg_dta_src)
+/// - [OversampleRate] for low power and normal modes using [`with_osr_lp()`](AccConfigBuilder::with_osr_lp) and [`with_osr()`](AccConfigBuilder::with_osr) respectively
+/// - [Filter1Bandwidth] using [`with_filt1_bw()`](AccConfigBuilder::with_filt1_bw)
+/// - [OutputDataRate] using [`with_odr()`](AccConfigBuilder::with_odr)
+/// - [Scale] using [`with_scale()`](AccConfigBuilder::with_scale)
 pub struct AccConfigBuilder<'a, Interface: WriteToRegister> {
     config: AccConfig,
     device: &'a mut BMA400<Interface>,
@@ -55,28 +62,27 @@ where
         }
     }
     // AccConfig0
-    /// Set Power Mode
-    ///
-    /// Note: Other settings can result in the power automatically changing,
+    /// Set [PowerMode]
+    /// 
+    /// Other settings can result in the power changing automatically,
     /// for example auto wakeup and auto low-power mode.
-    ///
-    /// To read the current power mode use `get_status()`
+    /// To read the current power mode from the sensor use [`get_status()`](BMA400::get_status)
     pub fn with_power_mode(mut self, power_mode: PowerMode) -> Self {
         self.config.acc_config0 = self.config.acc_config0.with_power_mode(power_mode);
         self
     }
-    /// Set the [OversampleRate] used in [PowerMode::LowPower] power mode
+    /// Set the [OversampleRate] used in [`PowerMode::LowPower`] mode
     pub fn with_osr_lp(mut self, osr: OversampleRate) -> Self {
         self.config.acc_config0 = self.config.acc_config0.with_osr_lp(osr);
         self
     }
-    /// Set the [Filter1Bandwidth] for [DataSource::AccFilt1]
+    /// Set the [Filter1Bandwidth] for [`DataSource::AccFilt1`]
     pub fn with_filt1_bw(mut self, bandwidth: Filter1Bandwidth) -> Self {
         self.config.acc_config0 = self.config.acc_config0.with_filt1_bw(bandwidth);
         self
     }
     // AccConfig1
-    /// Output Data Rate for [DataSource::AccFilt1]
+    /// Output Data Rate for [`DataSource::AccFilt1`]
     pub fn with_odr(mut self, odr: OutputDataRate) -> Self {
         self.config.acc_config1 = self.config.acc_config1.with_odr(odr);
         self
@@ -86,18 +92,18 @@ where
         self.config.acc_config1 = self.config.acc_config1.with_osr(osr);
         self
     }
-    /// Set the [Scale] (resolution) for [Measurement]s
+    /// Set the [Scale] (resolution) of the data being output
     pub fn with_scale(mut self, scale: Scale) -> Self {
         self.config.acc_config1 = self.config.acc_config1.with_scale(scale);
         self
     }
     // AccConfig2
-    /// Set the [DataSource] for the data registers
+    /// Set the [DataSource] feeding the single read registers
     pub fn with_reg_dta_src(mut self, src: DataSource) -> Self {
         self.config.acc_config2 = self.config.acc_config2.with_dta_reg_src(src);
         self
     }
-    /// Write the configuration to device registers
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let int_config0 = self.device.config.int_config.get_config0();
         let int_config1 = self.device.config.int_config.get_config1();

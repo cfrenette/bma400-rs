@@ -23,6 +23,12 @@ impl ActChgConfig {
     }
 }
 
+/// Configure Activity Change Interrupt settings
+/// 
+/// - Set the interrupt trigger threshold using [`with_threshold()`](ActChgConfigBuilder::with_threshold)
+/// - Enable / Disable the axes evaluated for the interrupt trigger condition using [`with_axes()`](ActChgConfigBulder::with_axes)
+/// - [DataSource] used for evaluating the trigger condition using [`with_src()`](ActChgConfigBuilder::with_src)
+/// - [ActChgObsPeriod] (number of samples) using [`with_obs_period()`](ActChgConfigBuilder::with_obs_period)
 pub struct ActChgConfigBuilder<'a, Interface: WriteToRegister> {
     config: ActChgConfig,
     device: &'a mut BMA400<Interface>,
@@ -72,6 +78,7 @@ where
         self.config.actchg_config1 = self.config.actchg_config1.with_observation_period(obs_period);
         self
     }
+    /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let has_config0_changes = self.device.config.actchg_config.actchg_config0.bits()
             != self.config.actchg_config0.bits();
