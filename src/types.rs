@@ -517,7 +517,7 @@ pub enum FrameType {
     Control,
 }
 
-/// An interator over the buffer provided to [`read_fifo_frames()`](BMA400::read_fifo_frames)
+/// An interator over the buffer provided to [`read_fifo_frames()`](crate::BMA400::read_fifo_frames)
 pub struct FifoFrames<'a> {
     index: usize,
     bytes: &'a [u8],

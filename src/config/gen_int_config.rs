@@ -94,7 +94,7 @@ impl GenIntConfig {
 /// Configure Generic Interrupt settings
 /// 
 /// - Enable / Disable axes evaluated for the interrupt trigger condition using [`with_axes()`](GenIntConfigBuilder::with_axes)
-/// - [DataSource] used for evaluating the trigger condition using [`with_src()`](OrientChgConfigBuilder::with_src)
+/// - [DataSource] used for evaluating the trigger condition using [`with_src()`](GenIntConfigBuilder::with_src)
 /// - Set the [GenIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](GenIntConfigBuilder::with_ref_mode)
 /// - Set the [Hysteresis] adjustment amplitude using [`with_hysteresis()`](GenIntConfigBuilder::with_hysteresis)
 /// - Set the [GenIntCriterionMode] (trigger on activity / inactivity) using [`with_criterion_mode()`](GenIntConfigBuilder::with_criterion_mode)

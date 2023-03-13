@@ -26,7 +26,7 @@ impl ActChgConfig {
 /// Configure Activity Change Interrupt settings
 /// 
 /// - Set the interrupt trigger threshold using [`with_threshold()`](ActChgConfigBuilder::with_threshold)
-/// - Enable / Disable the axes evaluated for the interrupt trigger condition using [`with_axes()`](ActChgConfigBulder::with_axes)
+/// - Enable / Disable the axes evaluated for the interrupt trigger condition using [`with_axes()`](ActChgConfigBuilder::with_axes)
 /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](ActChgConfigBuilder::with_src)
 /// - [ActChgObsPeriod] (number of samples) using [`with_obs_period()`](ActChgConfigBuilder::with_obs_period)
 pub struct ActChgConfigBuilder<'a, Interface: WriteToRegister> {

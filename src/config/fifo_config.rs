@@ -31,7 +31,7 @@ impl FifoConfig {
 /// Configure the 1024 byte FIFO Buffer Behavior
 /// 
 /// - Enable / Disable writing data for axes using [`with_axes()`](FifoConfigBuilder::with_axes)
-/// - Enable / Disable 8 bit mode (truncate the 4 least significant bits) to save space in the buffer
+/// - Enable / Disable 8 bit mode (truncate the 4 least significant bits) to save space in the buffer using [`with_8bit_mode`](FifoConfigBuilder::with_8bit_mode)
 /// - [DataSource] for the FIFO Buffer using [`with_src()`](FifoConfigBuilder::with_src)
 /// - Enable / Disable sending a clock reading (once) on overreading the buffer using [`with_send_time_on_empty()`](FifoConfigBuilder::with_send_time_on_empty)
 /// - Enable / Disable overwriting oldest frames using [`with_stop_on_full()`](FifoConfigBuilder::with_stop_on_full)
@@ -116,7 +116,7 @@ where
     ///
     /// Interupt will be active if FIFO length is > this value
     ///
-    /// Clamped to \[0, 1024\] See also [IntConfig].with_ffull_int()
+    /// Clamped to \[0, 1024\] See also [`with_ffull_int`](crate::IntConfigBuilder::with_ffull_int)
     pub fn with_watermark_thresh(mut self, threshold: u16) -> Self {
         let thresh = threshold.clamp(0, 1024);
         let bytes = thresh.to_le_bytes();

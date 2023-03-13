@@ -275,7 +275,7 @@ where
     /// Configure the 1024 byte FIFO Buffer Behavior
     /// 
     /// - Enable / Disable writing data for axes using [`with_axes()`](FifoConfigBuilder::with_axes)
-    /// - Enable / Disable 8 bit mode (truncate the 4 least significant bits) to save space in the buffer
+    /// - Enable / Disable 8 bit mode (truncate the 4 least significant bits) to save space in the buffer using [`with_8bit_mode`](FifoConfigBuilder::with_8bit_mode)
     /// - [DataSource] for the FIFO Buffer using [`with_src()`](FifoConfigBuilder::with_src)
     /// - Enable / Disable sending a clock reading (once) on overreading the buffer using [`with_send_time_on_empty()`](FifoConfigBuilder::with_send_time_on_empty)
     /// - Enable / Disable overwriting oldest frames using [`with_stop_on_full()`](FifoConfigBuilder::with_stop_on_full)
@@ -330,7 +330,7 @@ where
     /// Configure Generic Interrupt 1 settings
     /// 
     /// - Enable / Disable axes evaluated for the interrupt trigger condition using [`with_axes()`](GenIntConfigBuilder::with_axes)
-    /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](OrientChgConfigBuilder::with_src)
+    /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](GenIntConfigBuilder::with_src)
     /// - Set the [GenIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](GenIntConfigBuilder::with_ref_mode)
     /// - Set the [Hysteresis] adjustment amplitude using [`with_hysteresis()`](GenIntConfigBuilder::with_hysteresis)
     /// - Set the [GenIntCriterionMode] (trigger on activity / inactivity) using [`with_criterion_mode()`](GenIntConfigBuilder::with_criterion_mode)
@@ -345,7 +345,7 @@ where
     /// Configure Generic Interrupt 2 settings
     /// 
     /// - Enable / Disable axes evaluated for the interrupt trigger condition using [`with_axes()`](GenIntConfigBuilder::with_axes)
-    /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](OrientChgConfigBuilder::with_src)
+    /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](GenIntConfigBuilder::with_src)
     /// - Set the [GenIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](GenIntConfigBuilder::with_ref_mode)
     /// - Set the [Hysteresis] adjustment amplitude using [`with_hysteresis()`](GenIntConfigBuilder::with_hysteresis)
     /// - Set the [GenIntCriterionMode] (trigger on activity / inactivity) using [`with_criterion_mode()`](GenIntConfigBuilder::with_criterion_mode)
@@ -360,7 +360,7 @@ where
     /// Configure Activity Change Interrupt settings
     /// 
     /// - Set the interrupt trigger threshold using [`with_threshold()`](ActChgConfigBuilder::with_threshold)
-    /// - Enable / Disable the axes evaluated for the interrupt trigger condition using [`with_axes()`](ActChgConfigBulder::with_axes)
+    /// - Enable / Disable the axes evaluated for the interrupt trigger condition using [`with_axes()`](ActChgConfigBuilder::with_axes)
     /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](ActChgConfigBuilder::with_src)
     /// - [ActChgObsPeriod] (number of samples) using [`with_obs_period()`](ActChgConfigBuilder::with_obs_period)
     pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<T> {
@@ -422,6 +422,7 @@ where
         // Re-enable interrupts and previous config
         self.config.cleanup_self_test(&mut self.interface)?;
 
+        // Evaluate results
         if x > 1500 && y > 1200 && z > 250 {
             Ok(())
         } else {
