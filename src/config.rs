@@ -11,6 +11,14 @@ use auto_lp_config::AutoLpConfig;
 mod auto_wkup_config;
 use auto_wkup_config::AutoWakeupConfig;
 mod wkup_int_config;
+use wkup_int_config::WakeupIntConfig;
+mod actchg_config;
+use actchg_config::ActChgConfig;
+mod tap_config;
+use tap_config::TapConfig;
+mod orientch_config;
+use orientch_config::OrientChgConfig;
+
 // Re-export builders
 pub use accel_config::AccConfigBuilder;
 pub use auto_lp_config::AutoLpConfigBuilder;
@@ -18,24 +26,17 @@ pub use auto_wkup_config::AutoWakeupConfigBuilder;
 pub use fifo_config::FifoConfigBuilder;
 pub use int_config::IntConfigBuilder;
 pub use int_pin_config::IntPinConfigBuilder;
-use wkup_int_config::WakeupIntConfig;
 pub use wkup_int_config::WakeupIntConfigBuilder;
-
-mod orientch_config;
-use orientch_config::OrientChgConfig;
 pub use orientch_config::OrientChgConfigBuilder;
-mod gen_int_config;
 pub use gen_int_config::GenIntConfigBuilder;
+pub use actchg_config::ActChgConfigBuilder;
+pub use tap_config::TapConfigBuilder;
+
+mod gen_int_config;
 use gen_int_config::{
     Gen1IntConfig,
     Gen2IntConfig,
 };
-mod actchg_config;
-use actchg_config::ActChgConfig;
-pub use actchg_config::ActChgConfigBuilder;
-mod tap_config;
-use tap_config::TapConfig;
-pub use tap_config::TapConfigBuilder;
 
 use crate::{
     interface::WriteToRegister,
