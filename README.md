@@ -1,78 +1,63 @@
 # bma400-rs
 A platform-agnostic Rust driver for the BMA400 accelerometer implemented using [`embedded-hal`](https://github.com/japaric/embedded-hal) traits
 
-🚧 Under Development 🚧
-
 ## Status
 
 - [x] Support Basic Sensor Features
 - [x] SPI Support
 - [x] Support Programmable (Custom) Interrupts
-- [ ] Tests (In-progress)
-- [ ] Documentation
+- [x] Tests
+- [x] Documentation
 - [ ] More Examples
 
-## Usage
+## Basic Usage
+I²C - `cargo add bma400 --features=i2c-default`
+ ``` rust
+ // Import an embedded hal implementation
+ use linux_embedded_hal::I2cdev; // replace as appropriate w/ hal crate for your MCU
+ use bma400::{
+     BMA400,
+     PowerMode,
+     Scale,
+ };
+ // i2c implements embedded-hal i2c::WriteRead and i2c::Write
+ let mut accelerometer = BMA400::new_i2c(i2c).unwrap();
+ ```
+ SPI - `cargo add bma400 --features=spi`
+ ``` rust
+ // Import an embedded hal implementation
+ use linux_embedded_hal::{
+  Spidev, 
+  Pin
+}; // replace as appropriate w/ hal crate for your MCU
+ use bma400::{
+     BMA400,
+     PowerMode,
+     Scale,
+ };
+ // spi implements embedded-hal spi::Transfer and spi::Write
+ // csb_pin implements embedded-hal digital::v2::OutputPin
+ let mut accelerometer = BMA400::new_spi(spi, csb_pin).unwrap();
+ ```
+ 
+ From here it's the same API for both:
+ ``` rust
+ // The accelerometer is in sleep mode at power on
+ // Let's wake it up and set the scale to 2g
+ accelerometer
+     .config_accel()
+     .with_power_mode(PowerMode::Normal)
+     .with_scale(Scale::Range2G)
+     .write().unwrap();
+ // Read a single measurment
+ if let Ok(measurement) = accelerometer.get_data() {
+     assert_eq!(30, measurement.x);
+     assert_eq!(16, measurement.y);
+     assert_eq!(988, measurement.z);
+ }
+ ```
 
-Import an embedded_hal implementation for your target and this crate: 
-
-```rust
-use nrf52833_hal::{
-  (...)
-};
-use bma400::{
-  BMA400, 
-  PowerMode, 
-  OutputDataRate, 
-  InterruptPins
-};
-
-(...)
-
-    // Initialize the accelerometer by passing in an interface 
-    // implementing the embedded-hal i2c WriteRead and Write traits
-    let mut accel = BMA400::new_i2c(i2c).unwrap();
-
-
-    // Set the power mode to normal and the output data rate to 200Hz
-    accel
-    .config_accel()
-    .with_power_mode(PowerMode::Normal)
-    .with_odr(OutputDataRate::Hz200)
-    .write().unwrap();
-
-
-    // Map the tap interrupt to the INT1 pin
-    accel
-    .config_int_pins()
-    .with_tap(InterruptPins::Int1)
-    .write().unwrap();
-
-
-    // Enable the single and double tap interrupts and enable latching
-    // (interrupt persists until cleared by reading the interrupt status register)
-    accel
-    .config_interrupts()
-    .with_latch_int(true)
-    .with_d_tap_int(true)
-    .with_s_tap_int(true)
-    .write().unwrap();
-
-    // Read a one-shot measurement from the accelerometer
-    let measurement = accel.get_data().unwrap();
-    let x_accel: i16 = measurement.x;
-    let y_accel: i16 = measurement.y;
-    let z_accel: i16 = measurement.z;
-
-    // Read the interrupt status register containing the tap interrupt
-    // (clearing all interrupts with statuses in that register)
-    let int_stat1 = accel.get_int_status1().unwrap();
-    let taps_detected = int_stat1.d_tap_stat() || int_stat1.s_tap_stat();
-
-    (...)
-
-```
-For a full example using the tap interrupt mapped to a GPIO pin on the nrf52833, see `examples/bma400-nrf52833`.
+For a full example using the tap interrupt mapped to a GPIO pin on the nrf52833, see `examples/`.
 
 ## About the Sensor 
 
