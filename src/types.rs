@@ -173,9 +173,9 @@ impl IntStatus1 {
 /// Interrupt statuses from the INT_STAT2 register
 /// 
 /// - Interrupt Engine Overrun - [`ieng_overrun_stat()`](IntStatus0::ieng_overrun_stat)
-/// - Activity Change Z - [`actch_z_stat()`](IntStatus0::actch_z_stat)
-/// - Activity Change Y - [`actch_y_stat()`](IntStatus0::actch_y_stat)
-/// - Activity Change X - [`actch_x_stat()`](IntStatus0::actch_x_stat)
+/// - Activity Change Z - [`actch_z_stat()`](IntStatus2::actch_z_stat)
+/// - Activity Change Y - [`actch_y_stat()`](IntStatus2::actch_y_stat)
+/// - Activity Change X - [`actch_x_stat()`](IntStatus2::actch_x_stat)
 pub struct IntStatus2 {
     bits: u8,
 }
