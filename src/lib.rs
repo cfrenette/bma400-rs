@@ -664,6 +664,38 @@ where
         Ok(())
     }
 
+    /// Activity Recognition
+    /// 
+    /// # Examples
+    /// ```
+    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use bma400::{BMA400, Activity};
+    /// # let ADDR = 0b10100;
+    /// # let expected = vec![
+    /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
+    /// #        Transaction::write_read(ADDR, vec![0x18], vec![0x01]),
+    /// #        Transaction::write_read(ADDR, vec![0x18], vec![0x02]),
+    /// #    ];
+    /// # let i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// // Walking
+    /// let activity = bma400.get_step_activity().unwrap();
+    /// assert!(matches!(activity, Activity::Walk));
+    /// // Running
+    /// let activity = bma400.get_step_activity().unwrap();
+    /// assert!(matches!(activity, Activity::Run));
+    /// ```
+    pub fn get_step_activity(&mut self) -> Result<Activity, BMA400Error<InterfaceError, PinError>> {
+        let mut buffer = [0u8; 1];
+        self.interface.read_register(StepStatus, &mut buffer)?;
+        let activity = match buffer[0] & 0b11 {
+            0x00 => Activity::Still,
+            0x01 => Activity::Walk,
+            _ => Activity::Run,
+        };
+        Ok(activity)
+    }
+
     /// Chip temperature represented as an i8 with 0.5℃ resolution
     ///
     /// -128 (-40.0℃) to

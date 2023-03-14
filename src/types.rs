@@ -412,6 +412,21 @@ pub enum Axis {
     Z,
 }
 
+#[derive(Debug)]
+/// Type of Activity Detected
+/// 
+/// - [`Activity::Still`]
+/// - [`Activity::Walk`]
+/// - [`Activity::Run`]
+pub enum Activity {
+    /// No Activity
+    Still,
+    /// Walking Detected
+    Walk,
+    /// Running Detected
+    Run,
+}
+
 /// An individual frame read from the FIFO buffer.
 ///
 /// The frame can be one of three [FrameType]s:
