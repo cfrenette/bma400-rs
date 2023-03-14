@@ -503,6 +503,23 @@ fn clear_step_count() {
 }
 
 #[test]
+fn get_step_activity() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+
+    expected.push(Transaction::write_read(ADDR, vec![0x18], vec![0x01]));
+    expected.push(Transaction::write_read(ADDR, vec![0x18], vec![0x02]));
+    expected.push(Transaction::write_read(ADDR, vec![0x18], vec![0x00]));
+    let mut device = new(&expected);
+    let activity = device.get_step_activity().unwrap();
+    assert!(matches!(activity, Activity::Walk));
+    let activity = device.get_step_activity().unwrap();
+    assert!(matches!(activity, Activity::Run));
+    let activity = device.get_step_activity().unwrap();
+    assert!(matches!(activity, Activity::Still));
+}
+
+#[test]
 fn get_raw_temp() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));

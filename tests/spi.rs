@@ -649,6 +649,32 @@ fn clear_step_count() {
 }
 
 #[test]
+fn get_step_activity() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    init(&mut expected_io, &mut expected_pin);
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::transfer(vec![0x98, 0x00], vec![0x00, 0x00]));
+    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
+    expected_pin.push(PinTransaction::set(State::High));
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::transfer(vec![0x98, 0x00], vec![0x00, 0x00]));
+    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
+    expected_pin.push(PinTransaction::set(State::High));
+    expected_pin.push(PinTransaction::set(State::Low));
+    expected_io.push(Transaction::transfer(vec![0x98, 0x00], vec![0x00, 0x00]));
+    expected_io.push(Transaction::transfer(vec![0x00], vec![0x00]));
+    expected_pin.push(PinTransaction::set(State::High));
+    let mut device = new(&expected_io, &expected_pin);
+    let activity = device.get_step_activity().unwrap();
+    assert!(matches!(activity, Activity::Walk));
+    let activity = device.get_step_activity().unwrap();
+    assert!(matches!(activity, Activity::Run));
+    let activity = device.get_step_activity().unwrap();
+    assert!(matches!(activity, Activity::Still));
+}
+
+#[test]
 fn get_raw_temp() {
     let mut expected_io = Vec::new();
     let mut expected_pin = Vec::new();
