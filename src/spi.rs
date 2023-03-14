@@ -66,6 +66,33 @@ where
     CSBPin: OutputPin<Error = PinError>,
 {
     /// Create a new instance of the BMA400 using 4-wire SPI
+    /// 
+    /// # Examples
+    /// ```
+    /// # use embedded_hal_mock::{
+    /// # spi::{Mock, Transaction},
+    /// # pin::{Mock as MockPin, Transaction as PinTransaction, State},
+    /// # };
+    /// use bma400::BMA400;
+    /// # let expected_io = vec![
+    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
+    /// #   Transaction::transfer(vec![0x00], vec![0x00]),
+    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
+    /// #   Transaction::transfer(vec![0x00], vec![0x90]),
+    /// # ];
+    /// # let expected_pin = vec![
+    /// #   PinTransaction::set(State::Low),
+    /// #   PinTransaction::set(State::High),
+    /// #   PinTransaction::set(State::Low),
+    /// #   PinTransaction::set(State::High),
+    /// # ];
+    /// # let spi = Mock::new(&expected_io);
+    /// # let csb_pin = MockPin::new(&expected_pin);
+    /// // spi implements embedded-hal spi::Transfer and spi::Write
+    /// // csb_pin implements embedded-hal digital::v2::OutputPin
+    /// let mut accelerometer = BMA400::new_spi(spi, csb_pin);
+    /// assert!(accelerometer.is_ok());
+    /// ```
     pub fn new_spi(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();
@@ -81,16 +108,45 @@ where
         }
     }
     /// Create a new instance of the BMA400 using 3-wire SPI
+    /// 
+    /// # Examples
+    /// ```
+    /// # use embedded_hal_mock::{
+    /// # spi::{Mock, Transaction},
+    /// # pin::{Mock as MockPin, Transaction as PinTransaction, State},
+    /// # };
+    /// use bma400::BMA400;
+    /// # let expected_io = vec![
+    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
+    /// #   Transaction::transfer(vec![0x00], vec![0x00]),
+    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
+    /// #   Transaction::transfer(vec![0x00], vec![0x90]),
+    /// #   Transaction::write(vec![0x7C, 0x01]),
+    /// # ];
+    /// # let expected_pin = vec![
+    /// #   PinTransaction::set(State::Low),
+    /// #   PinTransaction::set(State::High),
+    /// #   PinTransaction::set(State::Low),
+    /// #   PinTransaction::set(State::High),
+    /// #   PinTransaction::set(State::Low),
+    /// #   PinTransaction::set(State::High),
+    /// # ];
+    /// # let spi = Mock::new(&expected_io);
+    /// # let csb_pin = MockPin::new(&expected_pin);
+    /// // spi implements embedded-hal spi::Transfer and spi::Write
+    /// // csb_pin implements embedded-hal digital::v2::OutputPin
+    /// let mut accelerometer = BMA400::new_spi_3wire(spi, csb_pin);
+    /// assert!(accelerometer.is_ok());
+    /// ```
     pub fn new_spi_3wire(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();
         // Initialize SPI Mode by doing a dummy read
         interface.read_register(ChipId, &mut [0u8; 1])?;
-        let mut if_config = InterfaceConfig::default();
-        if_config = if_config.with_spi_3wire_mode(true);
-        interface.write_register(if_config)?;
         let mut chip_id = [0u8; 1];
         interface.read_register(ChipId, &mut chip_id)?;
+        let if_config = InterfaceConfig::default().with_spi_3wire_mode(true);
+        interface.write_register(if_config)?;
         if chip_id[0] != 0x90 {
             Err(BMA400Error::ChipIdReadFailed)
         } else {

@@ -76,7 +76,16 @@ pub enum StepIntStatus {
     ManyStepDetect,
 }
 
-/// Interrupt statuses from the INT_STAT0 register
+/// Interrupt statuses from the INT_STAT0 register:
+/// 
+/// - Data Ready Interrupt - [`drdy_stat()`](IntStatus0::drdy_stat)
+/// - FIFO Watermark Interrupt (FIFO watermark surpassed) - [`fwm_stat()`](IntStatus0::fwm_stat)
+/// - FIFO Buffer Full - [`ffull_stat()`](IntStatus0::ffull_stat)
+/// - Interrupt Engine Overrun - [`ieng_overrun_stat()`](IntStatus0::ieng_overrun_stat)
+/// - Generic Interrupt 2 - [`gen2_stat()`](IntStatus0::gen2_stat)
+/// - Generic Interrupt 1 - [`gen1_stat()`](IntStatus0::gen1_stat)
+/// - Orientation Changed - [`orientch_stat()`](IntStatus0::orientch_stat)
+/// - Wakeup Activity Interrupt - [`wkup_stat()`](IntStatus0::wkup_stat)
 pub struct IntStatus0 {
     bits: u8,
 }
@@ -123,6 +132,11 @@ impl IntStatus0 {
 }
 
 /// Interrupt statuses from the INT_STAT1 register
+/// 
+/// - Interrupt Engine Overrun - [`ieng_overrun_stat()`](IntStatus0::ieng_overrun_stat)
+/// - Double Tap Interrupt - [`d_tap_stat()`](IntStatus1::d_tap_stat)
+/// - Single Tap Interrupt - [`s_tap_stat()`](IntStatus1::s_tap_stat)
+/// - Step Interrupt - [`step_int_stat()`](IntStatus1::step_int_stat)
 pub struct IntStatus1 {
     bits: u8,
 }
@@ -157,6 +171,11 @@ impl IntStatus1 {
 }
 
 /// Interrupt statuses from the INT_STAT2 register
+/// 
+/// - Interrupt Engine Overrun - [`ieng_overrun_stat()`](IntStatus0::ieng_overrun_stat)
+/// - Activity Change Z - [`actch_z_stat()`](IntStatus0::actch_z_stat)
+/// - Activity Change Y - [`actch_y_stat()`](IntStatus0::actch_y_stat)
+/// - Activity Change X - [`actch_x_stat()`](IntStatus0::actch_x_stat)
 pub struct IntStatus2 {
     bits: u8,
 }
@@ -408,6 +427,7 @@ pub enum Axis {
 ///
 /// [`FrameType::Time`] - Only sent if FIFO is configured with send_time_on_empty
 /// enabled. This is the sensor clock reading as of reading past the last byte of the FIFO
+#[derive(Debug, PartialEq)]
 pub struct Frame<'a> {
     slice: &'a [u8],
 }
@@ -518,6 +538,7 @@ pub enum FrameType {
 }
 
 /// An interator over the buffer provided to [`read_fifo_frames()`](crate::BMA400::read_fifo_frames)
+#[derive(Debug)]
 pub struct FifoFrames<'a> {
     index: usize,
     bytes: &'a [u8],

@@ -58,6 +58,17 @@ where
     I2C: WriteRead<Error = E> + Write<Error = E>,
 {
     /// Create a new instance of the BMA400 using I²C
+    /// 
+    /// # Examples
+    /// ```
+    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// use bma400::BMA400;
+    /// # let expected = vec![Transaction::write_read(0b10100, vec![0x00], vec![0x90])];
+    /// # let i2c = Mock::new(&expected);
+    /// // i2c implements embedded-hal i2c::WriteRead and i2c::Write
+    /// let mut accelerometer = BMA400::new_i2c(i2c);
+    /// assert!(accelerometer.is_ok());
+    /// ```
     pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E, ()>> {
         let mut interface = I2CInterface { i2c };
         let config = Config::default();
