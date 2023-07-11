@@ -13,7 +13,7 @@ use nrf52833_hal::{
     pac::{self, interrupt, TWIM0},
     twim::{Frequency, Pins, Twim}, Timer,
 };
-use bma400::{BMA400, PowerMode, OutputDataRate, i2c::I2CInterface, InterruptPins};
+use bma400::{BMA400, PowerMode, OutputDataRate, I2CInterface, InterruptPins};
 
 // Shared access to the accelerometer and GPIO Tasks and Events peripheral
 static GPIO: Mutex<RefCell<Option<Gpiote>>> = Mutex::new(RefCell::new(None));
