@@ -189,7 +189,7 @@ pub use i2c::I2CInterface;
 
 #[cfg(any(feature = "spi", test))]
 mod spi;
-#[cfg(any(feature = "i2c", test))]
+#[cfg(any(feature = "spi", test))]
 pub use spi::SPIInterface;
 
 /// A BMA400 device
