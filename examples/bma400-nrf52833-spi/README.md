@@ -45,9 +45,9 @@ rustup target add thumbv7em-none-eabihf
 ### 3. Run!
 
 Connect to the serial debug and try running the sample binary `bma400-nrf52833/src/bin/taps.rs`. 
->( `rb` is an alias for `run --bin` )
+>DEFMT_LOG=info cargo rb taps 
 
->the env variable `DEFMT_LOG=info` tells the logger to emit messages of `INFO` severity or greater
+ `rb` is an alias for `run --bin` and the env variable `DEFMT_LOG=info` tells the logger to emit messages of `INFO` severity or greater
 
 ``` console
     Finished dev [optimized + debuginfo] target(s) in 1.82s
