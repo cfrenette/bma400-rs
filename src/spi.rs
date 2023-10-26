@@ -29,6 +29,13 @@ pub struct SPIInterface<SPI, CSBPin> {
     csb: CSBPin,
 }
 
+impl<SPI, CSBPin> SPIInterface<SPI, CSBPin> {
+    /// Consumes the Interface returning underlying SPI peripheral and the pin
+    pub fn destroy(self) -> (SPI, CSBPin) {
+        (self.spi, self.csb)
+    }
+}
+
 impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI, CSBPin>
 where
     SPI: Write<u8, Error = InterfaceError>,
