@@ -31,6 +31,13 @@ pub struct I2CInterface<I2C> {
     i2c: I2C,
 }
 
+impl<I2C> I2CInterface<I2C> {
+    /// Consumes the Interface returning underlying I²C peripheral
+    pub fn destroy(self) -> I2C {
+        self.i2c
+    }
+}
+
 impl<I2C, E> WriteToRegister for I2CInterface<I2C>
 where
     I2C: Write<Error = E>,

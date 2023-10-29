@@ -49,6 +49,21 @@ fn init(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransactio
 }
 
 #[test]
+fn destroy() {
+    let mut expected_io = Vec::new();
+    let mut expected_pin = Vec::new();
+    // Expecting to initialize twice, once before and once after the call to destroy()
+    init(&mut expected_io, &mut expected_pin);
+    init(&mut expected_io, &mut expected_pin);
+    let mut spi = MockSPI::new(&expected_io);
+    let mut csb = MockPin::new(&expected_pin);
+    let device = BMA400::new_spi(spi, csb).unwrap();
+    let iface = device.destroy();
+    (spi, csb) = iface.destroy();
+    BMA400::new_spi(spi, csb).unwrap();
+}
+
+#[test]
 fn get_chip_id() {
     let mut expected_io = Vec::new();
     let mut expected_pin = Vec::new();
