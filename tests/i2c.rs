@@ -30,6 +30,17 @@ fn init_bad_chip_id() {
 }
 
 #[test]
+fn destroy() {
+    // Expecting to initialize twice, once before and once after the call to destroy()
+    let expected = vec![Transaction::write_read(ADDR, vec![0x00], vec![0x90]), Transaction::write_read(ADDR, vec![0x00], vec![0x90])];
+    let mut i2c = Mock::new(&expected);
+    let device = BMA400::new_i2c(i2c).unwrap();
+    let iface = device.destroy();
+    i2c = iface.destroy();
+    BMA400::new_i2c(i2c).unwrap();
+}
+
+#[test]
 fn get_chip_id() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
