@@ -24,15 +24,11 @@
 //! SPI - `cargo add bma400 --features=spi`
 //! ```
 //! // Import an embedded hal implementation
+//! use bma400::{PowerMode, Scale, BMA400};
 //! use embedded_hal_mock::eh1::{
-//!     spi::{Mock, Transaction},
 //!     pin::{Mock as MockPin, State, Transaction as PinTransaction},
+//!     spi::{Mock, Transaction},
 //! }; // replace as appropriate w/ hal crate for your MCU
-//! use bma400::{
-//!     BMA400,
-//!     PowerMode,
-//!     Scale,
-//! };
 //! # let expected_io = vec![
 //! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
 //! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
@@ -98,7 +94,8 @@
 //!     .config_accel()
 //!     .with_power_mode(PowerMode::Normal)
 //!     .with_scale(Scale::Range2G)
-//!     .write().unwrap();
+//!     .write()
+//!     .unwrap();
 //! // Read a single measurment
 //! if let Ok(measurement) = accelerometer.get_data() {
 //!     assert_eq!(30, measurement.x);
@@ -355,7 +352,7 @@ where
     /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get a timer reading
     /// let time = bma400.get_sensor_clock().unwrap();
-    /// assert_eq!(524303, time);    // (524303*312.5µs)
+    /// assert_eq!(524303, time); // (524303*312.5µs)
     /// # i2c.done();
     /// ```
     pub fn get_sensor_clock(&mut self) -> Result<u32, BMA400Error<InterfaceError, PinError>> {
@@ -616,7 +613,7 @@ where
     /// // Get the FIFO Buffer length
     /// let bytes = bma400.get_fifo_len().unwrap();
     /// assert_eq!(1024, bytes); // It's full!
-    /// // Flush all data from the fifo
+    ///                          // Flush all data from the fifo
     /// bma400.flush_fifo().unwrap();
     /// let bytes = bma400.get_fifo_len().unwrap();
     /// assert_eq!(0, bytes); // It's empty!
@@ -789,11 +786,13 @@ where
     /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Set the PowerMode to Normal, Scale to 16g
     /// // and low power oversample rate to OSR3
-    /// bma400.config_accel()
+    /// bma400
+    ///     .config_accel()
     ///     .with_power_mode(PowerMode::Normal)
     ///     .with_scale(Scale::Range16G)
     ///     .with_osr_lp(OversampleRate::OSR3)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_accel(&mut self) -> AccConfigBuilder<T> {
@@ -818,11 +817,13 @@ where
     /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable the FIFO Watermark and Step Interrupts
     /// // and enable Interrupt Latching
-    /// bma400.config_interrupts()
+    /// bma400
+    ///     .config_interrupts()
     ///     .with_fwm_int(true)
     ///     .with_step_int(true)
     ///     .with_latch_int(true)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
@@ -848,12 +849,12 @@ where
     /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Map the FIFO Watermark interrupt to Int1
     /// // and set the pin to set VDDIO when active
-    /// bma400.config_int_pins()
+    /// bma400
+    ///     .config_int_pins()
     ///     .with_fifo_wm(InterruptPins::Int1)
-    ///     .with_int1_cfg(PinOutputConfig::PushPull(
-    ///         PinOutputLevel::ActiveHigh
-    ///     ))
-    ///     .write().unwrap();
+    ///     .with_int1_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveHigh))
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<T> {
@@ -886,11 +887,13 @@ where
     /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable x, y and z axes, stop on full
     /// // and set the watermark to 800 bytes
-    /// bma400.config_fifo()
+    /// bma400
+    ///     .config_fifo()
     ///     .with_axes(true, true, true)
     ///     .with_stop_on_full(true)
     ///     .with_watermark_thresh(800)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_fifo(&mut self) -> FifoConfigBuilder<T> {
@@ -918,10 +921,12 @@ where
     /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable auto low power on timeout, reset timeout
     /// // on gen2 interrupt trigger and set the timeout to 500ms
-    /// bma400.config_auto_lp()
+    /// bma400
+    ///     .config_auto_lp()
     ///     .with_timeout(1250)
     ///     .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_auto_lp(&mut self) -> AutoLpConfigBuilder<T> {
@@ -949,11 +954,13 @@ where
     /// // Enable periodic wakeup, auto wakeup on
     /// // activity interrupt trigger and set the
     /// // wakeup period to 500ms
-    /// bma400.config_autowkup()
+    /// bma400
+    ///     .config_autowkup()
     ///     .with_wakeup_period(1250)
     ///     .with_periodic_wakeup(true)
     ///     .with_activity_int(true)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_autowkup(&mut self) -> AutoWakeupConfigBuilder<T> {
@@ -984,11 +991,13 @@ where
     /// // of 256 milli-g (at 4g scale) and automatically update the
     /// // reference acceleration once each time the device
     /// // enters low power mode
-    /// bma400.config_wkup_int()
+    /// bma400
+    ///     .config_wkup_int()
     ///     .with_ref_mode(WakeupIntRefMode::OneTime)
     ///     .with_threshold(32)
     ///     .with_axes(true, true, false)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_wkup_int(&mut self) -> WakeupIntConfigBuilder<T> {
@@ -1019,11 +1028,13 @@ where
     /// // update the reference acceleration once each time the device
     /// // enters a new stable orientation with a threshold of 256 milli-g
     /// // (at 4g scale)
-    /// bma400.config_orientchg_int()
+    /// bma400
+    ///     .config_orientchg_int()
     ///     .with_axes(true, true, true)
     ///     .with_ref_mode(OrientIntRefMode::AccFilt2)
     ///     .with_threshold(32)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_orientchg_int(&mut self) -> OrientChgConfigBuilder<T> {
@@ -1060,13 +1071,15 @@ where
     /// // Enable Generic Interrupt 1 for all axes, manually set
     /// // reference acceleration, trigger on all axes having
     /// // acceleration within reference +/- 256 milli-g (at 4g scale)
-    /// bma400.config_gen1_int()
+    /// bma400
+    ///     .config_gen1_int()
     ///     .with_axes(true, true, true)
     ///     .with_ref_accel(0, 0, 980)
     ///     .with_logic_mode(GenIntLogicMode::And)
     ///     .with_criterion_mode(GenIntCriterionMode::Inactivity)
     ///     .with_threshold(32)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_gen1_int(&mut self) -> GenIntConfigBuilder<T> {
@@ -1103,13 +1116,15 @@ where
     /// // Enable Generic Interrupt 2 for all axes, manually set
     /// // reference acceleration, trigger on any axes having
     /// // acceleration outside reference +/- 256 milli-g (at 4g scale)
-    /// bma400.config_gen2_int()
+    /// bma400
+    ///     .config_gen2_int()
     ///     .with_axes(true, true, true)
     ///     .with_ref_accel(0, 0, 980)
     ///     .with_logic_mode(GenIntLogicMode::Or)
     ///     .with_criterion_mode(GenIntCriterionMode::Activity)
     ///     .with_threshold(32)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_gen2_int(&mut self) -> GenIntConfigBuilder<T> {
@@ -1139,12 +1154,14 @@ where
     /// // average acceleration over 64 samples. Trigger interrupt
     /// // for axes if more than 256 milli-g (at 4g scale)
     /// // difference from acceleration at the pervious evaluation
-    /// bma400.config_actchg_int()
+    /// bma400
+    ///     .config_actchg_int()
     ///     .with_axes(true, true, true)
     ///     .with_src(DataSource::AccFilt2)
     ///     .with_obs_period(ActChgObsPeriod::Samples64)
     ///     .with_threshold(32)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     ///
     /// # i2c.done();
     /// ```
@@ -1174,11 +1191,13 @@ where
     /// // Set maximum elapsed samples between taps for a double tap
     /// // to 120. Set minimum duration between peaks to be considered
     /// // a separate tap. Set tap sensitivity to most sensitive
-    /// bma400.config_tap()
+    /// bma400
+    ///     .config_tap()
     ///     .with_max_double_tap_window(DoubleTapDuration::Samples120)
     ///     .with_min_duration_btn_taps(MinTapDuration::Samples4)
     ///     .with_sensitivity(TapSensitivity::SENS0)
-    ///     .write().unwrap();
+    ///     .write()
+    ///     .unwrap();
     /// # i2c.done();
     /// ```
     pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
