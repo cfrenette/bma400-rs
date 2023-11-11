@@ -1,7 +1,7 @@
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 use crate::{
-    hal::blocking::spi::{Transfer, Write},
+    hal::spi::SpiBus,
     interface::{ReadFromRegister, WriteToRegister},
     registers::{ChipId, ConfigReg, InterfaceConfig, ReadReg},
     BMA400Error, Config, BMA400,
@@ -25,7 +25,7 @@ impl<SPI, CSBPin> SPIInterface<SPI, CSBPin> {
 
 impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI, CSBPin>
 where
-    SPI: Write<u8, Error = InterfaceError>,
+    SPI: SpiBus<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
     type Error = BMA400Error<InterfaceError, PinError>;
@@ -46,7 +46,7 @@ where
 
 impl<SPI, CSBPin, InterfaceError, PinError> ReadFromRegister for SPIInterface<SPI, CSBPin>
 where
-    SPI: Transfer<u8, Error = InterfaceError>,
+    SPI: SpiBus<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
     type Error = BMA400Error<InterfaceError, PinError>;
@@ -60,9 +60,11 @@ where
             .set_low()
             .map_err(BMA400Error::ChipSelectPinError)?;
         self.spi
-            .transfer(&mut [register.addr() | 1 << 7, 0])
+            .transfer(&mut [0, 0], &[register.addr() | 1 << 7, 0])
             .map_err(BMA400Error::IOError)?;
-        self.spi.transfer(buffer).map_err(BMA400Error::IOError)?;
+        self.spi
+            .transfer_in_place(buffer)
+            .map_err(BMA400Error::IOError)?;
         self.csb
             .set_high()
             .map_err(BMA400Error::ChipSelectPinError)?;
@@ -72,23 +74,23 @@ where
 
 impl<SPI, CSBPin, InterfaceError, PinError> BMA400<SPIInterface<SPI, CSBPin>>
 where
-    SPI: Transfer<u8, Error = InterfaceError> + Write<u8, Error = InterfaceError>,
+    SPI: SpiBus<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
     /// Create a new instance of the BMA400 using 4-wire SPI
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::{
+    /// # use embedded_hal_mock::eh1::{
     /// # spi::{Mock, Transaction},
     /// # pin::{Mock as MockPin, Transaction as PinTransaction, State},
     /// # };
     /// use bma400::BMA400;
     /// # let expected_io = vec![
     /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-    /// #   Transaction::transfer(vec![0x00], vec![0x00]),
+    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
     /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-    /// #   Transaction::transfer(vec![0x00], vec![0x90]),
+    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
     /// # ];
     /// # let expected_pin = vec![
     /// #   PinTransaction::set(State::Low),
@@ -96,12 +98,14 @@ where
     /// #   PinTransaction::set(State::Low),
     /// #   PinTransaction::set(State::High),
     /// # ];
-    /// # let spi = Mock::new(&expected_io);
-    /// # let csb_pin = MockPin::new(&expected_pin);
+    /// # let mut spi = Mock::new(&expected_io);
+    /// # let mut csb_pin = MockPin::new(&expected_pin);
     /// // spi implements embedded-hal spi::Transfer and spi::Write
     /// // csb_pin implements embedded-hal digital::v2::OutputPin
-    /// let mut accelerometer = BMA400::new_spi(spi, csb_pin);
+    /// let mut accelerometer = BMA400::new_spi(&mut spi, &mut csb_pin);
     /// assert!(accelerometer.is_ok());
+    /// # spi.done();
+    /// # csb_pin.done();
     /// ```
     pub fn new_spi(
         spi: SPI,
@@ -120,21 +124,22 @@ where
             Ok(BMA400 { interface, config })
         }
     }
+
     /// Create a new instance of the BMA400 using 3-wire SPI
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::{
+    /// # use embedded_hal_mock::eh1::{
     /// # spi::{Mock, Transaction},
     /// # pin::{Mock as MockPin, Transaction as PinTransaction, State},
     /// # };
     /// use bma400::BMA400;
     /// # let expected_io = vec![
     /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-    /// #   Transaction::transfer(vec![0x00], vec![0x00]),
+    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
     /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-    /// #   Transaction::transfer(vec![0x00], vec![0x90]),
-    /// #   Transaction::write(vec![0x7C, 0x01]),
+    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+    /// #   Transaction::write_vec(vec![0x7C, 0x01]),
     /// # ];
     /// # let expected_pin = vec![
     /// #   PinTransaction::set(State::Low),
@@ -144,12 +149,14 @@ where
     /// #   PinTransaction::set(State::Low),
     /// #   PinTransaction::set(State::High),
     /// # ];
-    /// # let spi = Mock::new(&expected_io);
-    /// # let csb_pin = MockPin::new(&expected_pin);
+    /// # let mut spi = Mock::new(&expected_io);
+    /// # let mut csb_pin = MockPin::new(&expected_pin);
     /// // spi implements embedded-hal spi::Transfer and spi::Write
     /// // csb_pin implements embedded-hal digital::v2::OutputPin
-    /// let mut accelerometer = BMA400::new_spi_3wire(spi, csb_pin);
+    /// let mut accelerometer = BMA400::new_spi_3wire(&mut spi, &mut csb_pin);
     /// assert!(accelerometer.is_ok());
+    /// # spi.done();
+    /// # csb_pin.done();
     /// ```
     pub fn new_spi_3wire(
         spi: SPI,

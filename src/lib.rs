@@ -6,7 +6,7 @@
 //! I²C - `cargo add bma400 --features=i2c-default`
 //! ```
 //! // Import an embedded hal implementation
-//! use embedded_hal_mock::i2c::{Mock, Transaction}; // replace as appropriate w/ hal crate for your MCU
+//! use embedded_hal_mock::eh1::i2c::{Mock, Transaction}; // replace as appropriate w/ hal crate for your MCU
 //! use bma400::{
 //!     BMA400,
 //!     PowerMode,
@@ -16,14 +16,15 @@
 //! # let expected = vec![
 //! #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
 //! #    ];
-//! # let i2c = Mock::new(&expected);
+//! # let mut i2c = Mock::new(&expected);
 //! // i2c implements embedded-hal i2c::WriteRead and i2c::Write
-//! let mut accelerometer = BMA400::new_i2c(i2c).unwrap();
+//! let mut accelerometer = BMA400::new_i2c(&mut i2c).unwrap();
+//! # i2c.done();
 //! ```
 //! SPI - `cargo add bma400 --features=spi`
 //! ```
 //! // Import an embedded hal implementation
-//! use embedded_hal_mock::{
+//! use embedded_hal_mock::eh1::{
 //!     spi::{Mock, Transaction},
 //!     pin::{Mock as MockPin, State, Transaction as PinTransaction},
 //! }; // replace as appropriate w/ hal crate for your MCU
@@ -34,9 +35,9 @@
 //! };
 //! # let expected_io = vec![
 //! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-//! #   Transaction::transfer(vec![0x00], vec![0x00]),
+//! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
 //! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-//! #   Transaction::transfer(vec![0x00], vec![0x90]),
+//! #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
 //! # ];
 //! # let expected_pin = vec![
 //! #   PinTransaction::set(State::Low),
@@ -44,16 +45,18 @@
 //! #   PinTransaction::set(State::Low),
 //! #   PinTransaction::set(State::High),
 //! # ];
-//! # let spi = Mock::new(&expected_io);
-//! # let csb_pin = MockPin::new(&expected_pin);
+//! # let mut spi = Mock::new(&expected_io);
+//! # let mut csb_pin = MockPin::new(&expected_pin);
 //! // spi implements embedded-hal spi::Transfer and spi::Write
 //! // csb_pin implements embedded-hal digital::v2::OutputPin
-//! let mut accelerometer = BMA400::new_spi(spi, csb_pin).unwrap();
+//! let mut accelerometer = BMA400::new_spi(&mut spi, &mut csb_pin).unwrap();
+//! # spi.done();
+//! # csb_pin.done();
 //! ```
 //!
 //! From here it's the same API for both:
 //! ```
-//! # use embedded_hal_mock::{
+//! # use embedded_hal_mock::eh1::{
 //! #     spi::{Mock, Transaction},
 //! #     pin::{Mock as MockPin, State, Transaction as PinTransaction},
 //! # };
@@ -64,13 +67,13 @@
 //! # };
 //! # let expected_io = vec![
 //! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-//! #   Transaction::transfer(vec![0x00], vec![0x00]),
+//! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
 //! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-//! #   Transaction::transfer(vec![0x00], vec![0x90]),
-//! #   Transaction::write(vec![0x19, 0x02]),
-//! #   Transaction::write(vec![0x1A, 0x09]),
+//! #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+//! #   Transaction::write_vec(vec![0x19, 0x02]),
+//! #   Transaction::write_vec(vec![0x1A, 0x09]),
 //! #   Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]),
-//! #   Transaction::transfer(
+//! #   Transaction::transfer_in_place(
 //! #       vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
 //! #       vec![0x1E, 0x00, 0x10, 0x00, 0xDC, 0x03],
 //! #   )];
@@ -86,9 +89,9 @@
 //! #   PinTransaction::set(State::Low),
 //! #   PinTransaction::set(State::High),
 //! # ];
-//! # let spi = Mock::new(&expected_io);
-//! # let csb_pin = MockPin::new(&expected_pin);
-//! # let mut accelerometer = BMA400::new_spi(spi, csb_pin).unwrap();
+//! # let mut spi = Mock::new(&expected_io);
+//! # let mut csb_pin = MockPin::new(&expected_pin);
+//! # let mut accelerometer = BMA400::new_spi(&mut spi, &mut csb_pin).unwrap();
 //! // The accelerometer is in sleep mode at power on
 //! // Let's wake it up and set the scale to 2g
 //! accelerometer
@@ -102,6 +105,8 @@
 //!     assert_eq!(16, measurement.y);
 //!     assert_eq!(988, measurement.z);
 //! }
+//! # spi.done();
+//! # csb_pin.done();
 //! ```
 //! # Features
 //! BMA400 can currently be compiled with the following feature flags:
@@ -154,7 +159,7 @@
 #![warn(missing_docs, unsafe_code)]
 #![no_std]
 pub(crate) use embedded_hal as hal;
-use hal::blocking::delay::DelayMs;
+use hal::delay::DelayUs;
 pub mod types;
 pub use types::*;
 pub(crate) mod registers;
@@ -197,17 +202,18 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// let id = bma400.get_id().unwrap();
     /// assert_eq!(0x90, id);
+    /// # i2c.done();
     /// ```
     pub fn get_id(&mut self) -> Result<u8, BMA400Error<InterfaceError, PinError>> {
         let mut id = [0u8; 1];
@@ -221,7 +227,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -229,14 +235,15 @@ where
     /// #        Transaction::write_read(ADDR, vec![0x02], vec![0x02]),
     /// #        Transaction::write_read(ADDR, vec![0x02], vec![0x00]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // There was an error processing the previous command:
     /// let err = bma400.get_cmd_error().unwrap();
     /// assert!(err);
     /// // Reading the register cleared it:
     /// let err = bma400.get_cmd_error().unwrap();
     /// assert!(!err);
+    /// # i2c.done();
     /// ```
     pub fn get_cmd_error(&mut self) -> Result<bool, BMA400Error<InterfaceError, PinError>> {
         let mut err_byte = [0u8; 1];
@@ -248,20 +255,21 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, PowerMode};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x03], vec![0x00]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Retrieve the statuses from the status register
     /// let status = bma400.get_status().unwrap();
     /// // The sensor's current power mode
     /// let power_mode = status.power_mode();
     /// assert!(matches!(PowerMode::Sleep, power_mode));
+    /// # i2c.done();
     /// ```
     pub fn get_status(&mut self) -> Result<Status, BMA400Error<InterfaceError, PinError>> {
         let mut status_byte = [0u8; 1];
@@ -275,20 +283,21 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x04], vec![0x0F, 0x00, 0x08, 0x00, 0xEE, 0x01]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get a single unscaled (raw) measurement reading at the default (4g) scale
     /// let m = bma400.get_unscaled_data().unwrap();
     /// assert_eq!(15, m.x);    // (30 milli-g)
     /// assert_eq!(8, m.y);     // (16 milli-g)
     /// assert_eq!(494, m.z);   // (988 milli-g)
+    /// # i2c.done();
     /// ```
     pub fn get_unscaled_data(
         &mut self,
@@ -304,20 +313,21 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x04], vec![0x0F, 0x00, 0x08, 0x00, 0xEE, 0x01]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get a single scaled measurement reading at the default (4g) scale
     /// let m = bma400.get_data().unwrap();
     /// assert_eq!(30, m.x);    // (30 milli-g)
     /// assert_eq!(16, m.y);    // (16 milli-g)
     /// assert_eq!(988, m.z);   // (988 milli-g)
+    /// # i2c.done();
     /// ```
     pub fn get_data(&mut self) -> Result<Measurement, BMA400Error<InterfaceError, PinError>> {
         let mut bytes = [0u8; 6];
@@ -334,18 +344,19 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x0A], vec![0x0F, 0x00, 0x08]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get a timer reading
     /// let time = bma400.get_sensor_clock().unwrap();
     /// assert_eq!(524303, time);    // (524303*312.5µs)
+    /// # i2c.done();
     /// ```
     pub fn get_sensor_clock(&mut self) -> Result<u32, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 3];
@@ -360,7 +371,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -368,14 +379,15 @@ where
     /// #        Transaction::write_read(ADDR, vec![0x0D], vec![0x01]),
     /// #        Transaction::write_read(ADDR, vec![0x0D], vec![0x00]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the reset status after a reset
     /// let reset = bma400.get_reset_status().unwrap();
     /// assert!(reset);
     /// // Reading the register cleared it
     /// let reset = bma400.get_reset_status().unwrap();
     /// assert!(!reset);
+    /// # i2c.done();
     /// ```
     pub fn get_reset_status(&mut self) -> Result<bool, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 1];
@@ -396,15 +408,15 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x0E], vec![0xE0]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get interrupt status0
     /// let status0 = bma400.get_int_status0().unwrap();
     /// let drdy = status0.drdy_stat();
@@ -415,6 +427,7 @@ where
     /// assert!(ffull);
     /// // The interrupt engine is not overrun
     /// assert!(!ieng_overrun);
+    /// # i2c.done();
     /// ```
     pub fn get_int_status0(&mut self) -> Result<IntStatus0, BMA400Error<InterfaceError, PinError>> {
         let mut status_byte = [0u8; 1];
@@ -432,15 +445,15 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x0F], vec![0x0C]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get interrupt status1
     /// let status1 = bma400.get_int_status1().unwrap();
     /// let d_tap = status1.d_tap_stat();
@@ -451,6 +464,7 @@ where
     /// assert!(s_tap);
     /// // The interrupt engine is not overrun
     /// assert!(!ieng_overrun);
+    /// # i2c.done();
     /// ```
     pub fn get_int_status1(&mut self) -> Result<IntStatus1, BMA400Error<InterfaceError, PinError>> {
         let mut status_byte = [0u8; 1];
@@ -468,15 +482,15 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x10], vec![0x01]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get interrupt status2
     /// let status2 = bma400.get_int_status2().unwrap();
     /// let actch_z = status2.actch_z_stat();
@@ -487,6 +501,7 @@ where
     /// // No activity change in the z direction, and the interrupt engine is not overrun
     /// assert!(!actch_z);
     /// assert!(!ieng_overrun);
+    /// # i2c.done();
     /// ```
     pub fn get_int_status2(&mut self) -> Result<IntStatus2, BMA400Error<InterfaceError, PinError>> {
         let mut status_byte = [0u8; 1];
@@ -499,18 +514,19 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x12], vec![0x00, 0x04]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the FIFO Buffer length
     /// let bytes = bma400.get_fifo_len().unwrap();
     /// assert_eq!(1024, bytes); // It's full!
+    /// # i2c.done();
     /// ```
     pub fn get_fifo_len(&mut self) -> Result<u16, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 2];
@@ -524,7 +540,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, FrameType};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -535,8 +551,8 @@ where
     /// #           0xA0, 0xF8, 0xFF, 0xFF,
     /// #           0x80, 0x00]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Read from the FIFO
     /// let mut buffer = [0u8; 15];
     /// let mut frames = bma400.read_fifo_frames(&mut buffer).unwrap();
@@ -569,6 +585,7 @@ where
     ///
     /// // No more Frames
     /// assert_eq!(None, frames.next());
+    /// # i2c.done();
     /// ```
     pub fn read_fifo_frames<'a>(
         &mut self,
@@ -585,7 +602,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -594,8 +611,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x7E, 0xB0]),
     /// #        Transaction::write_read(ADDR, vec![0x12], vec![0x00, 0x00]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the FIFO Buffer length
     /// let bytes = bma400.get_fifo_len().unwrap();
     /// assert_eq!(1024, bytes); // It's full!
@@ -603,6 +620,7 @@ where
     /// bma400.flush_fifo().unwrap();
     /// let bytes = bma400.get_fifo_len().unwrap();
     /// assert_eq!(0, bytes); // It's empty!
+    /// # i2c.done();
     /// ```
     pub fn flush_fifo(&mut self) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         self.interface.write_register(Command::FlushFifo)?;
@@ -615,18 +633,19 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x15], vec![0x20, 0x05, 0x08]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the step count
     /// let num_steps = bma400.get_step_count().unwrap();
     /// assert_eq!(525600, num_steps);
+    /// # i2c.done();
     /// ```
     pub fn get_step_count(&mut self) -> Result<u32, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 3];
@@ -638,7 +657,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -647,8 +666,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x7E, 0xB1]),
     /// #        Transaction::write_read(ADDR, vec![0x15], vec![0x00, 0x00, 0x00]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the step count
     /// let num_steps = bma400.get_step_count().unwrap();
     /// assert_eq!(525600, num_steps);
@@ -656,6 +675,7 @@ where
     /// bma400.clear_step_count().unwrap();
     /// let num_steps = bma400.get_step_count().unwrap();
     /// assert_eq!(0, num_steps); // empty
+    /// # i2c.done();
     /// ```
     pub fn clear_step_count(&mut self) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         self.interface.write_register(Command::ClearStepCount)?;
@@ -666,7 +686,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, Activity};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -674,14 +694,15 @@ where
     /// #        Transaction::write_read(ADDR, vec![0x18], vec![0x01]),
     /// #        Transaction::write_read(ADDR, vec![0x18], vec![0x02]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Walking
     /// let activity = bma400.get_step_activity().unwrap();
     /// assert!(matches!(activity, Activity::Walk));
     /// // Running
     /// let activity = bma400.get_step_activity().unwrap();
     /// assert!(matches!(activity, Activity::Run));
+    /// # i2c.done();
     /// ```
     pub fn get_step_activity(&mut self) -> Result<Activity, BMA400Error<InterfaceError, PinError>> {
         let mut buffer = [0u8; 1];
@@ -701,18 +722,19 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x11], vec![0xD2]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the temperature
     /// let temp = bma400.get_raw_temp().unwrap();
-    /// assert_eq!(-46, temp) // 0℃
+    /// assert_eq!(-46, temp); // 0℃
+    /// # i2c.done();
     /// ```
     pub fn get_raw_temp(&mut self) -> Result<i8, BMA400Error<InterfaceError, PinError>> {
         let mut temp = [0u8; 1];
@@ -725,18 +747,19 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write_read(ADDR, vec![0x11], vec![0xD2]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Get the temperature
     /// let temp = bma400.get_temp_celsius().unwrap();
-    /// assert_eq!(0f32, temp) // 0℃
+    /// assert_eq!(0f32, temp); // 0℃
+    /// # i2c.done();
     /// ```
     #[cfg(feature = "float")]
     pub fn get_temp_celsius(&mut self) -> Result<f32, BMA400Error<InterfaceError, PinError>> {
@@ -754,7 +777,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, PowerMode, Scale, OversampleRate};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -762,8 +785,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x19, 0x62]),
     /// #        Transaction::write(ADDR, vec![0x1A, 0xC9]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Set the PowerMode to Normal, Scale to 16g
     /// // and low power oversample rate to OSR3
     /// bma400.config_accel()
@@ -771,6 +794,7 @@ where
     ///     .with_scale(Scale::Range16G)
     ///     .with_osr_lp(OversampleRate::OSR3)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_accel(&mut self) -> AccConfigBuilder<T> {
         AccConfigBuilder::new(self)
@@ -782,7 +806,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -790,8 +814,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x1F, 0x40]),
     /// #        Transaction::write(ADDR, vec![0x20, 0x81]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable the FIFO Watermark and Step Interrupts
     /// // and enable Interrupt Latching
     /// bma400.config_interrupts()
@@ -799,6 +823,7 @@ where
     ///     .with_step_int(true)
     ///     .with_latch_int(true)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
         IntConfigBuilder::new(self)
@@ -812,15 +837,15 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, InterruptPins, PinOutputConfig, PinOutputLevel};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write(ADDR, vec![0x21, 0x40]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Map the FIFO Watermark interrupt to Int1
     /// // and set the pin to set VDDIO when active
     /// bma400.config_int_pins()
@@ -829,6 +854,7 @@ where
     ///         PinOutputLevel::ActiveHigh
     ///     ))
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<T> {
         IntPinConfigBuilder::new(self)
@@ -847,7 +873,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -856,8 +882,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x27, 0x20]),
     /// #        Transaction::write(ADDR, vec![0x28, 0x03]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable x, y and z axes, stop on full
     /// // and set the watermark to 800 bytes
     /// bma400.config_fifo()
@@ -865,6 +891,7 @@ where
     ///     .with_stop_on_full(true)
     ///     .with_watermark_thresh(800)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_fifo(&mut self) -> FifoConfigBuilder<T> {
         FifoConfigBuilder::new(self)
@@ -879,7 +906,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, AutoLPTimeoutTrigger};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -887,14 +914,15 @@ where
     /// #        Transaction::write(ADDR, vec![0x2A, 0x4E]),
     /// #        Transaction::write(ADDR, vec![0x2B, 0x28]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable auto low power on timeout, reset timeout
     /// // on gen2 interrupt trigger and set the timeout to 500ms
     /// bma400.config_auto_lp()
     ///     .with_timeout(1250)
     ///     .with_auto_lp_trigger(AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_auto_lp(&mut self) -> AutoLpConfigBuilder<T> {
         AutoLpConfigBuilder::new(self)
@@ -908,7 +936,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::BMA400;
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -916,8 +944,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x2C, 0x4E]),
     /// #        Transaction::write(ADDR, vec![0x2D, 0x26]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable periodic wakeup, auto wakeup on
     /// // activity interrupt trigger and set the
     /// // wakeup period to 500ms
@@ -926,6 +954,7 @@ where
     ///     .with_periodic_wakeup(true)
     ///     .with_activity_int(true)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_autowkup(&mut self) -> AutoWakeupConfigBuilder<T> {
         AutoWakeupConfigBuilder::new(self)
@@ -941,7 +970,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, WakeupIntRefMode};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -949,8 +978,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x30, 0x20]),
     /// #        Transaction::write(ADDR, vec![0x2F, 0x61]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable wakeup interrupt for x and y axes w/ a threshold
     /// // of 256 milli-g (at 4g scale) and automatically update the
     /// // reference acceleration once each time the device
@@ -960,6 +989,7 @@ where
     ///     .with_threshold(32)
     ///     .with_axes(true, true, false)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_wkup_int(&mut self) -> WakeupIntConfigBuilder<T> {
         WakeupIntConfigBuilder::new(self)
@@ -975,7 +1005,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, OrientIntRefMode};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -983,8 +1013,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x35, 0xE4]),
     /// #        Transaction::write(ADDR, vec![0x36, 0x20]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable orientation change interrupt all axes, automatically
     /// // update the reference acceleration once each time the device
     /// // enters a new stable orientation with a threshold of 256 milli-g
@@ -994,6 +1024,7 @@ where
     ///     .with_ref_mode(OrientIntRefMode::AccFilt2)
     ///     .with_threshold(32)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_orientchg_int(&mut self) -> OrientChgConfigBuilder<T> {
         OrientChgConfigBuilder::new(self)
@@ -1013,7 +1044,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, GenIntLogicMode, GenIntCriterionMode};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -1024,8 +1055,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x48, 0xD4]),
     /// #        Transaction::write(ADDR, vec![0x49, 0x03]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable Generic Interrupt 1 for all axes, manually set
     /// // reference acceleration, trigger on all axes having
     /// // acceleration within reference +/- 256 milli-g (at 4g scale)
@@ -1036,6 +1067,7 @@ where
     ///     .with_criterion_mode(GenIntCriterionMode::Inactivity)
     ///     .with_threshold(32)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_gen1_int(&mut self) -> GenIntConfigBuilder<T> {
         GenIntConfigBuilder::new_gen1(self)
@@ -1055,7 +1087,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, GenIntLogicMode, GenIntCriterionMode};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -1066,8 +1098,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x53, 0xD4]),
     /// #        Transaction::write(ADDR, vec![0x54, 0x03]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable Generic Interrupt 2 for all axes, manually set
     /// // reference acceleration, trigger on any axes having
     /// // acceleration outside reference +/- 256 milli-g (at 4g scale)
@@ -1078,6 +1110,7 @@ where
     ///     .with_criterion_mode(GenIntCriterionMode::Activity)
     ///     .with_threshold(32)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_gen2_int(&mut self) -> GenIntConfigBuilder<T> {
         GenIntConfigBuilder::new_gen2(self)
@@ -1092,7 +1125,7 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, ActChgObsPeriod, DataSource};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
@@ -1100,8 +1133,8 @@ where
     /// #        Transaction::write(ADDR, vec![0x55, 0x20]),
     /// #        Transaction::write(ADDR, vec![0x56, 0xF1]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Enable Activity Change Interrupt for all axes observing
     /// // average acceleration over 64 samples. Trigger interrupt
     /// // for axes if more than 256 milli-g (at 4g scale)
@@ -1112,6 +1145,8 @@ where
     ///     .with_obs_period(ActChgObsPeriod::Samples64)
     ///     .with_threshold(32)
     ///     .write().unwrap();
+    ///
+    /// # i2c.done();
     /// ```
     pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<T> {
         ActChgConfigBuilder::new(self)
@@ -1127,15 +1162,15 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// # use bma400::{BMA400, DoubleTapDuration, MinTapDuration, TapSensitivity};
     /// # let ADDR = 0b10100;
     /// # let expected = vec![
     /// #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
     /// #        Transaction::write(ADDR, vec![0x58, 0x0E]),
     /// #    ];
-    /// # let i2c = Mock::new(&expected);
-    /// # let mut bma400 = BMA400::new_i2c(i2c).unwrap();
+    /// # let mut i2c = Mock::new(&expected);
+    /// # let mut bma400 = BMA400::new_i2c(&mut i2c).unwrap();
     /// // Set maximum elapsed samples between taps for a double tap
     /// // to 120. Set minimum duration between peaks to be considered
     /// // a separate tap. Set tap sensitivity to most sensitive
@@ -1144,6 +1179,7 @@ where
     ///     .with_min_duration_btn_taps(MinTapDuration::Samples4)
     ///     .with_sensitivity(TapSensitivity::SENS0)
     ///     .write().unwrap();
+    /// # i2c.done();
     /// ```
     pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
         TapConfigBuilder::new(self)
@@ -1155,7 +1191,7 @@ where
     /// This will disable all interrupts and FIFO write for the duration
     ///
     /// See [p.48 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=48)
-    pub fn perform_self_test<Timer: DelayMs<u8>>(
+    pub fn perform_self_test<Timer: DelayUs>(
         &mut self,
         timer: &mut Timer,
     ) -> Result<(), BMA400Error<InterfaceError, PinError>> {
