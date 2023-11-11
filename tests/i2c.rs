@@ -1,21 +1,20 @@
 #![allow(clippy::vec_init_then_push)]
-use bma400::{
-    I2CInterface,
-    types::*,
-    BMA400,
-};
+use bma400::{types::*, I2CInterface, BMA400};
 use embedded_hal_mock::{
-    delay::MockNoop,
-    i2c::{
-        Mock,
-        Transaction,
-    },
+    eh1::delay::NoopDelay,
+    eh1::i2c::{Mock, Transaction},
 };
 
 #[cfg(feature = "i2c-default")]
 pub const ADDR: u8 = 0b00010100;
 #[cfg(feature = "i2c-alt")]
 pub const ADDR: u8 = 0b00010101;
+
+macro_rules! destroy_device {
+    ($device:ident) => {
+        $device.destroy().destroy().done()
+    };
+}
 
 fn new(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
     BMA400::new_i2c(Mock::new(expected)).unwrap()
@@ -25,19 +24,25 @@ fn new(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
 fn init_bad_chip_id() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x89]));
-    let result = BMA400::new_i2c(Mock::new(&expected));
+    let mut i2c = Mock::new(&expected);
+    let result = BMA400::new_i2c(&mut i2c);
     assert!(matches!(result, Err(BMA400Error::ChipIdReadFailed)));
+    i2c.done();
 }
 
 #[test]
 fn destroy() {
     // Expecting to initialize twice, once before and once after the call to destroy()
-    let expected = vec![Transaction::write_read(ADDR, vec![0x00], vec![0x90]), Transaction::write_read(ADDR, vec![0x00], vec![0x90])];
+    let expected = vec![
+        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
+        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
+    ];
     let mut i2c = Mock::new(&expected);
     let device = BMA400::new_i2c(i2c).unwrap();
     let iface = device.destroy();
     i2c = iface.destroy();
-    BMA400::new_i2c(i2c).unwrap();
+    let device = BMA400::new_i2c(i2c).unwrap();
+    destroy_device!(device);
 }
 
 #[test]
@@ -48,6 +53,7 @@ fn get_chip_id() {
     let mut device = new(&expected);
     let id = device.get_id().unwrap();
     assert_eq!(id, 0x90);
+    destroy_device!(device);
 }
 
 #[test]
@@ -61,6 +67,7 @@ fn get_cmd_error() {
     assert!(!status);
     let status = device.get_cmd_error().unwrap();
     assert!(status);
+    destroy_device!(device);
 }
 
 #[test]
@@ -120,6 +127,8 @@ fn get_status() {
     assert!(!status.cmd_rdy());
     assert!(status.int_active());
     assert!(matches!(status.power_mode(), PowerMode::Sleep));
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -136,6 +145,8 @@ fn get_unscaled_data() {
     assert_eq!(m.x, -2047);
     assert_eq!(m.y, -1);
     assert_eq!(m.z, 2047);
+
+    destroy_device!(device);
 }
 
 fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
@@ -165,6 +176,7 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
     let mut device = new(&expected);
     device.config_accel().with_scale(scale).write().unwrap();
     let m = device.get_data().unwrap();
+    destroy_device!(device);
     (m.x, m.y, m.z)
 }
 
@@ -180,9 +192,14 @@ fn get_data() {
 fn get_sensor_clock() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
-    expected.push(Transaction::write_read(ADDR, vec![0x0A], vec![0xF8, 0xFF, 0xFF]));
+    expected.push(Transaction::write_read(
+        ADDR,
+        vec![0x0A],
+        vec![0xF8, 0xFF, 0xFF],
+    ));
     let mut device = new(&expected);
     let t = device.get_sensor_clock().unwrap();
+    destroy_device!(device);
     assert_eq!(t, 0xFFFFF8);
 }
 
@@ -201,6 +218,7 @@ fn get_reset_status() {
     let reset = device.get_reset_status().unwrap();
     assert!(!reset);
     let reset = device.get_reset_status().unwrap();
+    destroy_device!(device);
     assert!(reset);
 }
 
@@ -322,6 +340,8 @@ fn get_int_status() {
     assert!(!status.gen1_stat());
     assert!(!status.orientch_stat());
     assert!(status.wkup_stat());
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -372,14 +392,22 @@ fn get_int_status1() {
     assert!(!status.ieng_overrun_stat());
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
-    assert!(matches!(status.step_int_stat(), StepIntStatus::ManyStepDetect));
+    assert!(matches!(
+        status.step_int_stat(),
+        StepIntStatus::ManyStepDetect
+    ));
 
     // step_int == 1
     let status = device.get_int_status1().unwrap();
     assert!(!status.ieng_overrun_stat());
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
-    assert!(matches!(status.step_int_stat(), StepIntStatus::OneStepDetect));
+    assert!(matches!(
+        status.step_int_stat(),
+        StepIntStatus::OneStepDetect
+    ));
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -428,6 +456,8 @@ fn get_int_status2() {
     assert!(!status.actch_z_stat());
     assert!(!status.actch_y_stat());
     assert!(status.actch_x_stat());
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -442,6 +472,8 @@ fn get_fifo_len() {
     assert_eq!(len, 1024);
     let len = device.get_fifo_len().unwrap();
     assert_eq!(len, 640);
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -479,6 +511,7 @@ fn read_fifo_frames() {
         count += 1;
     }
     assert_eq!(count, 3);
+    destroy_device!(device);
 }
 
 #[test]
@@ -490,6 +523,7 @@ fn flush_fifo() {
 
     let mut device = new(&expected);
     device.flush_fifo().unwrap();
+    destroy_device!(device);
 }
 
 #[test]
@@ -497,10 +531,15 @@ fn get_step_count() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
 
-    expected.push(Transaction::write_read(ADDR, vec![0x15], vec![0x00, 0xFF, 0xF0]));
+    expected.push(Transaction::write_read(
+        ADDR,
+        vec![0x15],
+        vec![0x00, 0xFF, 0xF0],
+    ));
     let mut device = new(&expected);
     let count = device.get_step_count().unwrap();
     assert_eq!(count, 15793920);
+    destroy_device!(device);
 }
 
 #[test]
@@ -511,6 +550,7 @@ fn clear_step_count() {
     expected.push(Transaction::write(ADDR, vec![0x7E, 0xB1]));
     let mut device = new(&expected);
     device.clear_step_count().unwrap();
+    destroy_device!(device);
 }
 
 #[test]
@@ -528,6 +568,7 @@ fn get_step_activity() {
     assert!(matches!(activity, Activity::Run));
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Still));
+    destroy_device!(device);
 }
 
 #[test]
@@ -542,6 +583,7 @@ fn get_raw_temp() {
     assert_eq!(temp, -48);
     let temp = device.get_raw_temp().unwrap();
     assert_eq!(temp, 127);
+    destroy_device!(device);
 }
 
 #[test]
@@ -584,6 +626,8 @@ fn config_accel() {
         .with_reg_dta_src(DataSource::AccFilt1)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -604,9 +648,21 @@ fn config_interrupts() {
     let mut device = new(&expected);
 
     // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
-    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_actchg_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
+    device
+        .config_gen1_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
+    device
+        .config_gen2_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
 
     // Set Everything
     device
@@ -641,6 +697,8 @@ fn config_interrupts() {
         .with_step_int(false)
         .write()
         .unwrap();
+
+    destroy_device!(device)
 }
 
 #[test]
@@ -717,6 +775,8 @@ fn config_int_pins() {
         .with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -763,6 +823,8 @@ fn config_fifo() {
         .with_read_disabled(false)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -797,6 +859,8 @@ fn config_auto_lp() {
         .with_gen1_int_trigger(false)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -829,6 +893,8 @@ fn config_autowkup() {
         .with_activity_int(false)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -875,6 +941,8 @@ fn config_wkup_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -927,6 +995,8 @@ fn config_orientchg_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -989,6 +1059,8 @@ fn config_gen1_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -1051,6 +1123,8 @@ fn config_gen2_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -1085,6 +1159,8 @@ fn config_actchg_int() {
         .with_obs_period(ActChgObsPeriod::Samples32)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -1121,6 +1197,8 @@ fn config_tap() {
         .with_max_tap_duration(MaxTapDuration::Samples6)
         .write()
         .unwrap();
+
+    destroy_device!(device);
 }
 
 fn self_test_setup(expected: &mut Vec<Transaction>) {
@@ -1172,23 +1250,11 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected: &mut Vec<Transa
     const FAIL_Z_NEG: i16 = 300;
 
     let x_pos = PASS_X_POS;
-    let x_neg = if x_fail {
-        FAIL_X_NEG
-    } else {
-        PASS_X_NEG
-    };
-    let y_pos = if y_fail {
-        FAIL_Y_POS
-    } else {
-        PASS_Y_POS
-    };
+    let x_neg = if x_fail { FAIL_X_NEG } else { PASS_X_NEG };
+    let y_pos = if y_fail { FAIL_Y_POS } else { PASS_Y_POS };
     let y_neg = PASS_Y_NEG;
     let z_pos = PASS_Z_POS;
-    let z_neg = if z_fail {
-        FAIL_Z_NEG
-    } else {
-        PASS_Z_NEG
-    };
+    let z_neg = if z_fail { FAIL_Z_NEG } else { PASS_Z_NEG };
 
     //Disable Interrupts, Set Test Config
     self_test_setup(expected);
@@ -1276,11 +1342,23 @@ fn perform_self_test() {
     let mut device = new(&expected);
 
     // ActChgConfig
-    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_actchg_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
     // Gen1IntConfig
-    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_gen1_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
     // Gen2IntConfig
-    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_gen2_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
 
     // AccConfig
     device
@@ -1331,7 +1409,7 @@ fn perform_self_test() {
         .write()
         .unwrap();
 
-    let mut timer = MockNoop::new();
+    let mut timer = NoopDelay::new();
 
     // Pass
     let result = device.perform_self_test(&mut timer);
@@ -1348,6 +1426,8 @@ fn perform_self_test() {
     // Fail Z
     let result = device.perform_self_test(&mut timer);
     assert!(matches!(result, Err(BMA400Error::SelfTestFailedError)));
+
+    destroy_device!(device);
 }
 
 #[test]
@@ -1360,4 +1440,6 @@ fn soft_reset() {
 
     let mut device = new(&expected);
     device.soft_reset().unwrap();
+
+    destroy_device!(device);
 }

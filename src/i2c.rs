@@ -1,20 +1,10 @@
+use embedded_hal::i2c::SevenBitAddress;
+
 use crate::{
-    hal::blocking::i2c::{
-        Write,
-        WriteRead,
-    },
-    interface::{
-        ReadFromRegister,
-        WriteToRegister,
-    },
-    registers::{
-        ChipId,
-        ConfigReg,
-        ReadReg,
-    },
-    BMA400Error,
-    Config,
-    BMA400,
+    hal::i2c::I2c,
+    interface::{ReadFromRegister, WriteToRegister},
+    registers::{ChipId, ConfigReg, ReadReg},
+    BMA400Error, Config, BMA400,
 };
 
 // This is set by the SDO Pin level. (p. 108 of datasheet)
@@ -40,41 +30,50 @@ impl<I2C> I2CInterface<I2C> {
 
 impl<I2C, E> WriteToRegister for I2CInterface<I2C>
 where
-    I2C: Write<Error = E>,
+    I2C: I2c<SevenBitAddress, Error = E>,
 {
     type Error = BMA400Error<E, ()>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        self.i2c.write(ADDR, &[register.addr(), register.to_byte()]).map_err(BMA400Error::IOError)
+        self.i2c
+            .write(ADDR, &[register.addr(), register.to_byte()])
+            .map_err(BMA400Error::IOError)
     }
 }
 
 impl<I2C, E> ReadFromRegister for I2CInterface<I2C>
 where
-    I2C: WriteRead<Error = E>,
+    I2C: I2c<SevenBitAddress, Error = E>,
 {
     type Error = BMA400Error<E, ()>;
 
-    fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.i2c.write_read(ADDR, &[register.addr()], buffer).map_err(BMA400Error::IOError)
+    fn read_register<T: ReadReg>(
+        &mut self,
+        register: T,
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        self.i2c
+            .write_read(ADDR, &[register.addr()], buffer)
+            .map_err(BMA400Error::IOError)
     }
 }
 
 impl<I2C, E> BMA400<I2CInterface<I2C>>
 where
-    I2C: WriteRead<Error = E> + Write<Error = E>,
+    I2C: I2c<SevenBitAddress, Error = E>,
 {
     /// Create a new instance of the BMA400 using I²C
-    /// 
+    ///
     /// # Examples
     /// ```
-    /// # use embedded_hal_mock::i2c::{Mock, Transaction};
+    /// # use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
     /// use bma400::BMA400;
     /// # let expected = vec![Transaction::write_read(0b10100, vec![0x00], vec![0x90])];
-    /// # let i2c = Mock::new(&expected);
+    /// # let mut i2c = Mock::new(&expected);
     /// // i2c implements embedded-hal i2c::WriteRead and i2c::Write
-    /// let mut accelerometer = BMA400::new_i2c(i2c);
+    /// let mut accelerometer = BMA400::new_i2c(&mut i2c);
     /// assert!(accelerometer.is_ok());
+    /// # i2c.done();
     /// ```
     pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E, ()>> {
         let mut interface = I2CInterface { i2c };

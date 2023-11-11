@@ -1,11 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        AutoWakeup0,
-        AutoWakeup1,
-    },
-    ConfigError,
-    BMA400,
+    registers::{AutoWakeup0, AutoWakeup1},
+    ConfigError, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -21,7 +17,7 @@ impl AutoWakeupConfig {
 }
 
 /// Configure Auto Wake-up settings
-/// 
+///
 /// - Set the length of time between each wake-up using [`with_wakeup_period()`](AutoWakeupConfigBuilder::with_wakeup_period)
 /// - Enable / Disable periodic wakeup using [`with_periodic_wakeup()`](AutoWakeupConfigBuilder::with_periodic_wakeup)
 /// - Enable / Disable wake-up interrupt using [`with_activity_int()`](AutoWakeupConfigBuilder::with_activity_int)
@@ -65,13 +61,17 @@ where
         if self.device.config.auto_wkup_config.auto_wakeup0.bits()
             != self.config.auto_wakeup0.bits()
         {
-            self.device.interface.write_register(self.config.auto_wakeup0)?;
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup0)?;
             self.device.config.auto_wkup_config.auto_wakeup0 = self.config.auto_wakeup0;
         }
         if self.device.config.auto_wkup_config.auto_wakeup1.bits()
             != self.config.auto_wakeup1.bits()
         {
-            self.device.interface.write_register(self.config.auto_wakeup1)?;
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup1)?;
             self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
         }
         Ok(())
