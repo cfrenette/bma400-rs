@@ -181,7 +181,7 @@ where
     /// Write this configuration to device registers
     // Clippy: ignore lint for intentional XOR with self, avoiding an awkward import / function call
     #[allow(clippy::eq_op)]
-    pub fn write(mut self) -> Result<(), E> {
+    pub fn write(self) -> Result<(), E> {
         // Any change of an interrupt configuration must be executed when the corresponding
         // interrupt is disabled. (Datasheet p. 40)
 
