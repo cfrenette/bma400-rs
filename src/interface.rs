@@ -15,20 +15,19 @@ pub trait ReadFromRegister {
 }
 
 #[cfg(feature = "async")]
+#[cfg_attr(not(enable_async_in_trait), allow(async_fn_in_trait))]
 pub trait AsyncWriteToRegister {
     type Error;
-    fn write_register<T: ConfigReg>(
-        &mut self,
-        register: T,
-    ) -> impl core::future::Future<Output = Result<(), Self::Error>>;
+    async fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error>;
 }
 
 #[cfg(feature = "async")]
+#[cfg_attr(not(enable_async_in_trait), allow(async_fn_in_trait))]
 pub trait AsyncReadFromRegister {
     type Error;
-    fn read_register<T: ReadReg>(
+    async fn read_register<T: ReadReg>(
         &mut self,
         register: T,
         buffer: &mut [u8],
-    ) -> impl core::future::Future<Output = Result<(), Self::Error>>;
+    ) -> Result<(), Self::Error>;
 }
