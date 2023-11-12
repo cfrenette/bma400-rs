@@ -17,7 +17,10 @@ pub trait ReadFromRegister {
 #[cfg(feature = "async")]
 pub trait AsyncWriteToRegister {
     type Error;
-    fn write_register<T: ConfigReg>(&mut self, register: T) -> impl core::future::Future<Output = Result<(), Self::Error>>;
+    fn write_register<T: ConfigReg>(
+        &mut self,
+        register: T,
+    ) -> impl core::future::Future<Output = Result<(), Self::Error>>;
 }
 
 #[cfg(feature = "async")]
