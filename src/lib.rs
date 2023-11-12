@@ -156,7 +156,10 @@
 #![warn(missing_docs, unsafe_code)]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-#![cfg_attr(enable_async_in_trait, feature(async_fn_in_trait, return_position_impl_trait_in_trait))]
+#![cfg_attr(
+    enable_async_in_trait,
+    feature(async_fn_in_trait, return_position_impl_trait_in_trait)
+)]
 
 pub(crate) use embedded_hal as hal;
 
