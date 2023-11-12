@@ -12,6 +12,9 @@ use crate::{
     OutputDataRate, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct Gen1IntConfig {
     config0: Gen1IntConfig0,
@@ -79,28 +82,12 @@ impl GenIntConfig {
 /// - Set the interrupt trigger threshold using [`with_threshold()`](GenIntConfigBuilder::with_threshold)
 /// - Set the number of cycles that the interrupt condition must be true before the interrupt triggers using [`with_duration()`](GenIntConfigBuilder::with_duration)
 /// - Manually set the reference acceleration for the interrupt trigger condition using [`with_ref_accel()`](GenIntConfigBuilder::with_ref_accel)
-pub struct GenIntConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct GenIntConfigBuilder<Device> {
     config: GenIntConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> GenIntConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new_gen1(
-        device: &'a mut BMA400<Interface>,
-    ) -> GenIntConfigBuilder<'a, Interface> {
-        let config = GenIntConfig::Gen1Int(device.config.gen1int_config.clone());
-        GenIntConfigBuilder { config, device }
-    }
-    pub(crate) fn new_gen2(
-        device: &'a mut BMA400<Interface>,
-    ) -> GenIntConfigBuilder<'a, Interface> {
-        let config = GenIntConfig::Gen2Int(device.config.gen2int_config.clone());
-        GenIntConfigBuilder { config, device }
-    }
+impl<Device> GenIntConfigBuilder<Device> {
     // Config0
     /// Select the axes to be considered when evaluating the generic interrupt criterion
     pub fn with_axes(mut self, x: bool, y: bool, z: bool) -> Self {
@@ -234,6 +221,132 @@ where
             }
         }
         self
+    }
+    // Detect changes to assess whether to skip writing registers
+    fn has_config0_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config0.bits() != device_config.gen1int_config.config0.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config0.bits() != device_config.gen2int_config.config0.bits()
+            }
+        }
+    }
+    fn has_config1_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config1.bits() != device_config.gen1int_config.config1.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config1.bits() != device_config.gen2int_config.config1.bits()
+            }
+        }
+    }
+    fn has_config2_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config2.bits() != device_config.gen1int_config.config2.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config2.bits() != device_config.gen2int_config.config2.bits()
+            }
+        }
+    }
+    fn has_config3_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config3.bits() != device_config.gen1int_config.config3.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config3.bits() != device_config.gen2int_config.config3.bits()
+            }
+        }
+    }
+    fn has_config31_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config31.bits() != device_config.gen1int_config.config31.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config31.bits() != device_config.gen2int_config.config31.bits()
+            }
+        }
+    }
+    fn has_config4_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config4.bits() != device_config.gen1int_config.config4.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config4.bits() != device_config.gen2int_config.config4.bits()
+            }
+        }
+    }
+    fn has_config5_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config5.bits() != device_config.gen1int_config.config5.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config5.bits() != device_config.gen2int_config.config5.bits()
+            }
+        }
+    }
+    fn has_config6_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config6.bits() != device_config.gen1int_config.config6.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config6.bits() != device_config.gen2int_config.config6.bits()
+            }
+        }
+    }
+    fn has_config7_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config7.bits() != device_config.gen1int_config.config7.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config7.bits() != device_config.gen2int_config.config7.bits()
+            }
+        }
+    }
+    fn has_config8_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config8.bits() != device_config.gen1int_config.config8.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config8.bits() != device_config.gen2int_config.config8.bits()
+            }
+        }
+    }
+    fn has_config9_changes_from(&self, device_config: &Config) -> bool {
+        match &self.config {
+            GenIntConfig::Gen1Int(config) => {
+                config.config9.bits() != device_config.gen1int_config.config9.bits()
+            }
+            GenIntConfig::Gen2Int(config) => {
+                config.config9.bits() != device_config.gen2int_config.config9.bits()
+            }
+        }
+    }
+}
+
+impl<'a, Interface, E> GenIntConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_gen1(device: &'a mut BMA400<Interface>) -> Self {
+        let config = GenIntConfig::Gen1Int(device.config.gen1int_config.clone());
+        GenIntConfigBuilder { config, device }
+    }
+    pub(crate) fn new_gen2(device: &'a mut BMA400<Interface>) -> Self {
+        let config = GenIntConfig::Gen2Int(device.config.gen2int_config.clone());
+        GenIntConfigBuilder { config, device }
     }
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
@@ -435,116 +548,229 @@ where
         }
         Ok(())
     }
-    // Detect changes to assess whether to skip writing registers
-    fn has_config0_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config0.bits() != device_config.gen1int_config.config0.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config0.bits() != device_config.gen2int_config.config0.bits()
-            }
-        }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> GenIntConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_gen1_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        let config = GenIntConfig::Gen1Int(device.config.gen1int_config.clone());
+        GenIntConfigBuilder { config, device }
     }
-    fn has_config1_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config1.bits() != device_config.gen1int_config.config1.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config1.bits() != device_config.gen2int_config.config1.bits()
-            }
-        }
+    pub(crate) fn new_gen2_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        let config = GenIntConfig::Gen2Int(device.config.gen2int_config.clone());
+        GenIntConfigBuilder { config, device }
     }
-    fn has_config2_changes_from(&self, device_config: &Config) -> bool {
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        let has_config0_changes = self.has_config0_changes_from(&self.device.config);
+        let has_config1_changes = self.has_config1_changes_from(&self.device.config);
+        let has_config2_changes = self.has_config2_changes_from(&self.device.config);
+        let has_config3_changes = self.has_config3_changes_from(&self.device.config);
+        let has_config31_changes = self.has_config31_changes_from(&self.device.config);
+        let has_config4_changes = self.has_config4_changes_from(&self.device.config);
+        let has_config5_changes = self.has_config5_changes_from(&self.device.config);
+        let has_config6_changes = self.has_config6_changes_from(&self.device.config);
+        let has_config7_changes = self.has_config7_changes_from(&self.device.config);
+        let has_config8_changes = self.has_config8_changes_from(&self.device.config);
+        let has_config9_changes = self.has_config9_changes_from(&self.device.config);
+
+        let has_changes = has_config0_changes
+            || has_config1_changes
+            || has_config2_changes
+            || has_config3_changes
+            || has_config31_changes
+            || has_config4_changes
+            || has_config5_changes
+            || has_config6_changes
+            || has_config7_changes
+            || has_config8_changes
+            || has_config9_changes;
+
+        // If there aren't any changes, return early
+        if !has_changes {
+            return Ok(());
+        }
+        // Clone the existing enabled interrupts
+        let mut int_config0 = self.device.config.int_config.get_config0();
+        let int_enabled = match &self.config {
+            GenIntConfig::Gen1Int(_) => int_config0.gen1_int(),
+            GenIntConfig::Gen2Int(_) => int_config0.gen2_int(),
+        };
+        // If the interrupt is enabled and we're changing the data source to AccFilt1 the ODR must
+        // be 100Hz
+        if int_enabled
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.config.src(), DataSource::AccFilt1)
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // If there are changes and the interrupt is active, need to disable interrupt before
+        // writing changes
         match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config2.bits() != device_config.gen1int_config.config2.bits()
+            GenIntConfig::Gen1Int(_) => {
+                if int_enabled {
+                    int_config0 = int_config0.with_gen1_int(false);
+                    self.device.interface.write_register(int_config0).await?;
+                }
             }
-            GenIntConfig::Gen2Int(config) => {
-                config.config2.bits() != device_config.gen2int_config.config2.bits()
+            GenIntConfig::Gen2Int(_) => {
+                if int_enabled {
+                    int_config0 = int_config0.with_gen2_int(false);
+                    self.device.interface.write_register(int_config0).await?;
+                }
             }
         }
-    }
-    fn has_config3_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config3.bits() != device_config.gen1int_config.config3.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config3.bits() != device_config.gen2int_config.config3.bits()
-            }
-        }
-    }
-    fn has_config31_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config31.bits() != device_config.gen1int_config.config31.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config31.bits() != device_config.gen2int_config.config31.bits()
+        if has_config0_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config0).await?;
+                    self.device.config.gen1int_config.config0 = config.config0;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config0).await?;
+                    self.device.config.gen2int_config.config0 = config.config0;
+                }
             }
         }
-    }
-    fn has_config4_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config4.bits() != device_config.gen1int_config.config4.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config4.bits() != device_config.gen2int_config.config4.bits()
-            }
-        }
-    }
-    fn has_config5_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config5.bits() != device_config.gen1int_config.config5.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config5.bits() != device_config.gen2int_config.config5.bits()
+        if has_config1_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config1).await?;
+                    self.device.config.gen1int_config.config1 = config.config1;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config1).await?;
+                    self.device.config.gen2int_config.config1 = config.config1;
+                }
             }
         }
-    }
-    fn has_config6_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config6.bits() != device_config.gen1int_config.config6.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config6.bits() != device_config.gen2int_config.config6.bits()
-            }
-        }
-    }
-    fn has_config7_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config7.bits() != device_config.gen1int_config.config7.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config7.bits() != device_config.gen2int_config.config7.bits()
+        if has_config2_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config2).await?;
+                    self.device.config.gen1int_config.config2 = config.config2;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config2).await?;
+                    self.device.config.gen2int_config.config2 = config.config2;
+                }
             }
         }
-    }
-    fn has_config8_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config8.bits() != device_config.gen1int_config.config8.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config8.bits() != device_config.gen2int_config.config8.bits()
-            }
-        }
-    }
-    fn has_config9_changes_from(&self, device_config: &Config) -> bool {
-        match &self.config {
-            GenIntConfig::Gen1Int(config) => {
-                config.config9.bits() != device_config.gen1int_config.config9.bits()
-            }
-            GenIntConfig::Gen2Int(config) => {
-                config.config9.bits() != device_config.gen2int_config.config9.bits()
+        if has_config3_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config3).await?;
+                    self.device.config.gen1int_config.config3 = config.config3;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config3).await?;
+                    self.device.config.gen2int_config.config3 = config.config3;
+                }
             }
         }
+        if has_config31_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device
+                        .interface
+                        .write_register(config.config31)
+                        .await?;
+                    self.device.config.gen1int_config.config31 = config.config31;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device
+                        .interface
+                        .write_register(config.config31)
+                        .await?;
+                    self.device.config.gen2int_config.config31 = config.config31;
+                }
+            }
+        }
+        if has_config4_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config4).await?;
+                    self.device.config.gen1int_config.config4 = config.config4;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config4).await?;
+                    self.device.config.gen2int_config.config4 = config.config4;
+                }
+            }
+        }
+        if has_config5_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config5).await?;
+                    self.device.config.gen1int_config.config5 = config.config5;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config5).await?;
+                    self.device.config.gen2int_config.config5 = config.config5;
+                }
+            }
+        }
+        if has_config6_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config6).await?;
+                    self.device.config.gen1int_config.config6 = config.config6;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config6).await?;
+                    self.device.config.gen2int_config.config6 = config.config6;
+                }
+            }
+        }
+        if has_config7_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config7).await?;
+                    self.device.config.gen1int_config.config7 = config.config7;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config7).await?;
+                    self.device.config.gen2int_config.config7 = config.config7;
+                }
+            }
+        }
+        if has_config8_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config8).await?;
+                    self.device.config.gen1int_config.config8 = config.config8;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config8).await?;
+                    self.device.config.gen2int_config.config8 = config.config8;
+                }
+            }
+        }
+        if has_config9_changes {
+            match &self.config {
+                GenIntConfig::Gen1Int(config) => {
+                    self.device.interface.write_register(config.config9).await?;
+                    self.device.config.gen1int_config.config9 = config.config9;
+                }
+                GenIntConfig::Gen2Int(config) => {
+                    self.device.interface.write_register(config.config9).await?;
+                    self.device.config.gen2int_config.config9 = config.config9;
+                }
+            }
+        }
+        // Re-enable interrupt, if it was disabled
+        if int_config0.bits() != self.device.config.int_config.get_config0().bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())
+                .await?;
+        }
+        Ok(())
     }
 }
 

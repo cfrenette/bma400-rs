@@ -4,6 +4,9 @@ use crate::{
     ConfigError, DataSource, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct FifoConfig {
     fifo_config0: FifoConfig0,
@@ -31,22 +34,12 @@ impl FifoConfig {
 /// - Enable / Disable automatic flush on power mode change using [`with_auto_flush()`](FifoConfigBuilder::with_auto_flush)
 /// - Set the fill threshold for the FIFO watermark interrupt using [`with_watermark_thresh()`](FifoConfigBuilder::with_watermark_thresh)
 /// - Manually Enable / Disable the FIFO read circuit using [`with_read_disabled()`](FifoConfigBuilder::with_read_disabled)
-pub struct FifoConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct FifoConfigBuilder<Device> {
     config: FifoConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> FifoConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> FifoConfigBuilder<'a, Interface> {
-        FifoConfigBuilder {
-            config: device.config.fifo_config.clone(),
-            device,
-        }
-    }
+impl<Device> FifoConfigBuilder<Device> {
     // FifoConfig0
 
     /// Manually Disable power to the FIFO Read circuit. This can save 100nA but you must wait 50µs
@@ -121,6 +114,19 @@ where
         self.config.fifo_config2 = self.config.fifo_config2.with_fifo_wtrmk_threshold(bytes[1]);
         self
     }
+}
+
+impl<'a, Interface, E> FifoConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        FifoConfigBuilder {
+            config: device.config.fifo_config.clone(),
+            device,
+        }
+    }
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
@@ -171,6 +177,73 @@ where
     }
 }
 
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> FifoConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        FifoConfigBuilder {
+            config: device.config.fifo_config.clone(),
+            device,
+        }
+    }
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config0)
+                .await?;
+            self.device.config.fifo_config.fifo_config0 = self.config.fifo_config0;
+        }
+        let wm1_changes =
+            self.device.config.fifo_config.fifo_config1.bits() != self.config.fifo_config1.bits();
+        let wm2_changes =
+            self.device.config.fifo_config.fifo_config2.bits() != self.config.fifo_config2.bits();
+        let fifo_wm_changes = wm1_changes || wm2_changes;
+        let mut tmp_int_config = self.device.config.int_config.get_config0();
+
+        // If enabled, temporarily disable the FIFO Watermark Interrupt to change the config
+        if self.device.config.int_config.get_config0().fwm_int() && fifo_wm_changes {
+            tmp_int_config = tmp_int_config.with_fwm_int(false);
+            self.device.interface.write_register(tmp_int_config).await?;
+        }
+        if wm1_changes {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config1)
+                .await?;
+            self.device.config.fifo_config.fifo_config1 = self.config.fifo_config1;
+        }
+        if wm2_changes {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config2)
+                .await?;
+            self.device.config.fifo_config.fifo_config2 = self.config.fifo_config2;
+        }
+        // Re-enable the interrupt if it was changed
+        if self.device.config.int_config.get_config0().bits() != tmp_int_config.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())
+                .await?;
+        }
+        if self.device.config.fifo_config.fifo_pwr_config.bits()
+            != self.config.fifo_pwr_config.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.fifo_pwr_config)
+                .await?;
+            self.device.config.fifo_config.fifo_pwr_config = self.config.fifo_pwr_config
+        }
+        Ok(())
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

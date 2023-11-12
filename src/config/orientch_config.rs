@@ -7,6 +7,9 @@ use crate::{
     ConfigError, DataSource, OrientIntRefMode, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct OrientChgConfig {
     orientch_config0: OrientChgConfig0,
@@ -27,23 +30,12 @@ pub struct OrientChgConfig {
 /// - Set the [OrientIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](OrientChgConfigBuilder::with_ref_mode)
 /// - Set the number of samples that a newly detected orientation must be in effect before the interrupt is triggered with [`with_duration()`](OrientChgConfigBuilder::with_duration)
 /// - Manually set the reference acceleration for the interrupt trigger condition using [`with_ref_accel()`](OrientChgConfigBuilder::with_ref_accel)
-pub struct OrientChgConfigBuilder<'a, Interface> {
+pub struct OrientChgConfigBuilder<Device> {
     config: OrientChgConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> OrientChgConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> OrientChgConfigBuilder<'a, Interface> {
-        OrientChgConfigBuilder {
-            config: device.config.orientch_config.clone(),
-            device,
-        }
-    }
-
+impl<Device> OrientChgConfigBuilder<Device> {
     // OrientChgConfig0
 
     /// Enable/Disable the axes evaluated for the interrupt trigger condition
@@ -115,6 +107,20 @@ where
 
         self
     }
+}
+
+impl<'a, Interface, E> OrientChgConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        OrientChgConfigBuilder {
+            config: device.config.orientch_config.clone(),
+            device,
+        }
+    }
+
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         let has_config0_changes = self.device.config.orientch_config.orientch_config0.bits()
@@ -212,6 +218,135 @@ where
             self.device
                 .interface
                 .write_register(self.device.config.int_config.get_config0())?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> OrientChgConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        OrientChgConfigBuilder {
+            config: device.config.orientch_config.clone(),
+            device,
+        }
+    }
+
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        let has_config0_changes = self.device.config.orientch_config.orientch_config0.bits()
+            != self.config.orientch_config0.bits();
+        let has_config1_changes = self.device.config.orientch_config.orientch_config1.bits()
+            != self.config.orientch_config1.bits();
+        let has_config3_changes = self.device.config.orientch_config.orientch_config3.bits()
+            != self.config.orientch_config3.bits();
+        let has_config4_changes = self.device.config.orientch_config.orientch_config4.bits()
+            != self.config.orientch_config4.bits();
+        let has_config5_changes = self.device.config.orientch_config.orientch_config5.bits()
+            != self.config.orientch_config5.bits();
+        let has_config6_changes = self.device.config.orientch_config.orientch_config6.bits()
+            != self.config.orientch_config6.bits();
+        let has_config7_changes = self.device.config.orientch_config.orientch_config7.bits()
+            != self.config.orientch_config7.bits();
+        let has_config8_changes = self.device.config.orientch_config.orientch_config8.bits()
+            != self.config.orientch_config8.bits();
+        let has_config9_changes = self.device.config.orientch_config.orientch_config9.bits()
+            != self.config.orientch_config9.bits();
+        let has_changes = has_config0_changes
+            || has_config1_changes
+            || has_config3_changes
+            || has_config4_changes
+            || has_config5_changes
+            || has_config6_changes
+            || has_config7_changes
+            || has_config8_changes
+            || has_config9_changes;
+
+        let mut tmp_int_config0 = self.device.config.int_config.get_config0();
+
+        // Temporarily disable interrupt, if active
+        if tmp_int_config0.orientch_int() && has_changes {
+            tmp_int_config0 = tmp_int_config0.with_orientch_int(false);
+            self.device
+                .interface
+                .write_register(tmp_int_config0)
+                .await?;
+        }
+        // Write the changes
+        if has_config0_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config0)
+                .await?;
+            self.device.config.orientch_config.orientch_config0 = self.config.orientch_config0;
+        }
+        if has_config1_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config1)
+                .await?;
+            self.device.config.orientch_config.orientch_config1 = self.config.orientch_config1;
+        }
+        if has_config3_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config3)
+                .await?;
+            self.device.config.orientch_config.orientch_config3 = self.config.orientch_config3;
+        }
+        if has_config4_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config4)
+                .await?;
+            self.device.config.orientch_config.orientch_config4 = self.config.orientch_config4;
+        }
+        if has_config5_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config5)
+                .await?;
+            self.device.config.orientch_config.orientch_config5 = self.config.orientch_config5;
+        }
+        if has_config6_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config6)
+                .await?;
+            self.device.config.orientch_config.orientch_config6 = self.config.orientch_config6;
+        }
+        if has_config7_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config7)
+                .await?;
+            self.device.config.orientch_config.orientch_config7 = self.config.orientch_config7;
+        }
+        if has_config8_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config8)
+                .await?;
+            self.device.config.orientch_config.orientch_config8 = self.config.orientch_config8;
+        }
+        if has_config9_changes {
+            self.device
+                .interface
+                .write_register(self.config.orientch_config9)
+                .await?;
+            self.device.config.orientch_config.orientch_config9 = self.config.orientch_config9;
+        }
+        // Re-enable interrupt, if disabled
+        if self.device.config.int_config.get_config0().bits() != tmp_int_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())
+                .await?;
         }
         Ok(())
     }
