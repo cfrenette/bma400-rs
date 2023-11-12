@@ -4,6 +4,9 @@ use crate::{
     AutoLPTimeoutTrigger, ConfigError, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct AutoLpConfig {
     auto_low_pow0: AutoLowPow0,
@@ -16,22 +19,12 @@ pub struct AutoLpConfig {
 /// - [AutoLPTimeoutTrigger] (trigger and timer reset condition) using [`with_auto_lp_trigger()`](AutoLpConfigBuilder::with_auto_lp_trigger)
 /// - Set Generic Interrupt 1 as a trigger condition for auto low power using [`with_gen1_int_trigger()`](AutoLpConfigBuilder::with_gen1_int_trigger)
 /// - Set Data Ready as a trigger condition for auto low power using [`with_drdy_trigger()`](AutoLpConfigBuilder::with_drdy_trigger)
-pub struct AutoLpConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct AutoLpConfigBuilder<Device> {
     config: AutoLpConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> AutoLpConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
-        AutoLpConfigBuilder {
-            config: device.config.auto_lp_config.clone(),
-            device,
-        }
-    }
+impl<Device> AutoLpConfigBuilder<Device> {
     // AutoLowPow0 + AutoLowPow1
 
     /// Set the timeout counter for auto low power mode. This value is 12-bits, and is incremented
@@ -61,6 +54,19 @@ where
         self.config.auto_low_pow1 = self.config.auto_low_pow1.with_drdy_trigger(enabled);
         self
     }
+}
+
+impl<'a, Interface, E> AutoLpConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        AutoLpConfigBuilder {
+            config: device.config.auto_lp_config.clone(),
+            device,
+        }
+    }
     /// Write the configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.auto_lp_config.auto_low_pow0.bits()
@@ -77,6 +83,43 @@ where
             self.device
                 .interface
                 .write_register(self.config.auto_low_pow1)?;
+            self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> AutoLpConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        AutoLpConfigBuilder {
+            config: device.config.auto_lp_config.clone(),
+            device,
+        }
+    }
+    /// Write the configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if self.device.config.auto_lp_config.auto_low_pow0.bits()
+            != self.config.auto_low_pow0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow0)
+                .await?;
+            self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
+        }
+        if self.device.config.auto_lp_config.auto_low_pow1.bits()
+            != self.config.auto_low_pow1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow1)
+                .await?;
             self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
         }
         Ok(())

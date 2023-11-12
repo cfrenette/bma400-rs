@@ -155,7 +155,13 @@
 
 #![warn(missing_docs, unsafe_code)]
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 pub(crate) use embedded_hal as hal;
+
+#[cfg(all(feature = "async", any(feature = "spi", feature = "i2c")))]
+pub(crate) use embedded_hal_async as hal_async;
+
 use hal::delay::DelayUs;
 pub mod types;
 pub use types::*;
@@ -174,15 +180,26 @@ pub use config::{
     IntConfigBuilder, IntPinConfigBuilder, WakeupIntConfigBuilder,
 };
 
-#[cfg(any(feature = "i2c", test))]
+#[cfg(any(docsrs, feature = "i2c", test))]
+#[cfg_attr(docsrs, doc(cfg(feature = "i2c")))]
 mod i2c;
-#[cfg(any(feature = "i2c", test))]
+#[cfg(any(docsrs, feature = "i2c", test))]
+#[cfg_attr(docsrs, doc(cfg(feature = "i2c")))]
 pub use i2c::I2CInterface;
 
-#[cfg(any(feature = "spi", test))]
+#[cfg(any(docsrs, feature = "spi", test))]
+#[cfg_attr(docsrs, doc(cfg(feature = "spi")))]
 mod spi;
-#[cfg(any(feature = "spi", test))]
+#[cfg(any(docsrs, feature = "spi", test))]
+#[cfg_attr(docsrs, doc(cfg(feature = "spi")))]
 pub use spi::SPIInterface;
+
+#[cfg(any(docsrs, feature = "async"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+mod asynch;
+#[cfg(any(docsrs, feature = "async"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+pub use asynch::*;
 
 /// A BMA400 device
 pub struct BMA400<T> {
@@ -213,7 +230,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_id(&mut self) -> Result<u8, BMA400Error<InterfaceError, PinError>> {
-        let mut id = [0u8; 1];
+        let mut id = [0];
         self.interface.read_register(ChipId, &mut id)?;
         Ok(id[0])
     }
@@ -243,7 +260,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_cmd_error(&mut self) -> Result<bool, BMA400Error<InterfaceError, PinError>> {
-        let mut err_byte = [0u8; 1];
+        let mut err_byte = [0];
         self.interface.read_register(ErrReg, &mut err_byte)?;
         Ok(err_byte[0] & 0b00000010 != 0)
     }
@@ -269,7 +286,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_status(&mut self) -> Result<Status, BMA400Error<InterfaceError, PinError>> {
-        let mut status_byte = [0u8; 1];
+        let mut status_byte = [0];
         self.interface.read_register(StatusReg, &mut status_byte)?;
         Ok(Status::new(status_byte[0]))
     }
@@ -387,7 +404,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_reset_status(&mut self) -> Result<bool, BMA400Error<InterfaceError, PinError>> {
-        let mut buffer = [0u8; 1];
+        let mut buffer = [0];
         self.interface.read_register(Event, &mut buffer)?;
         Ok(buffer[0] & 0x01 != 0)
     }
@@ -427,7 +444,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_int_status0(&mut self) -> Result<IntStatus0, BMA400Error<InterfaceError, PinError>> {
-        let mut status_byte = [0u8; 1];
+        let mut status_byte = [0];
         self.interface
             .read_register(InterruptStatus0, &mut status_byte)?;
         Ok(IntStatus0::new(status_byte[0]))
@@ -464,7 +481,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_int_status1(&mut self) -> Result<IntStatus1, BMA400Error<InterfaceError, PinError>> {
-        let mut status_byte = [0u8; 1];
+        let mut status_byte = [0];
         self.interface
             .read_register(InterruptStatus1, &mut status_byte)?;
         Ok(IntStatus1::new(status_byte[0]))
@@ -501,7 +518,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_int_status2(&mut self) -> Result<IntStatus2, BMA400Error<InterfaceError, PinError>> {
-        let mut status_byte = [0u8; 1];
+        let mut status_byte = [0];
         self.interface
             .read_register(InterruptStatus2, &mut status_byte)?;
         Ok(IntStatus2::new(status_byte[0]))
@@ -702,7 +719,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_step_activity(&mut self) -> Result<Activity, BMA400Error<InterfaceError, PinError>> {
-        let mut buffer = [0u8; 1];
+        let mut buffer = [0];
         self.interface.read_register(StepStatus, &mut buffer)?;
         let activity = match buffer[0] & 0b11 {
             0x00 => Activity::Still,
@@ -734,7 +751,7 @@ where
     /// # i2c.done();
     /// ```
     pub fn get_raw_temp(&mut self) -> Result<i8, BMA400Error<InterfaceError, PinError>> {
-        let mut temp = [0u8; 1];
+        let mut temp = [0];
         self.interface.read_register(TempData, &mut temp)?;
         let t = i8::from_le_bytes(temp);
         Ok(t)
@@ -795,7 +812,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_accel(&mut self) -> AccConfigBuilder<T> {
+    pub fn config_accel(&mut self) -> AccConfigBuilder<&mut Self> {
         AccConfigBuilder::new(self)
     }
 
@@ -826,7 +843,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
+    pub fn config_interrupts(&mut self) -> IntConfigBuilder<&mut Self> {
         IntConfigBuilder::new(self)
     }
 
@@ -857,7 +874,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<T> {
+    pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<&mut Self> {
         IntPinConfigBuilder::new(self)
     }
 
@@ -896,7 +913,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_fifo(&mut self) -> FifoConfigBuilder<T> {
+    pub fn config_fifo(&mut self) -> FifoConfigBuilder<&mut Self> {
         FifoConfigBuilder::new(self)
     }
 
@@ -929,7 +946,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_auto_lp(&mut self) -> AutoLpConfigBuilder<T> {
+    pub fn config_auto_lp(&mut self) -> AutoLpConfigBuilder<&mut Self> {
         AutoLpConfigBuilder::new(self)
     }
 
@@ -963,7 +980,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_autowkup(&mut self) -> AutoWakeupConfigBuilder<T> {
+    pub fn config_autowkup(&mut self) -> AutoWakeupConfigBuilder<&mut Self> {
         AutoWakeupConfigBuilder::new(self)
     }
 
@@ -1000,7 +1017,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_wkup_int(&mut self) -> WakeupIntConfigBuilder<T> {
+    pub fn config_wkup_int(&mut self) -> WakeupIntConfigBuilder<&mut Self> {
         WakeupIntConfigBuilder::new(self)
     }
 
@@ -1037,7 +1054,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_orientchg_int(&mut self) -> OrientChgConfigBuilder<T> {
+    pub fn config_orientchg_int(&mut self) -> OrientChgConfigBuilder<&mut Self> {
         OrientChgConfigBuilder::new(self)
     }
 
@@ -1082,7 +1099,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_gen1_int(&mut self) -> GenIntConfigBuilder<T> {
+    pub fn config_gen1_int(&mut self) -> GenIntConfigBuilder<&mut Self> {
         GenIntConfigBuilder::new_gen1(self)
     }
 
@@ -1127,7 +1144,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_gen2_int(&mut self) -> GenIntConfigBuilder<T> {
+    pub fn config_gen2_int(&mut self) -> GenIntConfigBuilder<&mut Self> {
         GenIntConfigBuilder::new_gen2(self)
     }
 
@@ -1165,7 +1182,7 @@ where
     ///
     /// # i2c.done();
     /// ```
-    pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<T> {
+    pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<&mut Self> {
         ActChgConfigBuilder::new(self)
     }
 
@@ -1200,7 +1217,7 @@ where
     ///     .unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
+    pub fn config_tap(&mut self) -> TapConfigBuilder<&mut Self> {
         TapConfigBuilder::new(self)
     }
 
@@ -1210,9 +1227,9 @@ where
     /// This will disable all interrupts and FIFO write for the duration
     ///
     /// See [p.48 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=48)
-    pub fn perform_self_test<Timer: DelayUs>(
+    pub fn perform_self_test(
         &mut self,
-        timer: &mut Timer,
+        timer: &mut impl DelayUs,
     ) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         // Disable interrupts, set accelerometer test config
         self.config.setup_self_test(&mut self.interface)?;
@@ -1264,12 +1281,14 @@ where
     pub fn soft_reset(&mut self) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         self.interface.write_register(Command::SoftReset)?;
         self.config = Config::default();
-        let mut buffer = [0u8; 1];
+        let mut buffer = [0];
         // Clear reset detection bit
         self.interface.read_register(Event, &mut buffer)?;
         Ok(())
     }
+}
 
+impl<T> BMA400<T> {
     /// Consumes the device instance returning the I²C / SPI Interface
     pub fn destroy(self) -> T {
         self.interface

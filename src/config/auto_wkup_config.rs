@@ -4,6 +4,9 @@ use crate::{
     ConfigError, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct AutoWakeupConfig {
     auto_wakeup0: AutoWakeup0,
@@ -21,23 +24,12 @@ impl AutoWakeupConfig {
 /// - Set the length of time between each wake-up using [`with_wakeup_period()`](AutoWakeupConfigBuilder::with_wakeup_period)
 /// - Enable / Disable periodic wakeup using [`with_periodic_wakeup()`](AutoWakeupConfigBuilder::with_periodic_wakeup)
 /// - Enable / Disable wake-up interrupt using [`with_activity_int()`](AutoWakeupConfigBuilder::with_activity_int)
-pub struct AutoWakeupConfigBuilder<'a, Interface> {
+pub struct AutoWakeupConfigBuilder<Device> {
     config: AutoWakeupConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> AutoWakeupConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoWakeupConfigBuilder<'a, Interface> {
-        AutoWakeupConfigBuilder {
-            config: device.config.auto_wkup_config.clone(),
-            device,
-        }
-    }
-
+impl<Device> AutoWakeupConfigBuilder<Device> {
     /// Set the timer counter threshold for periodic auto wake-up. The counter is 12-bits and is
     /// incremented every 2.5ms, so this value is clamped to \[0, 4095\]
     pub fn with_wakeup_period(mut self, count: u16) -> Self {
@@ -56,6 +48,20 @@ where
         self.config.auto_wakeup1 = self.config.auto_wakeup1.with_wakeup_int(enabled);
         self
     }
+}
+
+impl<'a, Interface, E> AutoWakeupConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        AutoWakeupConfigBuilder {
+            config: device.config.auto_wkup_config.clone(),
+            device,
+        }
+    }
+
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.auto_wkup_config.auto_wakeup0.bits()
@@ -72,6 +78,44 @@ where
             self.device
                 .interface
                 .write_register(self.config.auto_wakeup1)?;
+            self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> AutoWakeupConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        AutoWakeupConfigBuilder {
+            config: device.config.auto_wkup_config.clone(),
+            device,
+        }
+    }
+
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if self.device.config.auto_wkup_config.auto_wakeup0.bits()
+            != self.config.auto_wakeup0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup0)
+                .await?;
+            self.device.config.auto_wkup_config.auto_wakeup0 = self.config.auto_wakeup0;
+        }
+        if self.device.config.auto_wkup_config.auto_wakeup1.bits()
+            != self.config.auto_wakeup1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup1)
+                .await?;
             self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
         }
         Ok(())

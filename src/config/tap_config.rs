@@ -4,6 +4,9 @@ use crate::{
     Axis, ConfigError, DoubleTapDuration, MaxTapDuration, MinTapDuration, TapSensitivity, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct TapConfig {
     tap_config0: TapConfig0,
@@ -17,22 +20,12 @@ pub struct TapConfig {
 /// - [MinTapDuration] using [`with_min_duration_btn_taps()`](TapConfigBuilder::with_min_duration_btn_taps)
 /// - [DoubleTapDuration] using [`with_max_double_tap_window()`](TapConfigBuilder::with_max_double_tap_window)
 /// - [MaxTapDuration] using [`with_max_tap_duration()`](TapConfigBuilder::with_max_tap_duration)
-pub struct TapConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct TapConfigBuilder<Device> {
     config: TapConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> TapConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &mut BMA400<Interface>) -> TapConfigBuilder<Interface> {
-        TapConfigBuilder {
-            config: device.config.tap_config.clone(),
-            device,
-        }
-    }
+impl<Device> TapConfigBuilder<Device> {
     // TapConfig0
 
     /// Select axis to use when evaluating interrupt
@@ -65,6 +58,19 @@ where
     pub fn with_max_tap_duration(mut self, duration: MaxTapDuration) -> Self {
         self.config.tap_config1 = self.config.tap_config1.with_max_tap_duration(duration);
         self
+    }
+}
+
+impl<'a, Interface, E> TapConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        TapConfigBuilder {
+            config: device.config.tap_config.clone(),
+            device,
+        }
     }
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
@@ -100,6 +106,61 @@ where
             self.device
                 .interface
                 .write_register(self.device.config.int_config.get_config1())?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> TapConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        TapConfigBuilder {
+            config: device.config.tap_config.clone(),
+            device,
+        }
+    }
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        let tap1_changes =
+            self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
+        let tap2_changes =
+            self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
+        let tap_changes = tap1_changes || tap2_changes;
+        let mut tmp_int_config = self.device.config.int_config.get_config1();
+
+        // Disable the interrupt, if active
+        if (self.device.config.int_config.get_config1().d_tap_int()
+            || self.device.config.int_config.get_config1().d_tap_int())
+            && tap_changes
+        {
+            tmp_int_config = tmp_int_config.with_s_tap_int(false).with_d_tap_int(false);
+            self.device.interface.write_register(tmp_int_config).await?;
+        }
+        if tap1_changes {
+            self.device
+                .interface
+                .write_register(self.config.tap_config0)
+                .await?;
+            self.device.config.tap_config.tap_config0 = self.config.tap_config0;
+        }
+        if tap2_changes {
+            self.device
+                .interface
+                .write_register(self.config.tap_config1)
+                .await?;
+            self.device.config.tap_config.tap_config1 = self.config.tap_config1;
+        }
+        // Re-enable the interrupt, if disabled
+        if self.device.config.int_config.get_config1().bits() != tmp_int_config.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config1())
+                .await?;
         }
         Ok(())
     }

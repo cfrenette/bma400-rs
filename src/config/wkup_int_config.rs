@@ -6,6 +6,9 @@ use crate::{
     ConfigError, WakeupIntRefMode, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct WakeupIntConfig {
     wkup_int_config0: WakeupIntConfig0,
@@ -31,22 +34,12 @@ impl WakeupIntConfig {
 /// - Enable / Disable axes to be evaluated against the condition using [`with_axes()`](WakeupIntConfigBuilder::with_axes)
 /// - Set the interrupt trigger threshold using [`with_threshold()`](WakeupIntConfigBuilder::with_threshold)
 /// - Set the reference acceleration using [`with_ref_accel()`](WakeupIntConfigBuilder::with_ref_accel)
-pub struct WakeupIntConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct WakeupIntConfigBuilder<Device> {
     config: WakeupIntConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> WakeupIntConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> WakeupIntConfigBuilder<'a, Interface> {
-        WakeupIntConfigBuilder {
-            config: device.config.wkup_int_config.clone(),
-            device,
-        }
-    }
+impl<Device> WakeupIntConfigBuilder<Device> {
     // WkupIntConfig0
     /// Set Reference mode for the Wake-up Interrupt
     pub fn with_ref_mode(mut self, mode: WakeupIntRefMode) -> Self {
@@ -112,6 +105,19 @@ where
             .wkup_int_config4
             .with_z_ref(z_ref.to_le_bytes()[0]);
         self
+    }
+}
+
+impl<'a, Interface, E> WakeupIntConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        WakeupIntConfigBuilder {
+            config: device.config.wkup_int_config.clone(),
+            device,
+        }
     }
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
@@ -183,6 +189,103 @@ where
             self.device
                 .interface
                 .write_register(self.config.wkup_int_config0)?;
+            self.device.config.wkup_int_config.wkup_int_config0 = self.config.wkup_int_config0;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> WakeupIntConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        WakeupIntConfigBuilder {
+            config: device.config.wkup_int_config.clone(),
+            device,
+        }
+    }
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        let has_wkup_config0_changes = self.device.config.wkup_int_config.wkup_int_config0.bits()
+            != self.config.wkup_int_config0.bits();
+        let has_wkup_config1_changes = self.device.config.wkup_int_config.wkup_int_config1.bits()
+            != self.config.wkup_int_config1.bits();
+        let has_wkup_config2_changes = self.device.config.wkup_int_config.wkup_int_config2.bits()
+            != self.config.wkup_int_config2.bits();
+        let has_wkup_config3_changes = self.device.config.wkup_int_config.wkup_int_config3.bits()
+            != self.config.wkup_int_config3.bits();
+        let has_wkup_config4_changes = self.device.config.wkup_int_config.wkup_int_config4.bits()
+            != self.config.wkup_int_config4.bits();
+        let has_wkup_config_changes = has_wkup_config0_changes
+            || has_wkup_config1_changes
+            || has_wkup_config2_changes
+            || has_wkup_config3_changes
+            || has_wkup_config4_changes;
+
+        // Disable the interrupt
+        if self.device.config.wkup_int_config.is_int_en() && has_wkup_config_changes {
+            self.device
+                .interface
+                .write_register(
+                    self.device
+                        .config
+                        .wkup_int_config
+                        .wkup_int_config0
+                        .with_x_axis(false)
+                        .with_y_axis(false)
+                        .with_z_axis(false),
+                )
+                .await?;
+        }
+        // Write the config changes
+        if self.device.config.wkup_int_config.wkup_int_config1.bits()
+            != self.config.wkup_int_config1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config1)
+                .await?;
+            self.device.config.wkup_int_config.wkup_int_config1 = self.config.wkup_int_config1;
+        }
+        if self.device.config.wkup_int_config.wkup_int_config2.bits()
+            != self.config.wkup_int_config2.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config2)
+                .await?;
+            self.device.config.wkup_int_config.wkup_int_config2 = self.config.wkup_int_config2;
+        }
+        if self.device.config.wkup_int_config.wkup_int_config3.bits()
+            != self.config.wkup_int_config3.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config3)
+                .await?;
+            self.device.config.wkup_int_config.wkup_int_config3 = self.config.wkup_int_config3;
+        }
+        if self.device.config.wkup_int_config.wkup_int_config4.bits()
+            != self.config.wkup_int_config4.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config4)
+                .await?;
+            self.device.config.wkup_int_config.wkup_int_config4 = self.config.wkup_int_config4;
+        }
+        // (Re)-enable the interrupt
+        if self.device.config.wkup_int_config.wkup_int_config0.bits()
+            != self.config.wkup_int_config0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config0)
+                .await?;
             self.device.config.wkup_int_config.wkup_int_config0 = self.config.wkup_int_config0;
         }
         Ok(())

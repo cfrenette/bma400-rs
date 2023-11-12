@@ -4,6 +4,9 @@ use crate::{
     ConfigError, DataSource, OutputDataRate, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct IntConfig {
     int_config0: IntConfig0,
@@ -23,22 +26,12 @@ impl IntConfig {
 /// Enable or disable interrupts[^except] and set interrupt latch mode
 ///
 /// [^except]: To enable the Auto-Wakeup Interrupt see [`config_autowkup()`](BMA400::config_autowkup)
-pub struct IntConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct IntConfigBuilder<Device> {
     config: IntConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> IntConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
-        IntConfigBuilder {
-            config: device.config.int_config.clone(),
-            device,
-        }
-    }
+impl<Device> IntConfigBuilder<Device> {
     // IntConfig0
     /// Enable/Disable the Data Ready Interrupt
     pub fn with_dta_rdy_int(mut self, enabled: bool) -> Self {
@@ -100,6 +93,19 @@ where
         self.config.int_config1 = self.config.int_config1.with_step_int(enabled);
         self
     }
+}
+
+impl<'a, Interface, E> IntConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        IntConfigBuilder {
+            config: device.config.int_config.clone(),
+            device,
+        }
+    }
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
@@ -148,6 +154,75 @@ where
             self.device
                 .interface
                 .write_register(self.config.int_config1)?;
+            self.device.config.int_config.int_config1 = self.config.int_config1;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> IntConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        IntConfigBuilder {
+            config: device.config.int_config.clone(),
+            device,
+        }
+    }
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200)
+        {
+            return Err(ConfigError::TapIntEnabledInvalidODR.into());
+        }
+
+        // Check DataSource for each enabled interrupt that can use Filt1 and validate
+
+        // Gen 1
+        if self.config.int_config0.gen1_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(
+                self.device.config.gen1int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // Gen 2
+        if self.config.int_config0.gen2_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(
+                self.device.config.gen2int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // Activity Change
+        if self.config.int_config1.actch_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1)
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+
+        if self.device.config.int_config.int_config0.bits() != self.config.int_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int_config0)
+                .await?;
+            self.device.config.int_config.int_config0 = self.config.int_config0;
+        }
+        if self.device.config.int_config.int_config1.bits() != self.config.int_config1.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int_config1)
+                .await?;
             self.device.config.int_config.int_config1 = self.config.int_config1;
         }
         Ok(())
