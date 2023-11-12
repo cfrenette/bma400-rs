@@ -199,6 +199,7 @@ pub use spi::SPIInterface;
 mod asynch;
 #[cfg(any(docsrs, feature = "async"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+#[rustversion::since(1.76.0)]
 pub use asynch::*;
 
 /// A BMA400 device
