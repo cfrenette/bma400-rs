@@ -4,6 +4,9 @@ use crate::{
     ActChgObsPeriod, ConfigError, DataSource, OutputDataRate, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct ActChgConfig {
     actchg_config0: ActChgConfig0,
@@ -22,22 +25,12 @@ impl ActChgConfig {
 /// - Enable / Disable the axes evaluated for the interrupt trigger condition using [`with_axes()`](ActChgConfigBuilder::with_axes)
 /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](ActChgConfigBuilder::with_src)
 /// - [ActChgObsPeriod] (number of samples) using [`with_obs_period()`](ActChgConfigBuilder::with_obs_period)
-pub struct ActChgConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct ActChgConfigBuilder<Device> {
     config: ActChgConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
-impl<'a, Interface, E> ActChgConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> ActChgConfigBuilder<'a, Interface> {
-        ActChgConfigBuilder {
-            config: device.config.actchg_config.clone(),
-            device,
-        }
-    }
+impl<Device> ActChgConfigBuilder<Device> {
     // ActChgConfig0
     /// Set the threshold used when evaluating the activity changed interrupt condition
     pub fn with_threshold(mut self, threshold: u8) -> Self {
@@ -77,6 +70,19 @@ where
             .actchg_config1
             .with_observation_period(obs_period);
         self
+    }
+}
+
+impl<'a, Interface, E> ActChgConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        ActChgConfigBuilder {
+            config: device.config.actchg_config.clone(),
+            device,
+        }
     }
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
@@ -127,6 +133,79 @@ where
             self.device
                 .interface
                 .write_register(self.device.config.int_config.get_config0())?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> ActChgConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        ActChgConfigBuilder {
+            config: device.config.actchg_config.clone(),
+            device,
+        }
+    }
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        let has_config0_changes = self.device.config.actchg_config.actchg_config0.bits()
+            != self.config.actchg_config0.bits();
+        let has_config1_changes = self.device.config.actchg_config.actchg_config1.bits()
+            != self.config.actchg_config1.bits();
+        let has_changes = has_config0_changes || has_config1_changes;
+
+        // If there are no changes, return early
+        if !has_changes {
+            return Ok(());
+        }
+
+        let mut tmp_int_config1 = self.device.config.int_config.get_config1();
+        let int_enabled = tmp_int_config1.actch_int();
+
+        // If the interrupt is enabled and we're trying to change the Data Source to AccFilt1, the ODR must be 100Hz
+        if int_enabled
+            && matches!(self.config.actchg_config1.src(), DataSource::AccFilt1)
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+
+        // Temporarily disable the interrupt, if active
+        if int_enabled {
+            tmp_int_config1 = tmp_int_config1.with_actch_int(false);
+            self.device
+                .interface
+                .write_register(tmp_int_config1)
+                .await?;
+        }
+
+        // Write the changes
+        if has_config0_changes {
+            self.device
+                .interface
+                .write_register(self.config.actchg_config0)
+                .await?;
+            self.device.config.actchg_config.actchg_config0 = self.config.actchg_config0;
+        }
+        if has_config1_changes {
+            self.device
+                .interface
+                .write_register(self.config.actchg_config1)
+                .await?;
+            self.device.config.actchg_config.actchg_config1 = self.config.actchg_config1;
+        }
+
+        // Re-enable the interrupt, if it was disabled
+        if self.device.config.int_config.get_config1().bits() != tmp_int_config1.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())
+                .await?;
         }
         Ok(())
     }

@@ -6,6 +6,12 @@ use crate::{
     registers::{ChipId, ConfigReg, InterfaceConfig, ReadReg},
     BMA400Error, Config, BMA400,
 };
+#[cfg(feature = "async")]
+use crate::{
+    hal_async::spi::SpiBus as AsyncSpiBus,
+    interface::{AsyncReadFromRegister, AsyncWriteToRegister},
+    AsyncBMA400,
+};
 
 /// SPI Interface wrapper
 // Wrapper class to instantiate BMA400 with an SPI interface
@@ -64,6 +70,60 @@ where
             .map_err(BMA400Error::IOError)?;
         self.spi
             .transfer_in_place(buffer)
+            .map_err(BMA400Error::IOError)?;
+        self.csb
+            .set_high()
+            .map_err(BMA400Error::ChipSelectPinError)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+impl<SPI, CSBPin, InterfaceError, PinError> AsyncWriteToRegister for SPIInterface<SPI, CSBPin>
+where
+    SPI: AsyncSpiBus<u8, Error = InterfaceError>,
+    CSBPin: OutputPin<Error = PinError>,
+{
+    type Error = BMA400Error<InterfaceError, PinError>;
+
+    async fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
+        self.csb
+            .set_low()
+            .map_err(BMA400Error::ChipSelectPinError)?;
+        self.spi
+            .write(&[register.addr(), register.to_byte()])
+            .await
+            .map_err(BMA400Error::IOError)?;
+        self.csb
+            .set_high()
+            .map_err(BMA400Error::ChipSelectPinError)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+impl<SPI, CSBPin, InterfaceError, PinError> AsyncReadFromRegister for SPIInterface<SPI, CSBPin>
+where
+    SPI: AsyncSpiBus<u8, Error = InterfaceError>,
+    CSBPin: OutputPin<Error = PinError>,
+{
+    type Error = BMA400Error<InterfaceError, PinError>;
+
+    async fn read_register<T: ReadReg>(
+        &mut self,
+        register: T,
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        self.csb
+            .set_low()
+            .map_err(BMA400Error::ChipSelectPinError)?;
+        self.spi
+            .transfer(&mut [0, 0], &[register.addr() | 1 << 7, 0])
+            .await
+            .map_err(BMA400Error::IOError)?;
+        self.spi
+            .transfer_in_place(buffer)
+            .await
             .map_err(BMA400Error::IOError)?;
         self.csb
             .set_high()
@@ -174,6 +234,52 @@ where
             Err(BMA400Error::ChipIdReadFailed)
         } else {
             Ok(BMA400 { interface, config })
+        }
+    }
+}
+
+#[cfg(any(docsrs, feature = "async"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<SPI, CSBPin, InterfaceError, PinError> AsyncBMA400<SPIInterface<SPI, CSBPin>>
+where
+    SPI: AsyncSpiBus<u8, Error = InterfaceError>,
+    CSBPin: OutputPin<Error = PinError>,
+{
+    /// async equivalent to [`BMA400::new_spi`]
+    pub async fn new_spi(
+        spi: SPI,
+        csb: CSBPin,
+    ) -> Result<Self, BMA400Error<InterfaceError, PinError>> {
+        let mut interface = SPIInterface { spi, csb };
+        let config = Config::default();
+        // Initialize SPI Mode by doing a dummy read
+        interface.read_register(ChipId, &mut [0u8; 1]).await?;
+        // Validate Chip ID
+        let mut chip_id = [0u8; 1];
+        interface.read_register(ChipId, &mut chip_id).await?;
+        if chip_id[0] != 0x90 {
+            Err(BMA400Error::ChipIdReadFailed)
+        } else {
+            Ok(Self { interface, config })
+        }
+    }
+    /// async equivalent to [`BMA400::new_spi_3wire`]
+    pub async fn new_spi_3wire(
+        spi: SPI,
+        csb: CSBPin,
+    ) -> Result<Self, BMA400Error<InterfaceError, PinError>> {
+        let mut interface = SPIInterface { spi, csb };
+        let config = Config::default();
+        // Initialize SPI Mode by doing a dummy read
+        interface.read_register(ChipId, &mut [0u8; 1]).await?;
+        let mut chip_id = [0u8; 1];
+        interface.read_register(ChipId, &mut chip_id).await?;
+        let if_config = InterfaceConfig::default().with_spi_3wire_mode(true);
+        interface.write_register(if_config).await?;
+        if chip_id[0] != 0x90 {
+            Err(BMA400Error::ChipIdReadFailed)
+        } else {
+            Ok(Self { interface, config })
         }
     }
 }

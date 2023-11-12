@@ -4,6 +4,9 @@ use crate::{
     ConfigError, InterruptPins, PinOutputConfig, BMA400,
 };
 
+#[cfg(feature = "async")]
+use crate::{interface::AsyncWriteToRegister, AsyncBMA400};
+
 #[derive(Clone, Default)]
 pub struct IntPinConfig {
     int1_map: Int1Map,
@@ -50,9 +53,9 @@ impl IntPinConfig {
 /// - Control the pin electrical behavior using [`with_int1_cfg()`](IntPinConfigBuilder::with_int1_cfg) / [`with_int2_cfg()`](IntPinConfigBuilder::with_int2_cfg)
 ///    - [`PinOutputConfig::PushPull`] High = VDDIO, Low = GND
 ///    - [`PinOutputConfig::OpenDrain`] High = VDDIO, Low = High Impedance
-pub struct IntPinConfigBuilder<'a, Interface> {
+pub struct IntPinConfigBuilder<Device> {
     config: IntPinConfig,
-    device: &'a mut BMA400<Interface>,
+    device: Device,
 }
 
 fn mapped_pins(int1: bool, int2: bool) -> InterruptPins {
@@ -73,18 +76,7 @@ fn match_mapped(mapped_to: InterruptPins) -> (bool, bool) {
     }
 }
 
-impl<'a, Interface, E> IntPinConfigBuilder<'a, Interface>
-where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
-{
-    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntPinConfigBuilder<'a, Interface> {
-        IntPinConfigBuilder {
-            config: device.config.int_pin_config.clone(),
-            device,
-        }
-    }
-
+impl<Device> IntPinConfigBuilder<Device> {
     // Int1Map / Int2Map
     /// Map Data Ready Interrupt to [InterruptPins]
     pub fn with_drdy(mut self, mapped_to: InterruptPins) -> Self {
@@ -178,6 +170,20 @@ where
         self.config.int12_io_ctrl = self.config.int12_io_ctrl.with_int2_cfg(config);
         self
     }
+}
+
+impl<'a, Interface, E> IntPinConfigBuilder<&'a mut BMA400<Interface>>
+where
+    Interface: WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new(device: &'a mut BMA400<Interface>) -> Self {
+        IntPinConfigBuilder {
+            config: device.config.int_pin_config.clone(),
+            device,
+        }
+    }
+
     /// Write this configuration to device registers
     // Clippy: ignore lint for intentional XOR with self, avoiding an awkward import / function call
     #[allow(clippy::eq_op)]
@@ -294,6 +300,161 @@ where
         }
         if wkup_int_config0.bits() != tmp_wkup_int_config0.bits() {
             self.device.interface.write_register(wkup_int_config0)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+impl<'a, Interface, E> IntPinConfigBuilder<&'a mut AsyncBMA400<Interface>>
+where
+    Interface: AsyncWriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    pub(crate) fn new_async(device: &'a mut AsyncBMA400<Interface>) -> Self {
+        IntPinConfigBuilder {
+            config: device.config.int_pin_config.clone(),
+            device,
+        }
+    }
+
+    /// Write this configuration to device registers
+    // Clippy: ignore lint for intentional XOR with self, avoiding an awkward import / function call
+    #[allow(clippy::eq_op)]
+    pub async fn write(self) -> Result<(), E> {
+        // Any change of an interrupt configuration must be executed when the corresponding
+        // interrupt is disabled. (Datasheet p. 40)
+
+        // Collect IntConfig0 interrupts with changes
+        let int_config0 = self.device.config.int_config.get_config0();
+        let mut tmp_int_config0 = int_config0;
+        // Collect IntConfig1 interrupts with changes
+        let int_config1 = self.device.config.int_config.get_config1();
+        let mut tmp_int_config1 = int_config1;
+        // Wakeup Interrupt
+        let wkup_int_config0 = self.device.config.wkup_int_config.get_config0();
+        let mut tmp_wkup_int_config0 = wkup_int_config0;
+        // If there are electrical configuration changes
+        if self.device.config.int_pin_config.int12_io_ctrl.bits()
+            != self.config.int12_io_ctrl.bits()
+        {
+            // Disable Everything
+            tmp_int_config0 = tmp_int_config0 ^ tmp_int_config0;
+            tmp_int_config1 = tmp_int_config1 ^ tmp_int_config1;
+        } else {
+            // Data Ready
+            if int_config0.dta_rdy_int() && !matches!(self.config.drdy_map(), InterruptPins::None) {
+                tmp_int_config0 = tmp_int_config0.with_dta_rdy_int(false);
+            }
+            // Fifo Watermark
+            if int_config0.fwm_int() && !matches!(self.config.fwm_map(), InterruptPins::None) {
+                tmp_int_config0 = tmp_int_config0.with_fwm_int(false);
+            }
+            // Fifo Full
+            if int_config0.ffull_int() && !matches!(self.config.ffull_map(), InterruptPins::None) {
+                tmp_int_config0 = tmp_int_config0.with_ffull_int(false);
+            }
+            // Gen Int 1
+            if int_config0.gen1_int() && !matches!(self.config.gen1_map(), InterruptPins::None) {
+                tmp_int_config0 = tmp_int_config0.with_gen1_int(false);
+            }
+            // Gen Int 2
+            if int_config0.gen2_int() && !matches!(self.config.gen2_map(), InterruptPins::None) {
+                tmp_int_config0 = tmp_int_config0.with_gen2_int(false);
+            }
+            // Orientation Change
+            if int_config0.orientch_int()
+                && !matches!(self.config.orientch_map(), InterruptPins::None)
+            {
+                tmp_int_config0 = tmp_int_config0.with_orientch_int(false);
+            }
+            // Wakeup
+            if self.device.config.wkup_int_config.is_int_en()
+                && !matches!(self.config.wkup_map(), InterruptPins::None)
+            {
+                tmp_wkup_int_config0 = tmp_wkup_int_config0
+                    .with_x_axis(false)
+                    .with_y_axis(false)
+                    .with_z_axis(false);
+            }
+            // Activity Change
+            if int_config1.actch_int() && !matches!(self.config.actch_map(), InterruptPins::None) {
+                tmp_int_config1 = tmp_int_config1.with_actch_int(false);
+            }
+            // Tap
+            if (int_config1.s_tap_int() || int_config1.d_tap_int())
+                && !matches!(self.config.tap_map(), InterruptPins::None)
+            {
+                tmp_int_config1 = tmp_int_config1.with_d_tap_int(false).with_s_tap_int(false);
+            }
+            // Step
+            if int_config1.step_int() && !matches!(self.config.step_map(), InterruptPins::None) {
+                tmp_int_config1 = tmp_int_config1.with_step_int(false);
+            }
+        }
+        // Write the temporary changes
+        if int_config0.bits() != tmp_int_config0.bits() {
+            self.device
+                .interface
+                .write_register(tmp_int_config0)
+                .await?;
+        }
+        if int_config1.bits() != tmp_int_config1.bits() {
+            self.device
+                .interface
+                .write_register(tmp_int_config1)
+                .await?;
+        }
+        if wkup_int_config0.bits() != tmp_wkup_int_config0.bits() {
+            self.device
+                .interface
+                .write_register(wkup_int_config0)
+                .await?;
+        }
+        // Write the config changes
+        if self.device.config.int_pin_config.int1_map.bits() != self.config.int1_map.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int1_map)
+                .await?;
+            self.device.config.int_pin_config.int1_map = self.config.int1_map;
+        }
+        if self.device.config.int_pin_config.int2_map.bits() != self.config.int2_map.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int2_map)
+                .await?;
+            self.device.config.int_pin_config.int2_map = self.config.int2_map;
+        }
+        if self.device.config.int_pin_config.int12_map.bits() != self.config.int12_map.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int12_map)
+                .await?;
+            self.device.config.int_pin_config.int12_map = self.config.int12_map;
+        }
+        if self.device.config.int_pin_config.int12_io_ctrl.bits()
+            != self.config.int12_io_ctrl.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.int12_io_ctrl)
+                .await?;
+            self.device.config.int_pin_config.int12_io_ctrl = self.config.int12_io_ctrl;
+        }
+        // Restore the disabled interrupts
+        if self.device.config.int_config.get_config0().bits() != tmp_int_config0.bits() {
+            self.device.interface.write_register(int_config0).await?;
+        }
+        if self.device.config.int_config.get_config1().bits() != tmp_int_config0.bits() {
+            self.device.interface.write_register(int_config1).await?;
+        }
+        if wkup_int_config0.bits() != tmp_wkup_int_config0.bits() {
+            self.device
+                .interface
+                .write_register(wkup_int_config0)
+                .await?;
         }
         Ok(())
     }

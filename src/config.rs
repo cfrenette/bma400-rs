@@ -41,6 +41,9 @@ use crate::{
     BMA400Error, Scale,
 };
 
+#[cfg(feature = "async")]
+use crate::interface::AsyncWriteToRegister;
+
 #[derive(Default, Clone)]
 pub(crate) struct Config {
     acc_config: AccConfig,
@@ -110,6 +113,82 @@ impl Config {
         interface.write_register(self.auto_wkup_config.get_config1())?;
         // Restore FifoConfig
         interface.write_register(self.fifo_config.get_config0())?;
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_setup_self_test<Interface, InterfaceError, PinError>(
+        &self,
+        interface: &mut Interface,
+    ) -> Result<(), BMA400Error<InterfaceError, PinError>>
+    where
+        Interface: AsyncWriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
+    {
+        // Disable Interrupts
+        interface
+            .write_register(IntConfig0::from_bits_truncate(0x00))
+            .await?;
+        interface
+            .write_register(IntConfig1::from_bits_truncate(0x00))
+            .await?;
+        interface
+            .write_register(self.auto_wkup_config.get_config1().with_wakeup_int(false))
+            .await?;
+        // Disable FIFO
+        interface
+            .write_register(
+                self.fifo_config
+                    .get_config0()
+                    .with_fifo_x(false)
+                    .with_fifo_y(false)
+                    .with_fifo_z(false),
+            )
+            .await?;
+
+        // Set PowerMode = Normal
+        interface
+            .write_register(
+                self.acc_config
+                    .get_config0()
+                    .with_power_mode(crate::PowerMode::Normal),
+            )
+            .await?;
+        // Set Range = 4G, OSR = OSR3, ODR = 100Hz
+        interface
+            .write_register(AccConfig1::from_bits_truncate(0x78))
+            .await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_cleanup_self_test<Interface, InterfaceError, PinError>(
+        &self,
+        interface: &mut Interface,
+    ) -> Result<(), BMA400Error<InterfaceError, PinError>>
+    where
+        Interface: AsyncWriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
+    {
+        // Restore AccConfig
+        interface
+            .write_register(self.acc_config.get_config0())
+            .await?;
+        interface
+            .write_register(self.acc_config.get_config1())
+            .await?;
+        // Restore IntConfig
+        interface
+            .write_register(self.int_config.get_config0())
+            .await?;
+        interface
+            .write_register(self.int_config.get_config1())
+            .await?;
+        interface
+            .write_register(self.auto_wkup_config.get_config1())
+            .await?;
+        // Restore FifoConfig
+        interface
+            .write_register(self.fifo_config.get_config0())
+            .await?;
         Ok(())
     }
 }
