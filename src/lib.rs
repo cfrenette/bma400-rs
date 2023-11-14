@@ -30,10 +30,10 @@
 //!     spi::{Mock, Transaction},
 //! }; // replace as appropriate w/ hal crate for your MCU
 //! # let expected_io = vec![
-//! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
-//! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+//! #   Transaction::write_vec(vec![0x80, 0x00]),
+//! #   Transaction::read(0x00),
+//! #   Transaction::write_vec(vec![0x80, 0x00]),
+//! #   Transaction::read(0x90),
 //! # ];
 //! # let expected_pin = vec![
 //! #   PinTransaction::set(State::Low),
@@ -62,15 +62,14 @@
 //! #     Scale,
 //! # };
 //! # let expected_io = vec![
-//! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
-//! #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+//! #   Transaction::write_vec(vec![0x80, 0x00]),
+//! #   Transaction::read(0x00),
+//! #   Transaction::write_vec(vec![0x80, 0x00]),
+//! #   Transaction::read(0x90),
 //! #   Transaction::write_vec(vec![0x19, 0x02]),
 //! #   Transaction::write_vec(vec![0x1A, 0x09]),
-//! #   Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]),
-//! #   Transaction::transfer_in_place(
-//! #       vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+//! #   Transaction::write_vec(vec![0x84, 0x00]),
+//! #   Transaction::read_vec(
 //! #       vec![0x1E, 0x00, 0x10, 0x00, 0xDC, 0x03],
 //! #   )];
 //! # let expected_pin = vec![
