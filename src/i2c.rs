@@ -69,6 +69,7 @@ where
 }
 
 #[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
 impl<I2C, E> AsyncWriteToRegister for I2CInterface<I2C>
 where
     I2C: AsyncI2c<SevenBitAddress, Error = E>,
@@ -84,6 +85,7 @@ where
 }
 
 #[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
 impl<I2C, E> AsyncReadFromRegister for I2CInterface<I2C>
 where
     I2C: AsyncI2c<SevenBitAddress, Error = E>,
@@ -142,7 +144,7 @@ where
     pub async fn new_i2c(i2c: I2C) -> Result<Self, BMA400Error<E, ()>> {
         let mut interface = I2CInterface { i2c };
         let config = Config::default();
-        let mut chip_id = [0u8; 1];
+        let mut chip_id = [0];
         interface.read_register(ChipId, &mut chip_id).await?;
         if chip_id[0] != 0x90 {
             Err(BMA400Error::ChipIdReadFailed)
