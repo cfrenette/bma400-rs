@@ -67,11 +67,9 @@ where
             .set_low()
             .map_err(BMA400Error::ChipSelectPinError)?;
         self.spi
-            .transfer(&mut [0, 0], &[register.addr() | 1 << 7, 0])
+            .write(&[register.addr() | 1 << 7, 0])
             .map_err(BMA400Error::IOError)?;
-        self.spi
-            .transfer_in_place(buffer)
-            .map_err(BMA400Error::IOError)?;
+        self.spi.read(buffer).map_err(BMA400Error::IOError)?;
         self.csb
             .set_high()
             .map_err(BMA400Error::ChipSelectPinError)?;
@@ -121,13 +119,10 @@ where
             .set_low()
             .map_err(BMA400Error::ChipSelectPinError)?;
         self.spi
-            .transfer(&mut [0, 0], &[register.addr() | 1 << 7, 0])
+            .write(&[register.addr() | 1 << 7, 0])
             .await
             .map_err(BMA400Error::IOError)?;
-        self.spi
-            .transfer_in_place(buffer)
-            .await
-            .map_err(BMA400Error::IOError)?;
+        self.spi.read(buffer).await.map_err(BMA400Error::IOError)?;
         self.csb
             .set_high()
             .map_err(BMA400Error::ChipSelectPinError)?;
@@ -150,10 +145,10 @@ where
     /// # };
     /// use bma400::BMA400;
     /// # let expected_io = vec![
-    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
-    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+    /// #   Transaction::write_vec(vec![0x80, 0x00]),
+    /// #   Transaction::read(0x00),
+    /// #   Transaction::write_vec(vec![0x80, 0x00]),
+    /// #   Transaction::read(0x90),
     /// # ];
     /// # let expected_pin = vec![
     /// #   PinTransaction::set(State::Low),
@@ -198,10 +193,10 @@ where
     /// # };
     /// use bma400::BMA400;
     /// # let expected_io = vec![
-    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00,0x00]),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
-    /// #   Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+    /// #   Transaction::write_vec(vec![0x80, 0x00]),
+    /// #   Transaction::read(0x00),
+    /// #   Transaction::write_vec(vec![0x80, 0x00]),
+    /// #   Transaction::read(0x90),
     /// #   Transaction::write_vec(vec![0x7C, 0x01]),
     /// # ];
     /// # let expected_pin = vec![
@@ -316,11 +311,9 @@ where
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
         self.device
-            .transfer(&mut [0, 0], &[register.addr() | 1 << 7, 0])
+            .write(&[register.addr() | 1 << 7, 0])
             .map_err(BMA400Error::IOError)?;
-        self.device
-            .transfer_in_place(buffer)
-            .map_err(BMA400Error::IOError)
+        self.device.read(buffer).map_err(BMA400Error::IOError)
     }
 }
 
@@ -354,13 +347,10 @@ where
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
         self.device
-            .transfer(&mut [0, 0], &[register.addr() | 1 << 7, 0])
+            .write(&[register.addr() | 1 << 7, 0])
             .await
             .map_err(BMA400Error::IOError)?;
-        self.device
-            .transfer_in_place(buffer)
-            .await
-            .map_err(BMA400Error::IOError)
+        self.device.read(buffer).await.map_err(BMA400Error::IOError)
     }
 }
 
