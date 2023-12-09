@@ -1,14 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        FifoConfig0,
-        FifoConfig1,
-        FifoConfig2,
-        FifoPwrConfig,
-    },
-    ConfigError,
-    DataSource,
-    BMA400,
+    registers::{FifoConfig0, FifoConfig1, FifoConfig2, FifoPwrConfig},
+    ConfigError, DataSource, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -29,7 +22,7 @@ impl FifoConfig {
 }
 
 /// Configure the 1024 byte FIFO Buffer Behavior
-/// 
+///
 /// - Enable / Disable writing data for axes using [`with_axes()`](FifoConfigBuilder::with_axes)
 /// - Enable / Disable 8 bit mode (truncate the 4 least significant bits) to save space in the buffer using [`with_8bit_mode`](FifoConfigBuilder::with_8bit_mode)
 /// - [DataSource] for the FIFO Buffer using [`with_src()`](FifoConfigBuilder::with_src)
@@ -66,11 +59,12 @@ where
     }
     /// Enable writing measurements to the FIFO Buffer for x, y, z axis
     pub fn with_axes(mut self, x_en: bool, y_en: bool, z_en: bool) -> Self {
-        self.config.fifo_config0 =
-            self.config.fifo_config0
-                .with_fifo_x(x_en)
-                .with_fifo_y(y_en)
-                .with_fifo_z(z_en);
+        self.config.fifo_config0 = self
+            .config
+            .fifo_config0
+            .with_fifo_x(x_en)
+            .with_fifo_y(y_en)
+            .with_fifo_z(z_en);
         self
     }
     /// Truncates the 4 least significant bits of the reading to store the measurement of each axis
@@ -106,7 +100,10 @@ where
     }
     /// Automatically flush FIFO Buffer when changing power mode
     pub fn with_auto_flush(mut self, enabled: bool) -> Self {
-        self.config.fifo_config0 = self.config.fifo_config0.with_flush_on_pwr_mode_change(enabled);
+        self.config.fifo_config0 = self
+            .config
+            .fifo_config0
+            .with_flush_on_pwr_mode_change(enabled);
         self
     }
 
@@ -127,7 +124,9 @@ where
     /// Write this configuration to device registers
     pub fn write(self) -> Result<(), E> {
         if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
-            self.device.interface.write_register(self.config.fifo_config0)?;
+            self.device
+                .interface
+                .write_register(self.config.fifo_config0)?;
             self.device.config.fifo_config.fifo_config0 = self.config.fifo_config0;
         }
         let wm1_changes =
@@ -143,21 +142,29 @@ where
             self.device.interface.write_register(tmp_int_config)?;
         }
         if wm1_changes {
-            self.device.interface.write_register(self.config.fifo_config1)?;
+            self.device
+                .interface
+                .write_register(self.config.fifo_config1)?;
             self.device.config.fifo_config.fifo_config1 = self.config.fifo_config1;
         }
         if wm2_changes {
-            self.device.interface.write_register(self.config.fifo_config2)?;
+            self.device
+                .interface
+                .write_register(self.config.fifo_config2)?;
             self.device.config.fifo_config.fifo_config2 = self.config.fifo_config2;
         }
         // Re-enable the interrupt if it was changed
         if self.device.config.int_config.get_config0().bits() != tmp_int_config.bits() {
-            self.device.interface.write_register(self.device.config.int_config.get_config0())?;
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())?;
         }
         if self.device.config.fifo_config.fifo_pwr_config.bits()
             != self.config.fifo_pwr_config.bits()
         {
-            self.device.interface.write_register(self.config.fifo_pwr_config)?;
+            self.device
+                .interface
+                .write_register(self.config.fifo_pwr_config)?;
             self.device.config.fifo_config.fifo_pwr_config = self.config.fifo_pwr_config
         }
         Ok(())

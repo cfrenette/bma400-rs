@@ -1,17 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        AccConfig0,
-        AccConfig1,
-        AccConfig2,
-    },
-    ConfigError,
-    DataSource,
-    Filter1Bandwidth,
-    OutputDataRate,
-    OversampleRate,
-    PowerMode,
-    Scale,
+    registers::{AccConfig0, AccConfig1, AccConfig2},
+    ConfigError, DataSource, Filter1Bandwidth, OutputDataRate, OversampleRate, PowerMode, Scale,
     BMA400,
 };
 
@@ -37,8 +27,8 @@ impl AccConfig {
     }
 }
 
-/// Configure how the accelerometer samples, filters and ouputs data 
-/// 
+/// Configure how the accelerometer samples, filters and ouputs data
+///
 /// - [PowerMode] using [`with_power_mode()`](AccConfigBuilder::with_power_mode)
 /// - [DataSource] for [`get_data()`](BMA400::get_data) and [`get_unscaled_data()`](BMA400::get_unscaled_data) using [`with_reg_dta_src()`](AccConfigBuilder::with_reg_dta_src)
 /// - [OversampleRate] for low power and normal modes using [`with_osr_lp()`](AccConfigBuilder::with_osr_lp) and [`with_osr()`](AccConfigBuilder::with_osr) respectively
@@ -63,7 +53,7 @@ where
     }
     // AccConfig0
     /// Set [PowerMode]
-    /// 
+    ///
     /// Other settings can result in the power changing automatically,
     /// for example auto wakeup and auto low-power mode.
     /// To read the current power mode from the sensor use [`get_status()`](BMA400::get_status)
@@ -110,32 +100,52 @@ where
 
         // If Gen Int 1 / 2 or Activity Change use AccFilt1 and are enabled, ODR must be 100Hz
         let mut filt1_used_for_ints = false;
-        if int_config1.actch_int() && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1) {
+        if int_config1.actch_int()
+            && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1)
+        {
             filt1_used_for_ints = true;
         }
-        if int_config0.gen1_int() && matches!(self.device.config.gen1int_config.src(), DataSource::AccFilt1) {
+        if int_config0.gen1_int()
+            && matches!(
+                self.device.config.gen1int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
             filt1_used_for_ints = true;
         }
-        if int_config0.gen2_int() && matches!(self.device.config.gen2int_config.src(), DataSource::AccFilt1) {
+        if int_config0.gen2_int()
+            && matches!(
+                self.device.config.gen2int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
             filt1_used_for_ints = true;
         }
         if filt1_used_for_ints && !matches!(self.config.odr(), OutputDataRate::Hz100) {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
         // If either Tap Interrupt is enabled, filt1 ODR must be set to 200Hz
-        if (int_config1.d_tap_int() || int_config1.s_tap_int()) && !matches!(self.config.odr(), OutputDataRate::Hz200) {
+        if (int_config1.d_tap_int() || int_config1.s_tap_int())
+            && !matches!(self.config.odr(), OutputDataRate::Hz200)
+        {
             return Err(ConfigError::TapIntEnabledInvalidODR.into());
         }
         if self.device.config.acc_config.acc_config0.bits() != self.config.acc_config0.bits() {
-            self.device.interface.write_register(self.config.acc_config0)?;
+            self.device
+                .interface
+                .write_register(self.config.acc_config0)?;
             self.device.config.acc_config.acc_config0 = self.config.acc_config0;
         }
         if self.device.config.acc_config.acc_config1.bits() != self.config.acc_config1.bits() {
-            self.device.interface.write_register(self.config.acc_config1)?;
+            self.device
+                .interface
+                .write_register(self.config.acc_config1)?;
             self.device.config.acc_config.acc_config1 = self.config.acc_config1;
         }
         if self.device.config.acc_config.acc_config2.bits() != self.config.acc_config2.bits() {
-            self.device.interface.write_register(self.config.acc_config2)?;
+            self.device
+                .interface
+                .write_register(self.config.acc_config2)?;
             self.device.config.acc_config.acc_config2 = self.config.acc_config2;
         }
         Ok(())
@@ -145,10 +155,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        tests::get_test_device,
-        BMA400Error,
-    };
+    use crate::{tests::get_test_device, BMA400Error};
     #[test]
     fn test_power_mode() {
         let mut device = get_test_device();
@@ -242,66 +249,133 @@ mod tests {
     fn test_actch_config_err() {
         let mut device = get_test_device();
         // Set the OutputDataRate to 100Hz
-        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_accel()
+                .with_odr(OutputDataRate::Hz100)
+                .write(),
+            Ok(())
+        ));
         // Enable the Activity Change Interrupt
-        assert!(matches!(device.config_interrupts().with_actch_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_actch_int(true).write(),
+            Ok(())
+        ));
         // Try to change the OutputDataRate back to 200Hz
-        let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
+        let result = device
+            .config_accel()
+            .with_odr(OutputDataRate::Hz200)
+            .write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
     #[test]
     fn test_gen1_int_config_err() {
         let mut device = get_test_device();
         // Set the OutputDataRate to 100Hz
-        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_accel()
+                .with_odr(OutputDataRate::Hz100)
+                .write(),
+            Ok(())
+        ));
         // Enable Generic Interrupt 1
-        assert!(matches!(device.config_interrupts().with_gen1_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_gen1_int(true).write(),
+            Ok(())
+        ));
         // Try to change the OutputDataRate back to 200Hz
-        let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
+        let result = device
+            .config_accel()
+            .with_odr(OutputDataRate::Hz200)
+            .write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
     #[test]
     fn test_gen2_int_config_err() {
         let mut device = get_test_device();
         // Set the OutputDataRate to 100Hz
-        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_accel()
+                .with_odr(OutputDataRate::Hz100)
+                .write(),
+            Ok(())
+        ));
         // Enable Generic Interrupt 1
-        assert!(matches!(device.config_interrupts().with_gen2_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_gen2_int(true).write(),
+            Ok(())
+        ));
         // Try to change the OutputDataRate back to 200Hz
-        let result = device.config_accel().with_odr(OutputDataRate::Hz200).write();
+        let result = device
+            .config_accel()
+            .with_odr(OutputDataRate::Hz200)
+            .write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
     #[test]
     fn test_tap_int_config_err() {
         let mut device = get_test_device();
         // Set the OutputDataRate to 200Hz (no write performed since default is 200Hz)
-        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz200).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_accel()
+                .with_odr(OutputDataRate::Hz200)
+                .write(),
+            Ok(())
+        ));
         // Enable the Single Tap Interrupt
-        assert!(matches!(device.config_interrupts().with_s_tap_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_s_tap_int(true).write(),
+            Ok(())
+        ));
         // Try to change the OutputDataRate to 100Hz
-        let result = device.config_accel().with_odr(OutputDataRate::Hz100).write();
+        let result = device
+            .config_accel()
+            .with_odr(OutputDataRate::Hz100)
+            .write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::TapIntEnabledInvalidODR
+            ))
         ));
         // Disable the Single Tap Interrupt
-        assert!(matches!(device.config_interrupts().with_s_tap_int(false).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_s_tap_int(false).write(),
+            Ok(())
+        ));
         // Enable the Double Tap Interrupt
-        assert!(matches!(device.config_interrupts().with_d_tap_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_d_tap_int(true).write(),
+            Ok(())
+        ));
         // Try to change the OutputDataRate to 100Hz
-        let result = device.config_accel().with_odr(OutputDataRate::Hz100).write();
+        let result = device
+            .config_accel()
+            .with_odr(OutputDataRate::Hz100)
+            .write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::TapIntEnabledInvalidODR
+            ))
         ));
     }
 }

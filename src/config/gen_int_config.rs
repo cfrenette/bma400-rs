@@ -2,37 +2,14 @@ use crate::{
     config::Config,
     interface::WriteToRegister,
     registers::{
-        Gen1IntConfig0,
-        Gen1IntConfig1,
-        Gen1IntConfig2,
-        Gen1IntConfig3,
-        Gen1IntConfig31,
-        Gen1IntConfig4,
-        Gen1IntConfig5,
-        Gen1IntConfig6,
-        Gen1IntConfig7,
-        Gen1IntConfig8,
-        Gen1IntConfig9,
-        Gen2IntConfig0,
-        Gen2IntConfig1,
-        Gen2IntConfig2,
-        Gen2IntConfig3,
-        Gen2IntConfig31,
-        Gen2IntConfig4,
-        Gen2IntConfig5,
-        Gen2IntConfig6,
-        Gen2IntConfig7,
-        Gen2IntConfig8,
-        Gen2IntConfig9,
+        Gen1IntConfig0, Gen1IntConfig1, Gen1IntConfig2, Gen1IntConfig3, Gen1IntConfig31,
+        Gen1IntConfig4, Gen1IntConfig5, Gen1IntConfig6, Gen1IntConfig7, Gen1IntConfig8,
+        Gen1IntConfig9, Gen2IntConfig0, Gen2IntConfig1, Gen2IntConfig2, Gen2IntConfig3,
+        Gen2IntConfig31, Gen2IntConfig4, Gen2IntConfig5, Gen2IntConfig6, Gen2IntConfig7,
+        Gen2IntConfig8, Gen2IntConfig9,
     },
-    ConfigError,
-    DataSource,
-    GenIntCriterionMode,
-    GenIntLogicMode,
-    GenIntRefMode,
-    Hysteresis,
-    OutputDataRate,
-    BMA400,
+    ConfigError, DataSource, GenIntCriterionMode, GenIntLogicMode, GenIntRefMode, Hysteresis,
+    OutputDataRate, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -92,7 +69,7 @@ impl GenIntConfig {
 }
 
 /// Configure Generic Interrupt settings
-/// 
+///
 /// - Enable / Disable axes evaluated for the interrupt trigger condition using [`with_axes()`](GenIntConfigBuilder::with_axes)
 /// - [DataSource] used for evaluating the trigger condition using [`with_src()`](GenIntConfigBuilder::with_src)
 /// - Set the [GenIntRefMode] (reference acceleration update mode) using [`with_ref_mode()`](GenIntConfigBuilder::with_ref_mode)
@@ -112,37 +89,27 @@ where
     Interface: WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
-    pub(crate) fn new_gen1(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
+    pub(crate) fn new_gen1(
+        device: &'a mut BMA400<Interface>,
+    ) -> GenIntConfigBuilder<'a, Interface> {
         let config = GenIntConfig::Gen1Int(device.config.gen1int_config.clone());
-        GenIntConfigBuilder {
-            config,
-            device,
-        }
+        GenIntConfigBuilder { config, device }
     }
-    pub(crate) fn new_gen2(device: &'a mut BMA400<Interface>) -> GenIntConfigBuilder<'a, Interface> {
+    pub(crate) fn new_gen2(
+        device: &'a mut BMA400<Interface>,
+    ) -> GenIntConfigBuilder<'a, Interface> {
         let config = GenIntConfig::Gen2Int(device.config.gen2int_config.clone());
-        GenIntConfigBuilder {
-            config,
-            device,
-        }
+        GenIntConfigBuilder { config, device }
     }
     // Config0
     /// Select the axes to be considered when evaluating the generic interrupt criterion
     pub fn with_axes(mut self, x: bool, y: bool, z: bool) -> Self {
         match &mut self.config {
             GenIntConfig::Gen1Int(config) => {
-                config.config0 = 
-                    config.config0
-                        .with_x_axis(x)
-                        .with_y_axis(y)
-                        .with_z_axis(z)
+                config.config0 = config.config0.with_x_axis(x).with_y_axis(y).with_z_axis(z)
             }
             GenIntConfig::Gen2Int(config) => {
-                config.config0 = 
-                    config.config0
-                        .with_x_axis(x)
-                        .with_y_axis(y)
-                        .with_z_axis(z)
+                config.config0 = config.config0.with_x_axis(x).with_y_axis(y).with_z_axis(z)
             }
         }
         self
@@ -243,8 +210,11 @@ where
     ///
     /// 12-bit, clamped to \[-2048, 2047\] and scales with [crate::Scale]
     pub fn with_ref_accel(mut self, ref_x: i16, ref_y: i16, ref_z: i16) -> Self {
-        let (ref_x, ref_y, ref_z) =
-            (ref_x.clamp(-2048, 2047), ref_y.clamp(-2048, 2047), ref_z.clamp(-2048, 2047));
+        let (ref_x, ref_y, ref_z) = (
+            ref_x.clamp(-2048, 2047),
+            ref_y.clamp(-2048, 2047),
+            ref_z.clamp(-2048, 2047),
+        );
         match &mut self.config {
             GenIntConfig::Gen1Int(config) => {
                 config.config4 = config.config4.with_ref_x_lsb(ref_x.to_le_bytes()[0]);
@@ -459,7 +429,9 @@ where
         }
         // Re-enable interrupt, if it was disabled
         if int_config0.bits() != self.device.config.int_config.get_config0().bits() {
-            self.device.interface.write_register(self.device.config.int_config.get_config0())?;
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())?;
         }
         Ok(())
     }
@@ -579,10 +551,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        tests::get_test_device,
-        BMA400Error,
-    };
+    use crate::{tests::get_test_device, BMA400Error};
     #[test]
     fn test_axes() {
         let mut device = get_test_device();
@@ -839,26 +808,54 @@ mod tests {
     fn test_int1_config_err() {
         let mut device = get_test_device();
         // Change the data source to AccFilt2
-        assert!(matches!(device.config_gen1_int().with_src(DataSource::AccFilt2).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_gen1_int()
+                .with_src(DataSource::AccFilt2)
+                .write(),
+            Ok(())
+        ));
         // Enable the interrupt
-        assert!(matches!(device.config_interrupts().with_gen1_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_gen1_int(true).write(),
+            Ok(())
+        ));
         // Try to change the data source back to AccFilt1 while the interrupt is enabled
         assert!(matches!(
-            device.config_gen1_int().with_src(DataSource::AccFilt1).write(),
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            device
+                .config_gen1_int()
+                .with_src(DataSource::AccFilt1)
+                .write(),
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
     #[test]
     fn test_int2_config_err() {
         let mut device = get_test_device();
         // Change the data source to AccFilt2
-        assert!(matches!(device.config_gen2_int().with_src(DataSource::AccFilt2).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_gen2_int()
+                .with_src(DataSource::AccFilt2)
+                .write(),
+            Ok(())
+        ));
         // Enable the interrupt
-        assert!(matches!(device.config_interrupts().with_gen2_int(true).write(), Ok(())));
+        assert!(matches!(
+            device.config_interrupts().with_gen2_int(true).write(),
+            Ok(())
+        ));
         // Try to change the data source back to AccFilt1 while the interrupt is enabled
         assert!(matches!(
-            device.config_gen2_int().with_src(DataSource::AccFilt1).write(),
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            device
+                .config_gen2_int()
+                .with_src(DataSource::AccFilt1)
+                .write(),
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
 }

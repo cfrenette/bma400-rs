@@ -21,32 +21,24 @@ use orientch_config::OrientChgConfig;
 
 // Re-export builders
 pub use accel_config::AccConfigBuilder;
+pub use actchg_config::ActChgConfigBuilder;
 pub use auto_lp_config::AutoLpConfigBuilder;
 pub use auto_wkup_config::AutoWakeupConfigBuilder;
 pub use fifo_config::FifoConfigBuilder;
+pub use gen_int_config::GenIntConfigBuilder;
 pub use int_config::IntConfigBuilder;
 pub use int_pin_config::IntPinConfigBuilder;
-pub use wkup_int_config::WakeupIntConfigBuilder;
 pub use orientch_config::OrientChgConfigBuilder;
-pub use gen_int_config::GenIntConfigBuilder;
-pub use actchg_config::ActChgConfigBuilder;
 pub use tap_config::TapConfigBuilder;
+pub use wkup_int_config::WakeupIntConfigBuilder;
 
 mod gen_int_config;
-use gen_int_config::{
-    Gen1IntConfig,
-    Gen2IntConfig,
-};
+use gen_int_config::{Gen1IntConfig, Gen2IntConfig};
 
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        AccConfig1,
-        IntConfig0,
-        IntConfig1,
-    },
-    BMA400Error,
-    Scale,
+    registers::{AccConfig1, IntConfig0, IntConfig1},
+    BMA400Error, Scale,
 };
 
 #[derive(Default, Clone)]
@@ -85,12 +77,18 @@ impl Config {
         interface.write_register(self.auto_wkup_config.get_config1().with_wakeup_int(false))?;
         // Disable FIFO
         interface.write_register(
-            self.fifo_config.get_config0().with_fifo_x(false).with_fifo_y(false).with_fifo_z(false),
+            self.fifo_config
+                .get_config0()
+                .with_fifo_x(false)
+                .with_fifo_y(false)
+                .with_fifo_z(false),
         )?;
 
         // Set PowerMode = Normal
         interface.write_register(
-            self.acc_config.get_config0().with_power_mode(crate::PowerMode::Normal),
+            self.acc_config
+                .get_config0()
+                .with_power_mode(crate::PowerMode::Normal),
         )?;
         // Set Range = 4G, OSR = OSR3, ODR = 100Hz
         interface.write_register(AccConfig1::from_bits_truncate(0x78))?;
