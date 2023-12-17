@@ -165,7 +165,7 @@ pub(crate) use embedded_hal as hal;
 #[cfg(all(feature = "async", any(feature = "spi", feature = "i2c")))]
 pub(crate) use embedded_hal_async as hal_async;
 
-use hal::delay::DelayUs;
+use hal::delay::DelayNs;
 pub mod types;
 pub use types::*;
 pub(crate) mod registers;
@@ -1232,7 +1232,7 @@ where
     /// See [p.48 of the datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=48)
     pub fn perform_self_test(
         &mut self,
-        timer: &mut impl DelayUs,
+        timer: &mut impl DelayNs,
     ) -> Result<(), BMA400Error<InterfaceError, PinError>> {
         // Disable interrupts, set accelerometer test config
         self.config.setup_self_test(&mut self.interface)?;
