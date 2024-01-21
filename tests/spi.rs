@@ -16,9 +16,9 @@ macro_rules! destroy_device {
 }
 
 fn new(
-    expected_io: &[Transaction],
+    expected_io: &[Transaction<u8>],
     expected_pin: &[PinTransaction],
-) -> BMA400<SPIInterface<MockSPI, MockPin>> {
+) -> BMA400<SPIInterface<MockSPI<u8>, MockPin>> {
     let spi = MockSPI::new(expected_io);
     let csb = MockPin::new(expected_pin);
     BMA400::new_spi(spi, csb).unwrap()
@@ -44,7 +44,7 @@ fn init_bad_chip_id() {
     csb.done();
 }
 
-fn init(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
+fn init(expected_io: &mut Vec<Transaction<u8>>, expected_pin: &mut Vec<PinTransaction>) {
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
     expected_io.push(Transaction::read_vec(vec![0x00]));
@@ -1544,7 +1544,7 @@ fn config_tap() {
     destroy_device!(device);
 }
 
-fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
+fn self_test_setup(expected_io: &mut Vec<Transaction<u8>>, expected_pin: &mut Vec<PinTransaction>) {
     // Disable Interrupts
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write_vec(vec![0x1F, 0x00]));
@@ -1572,7 +1572,7 @@ fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<Pi
     expected_pin.push(PinTransaction::set(State::High));
 }
 
-fn restore_config(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
+fn restore_config(expected_io: &mut Vec<Transaction<u8>>, expected_pin: &mut Vec<PinTransaction>) {
     // Restore AccConfig0
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::write_vec(vec![0x19, 0xE0]));
@@ -1608,7 +1608,7 @@ fn self_test(
     x_fail: bool,
     y_fail: bool,
     z_fail: bool,
-    expected_io: &mut Vec<Transaction>,
+    expected_io: &mut Vec<Transaction<u8>>,
     expected_pin: &mut Vec<PinTransaction>,
 ) {
     const PASS_X_POS: i16 = 767;
