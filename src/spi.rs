@@ -1,5 +1,5 @@
 use crate::{
-    hal::{digital::OutputPin, spi::SpiBus},
+    hal::{digital::OutputPin, spi::SpiDevice},
     interface::{ReadFromRegister, WriteToRegister},
     registers::{ChipId, ConfigReg, InterfaceConfig, ReadReg},
     BMA400Error, Config, BMA400,
@@ -23,7 +23,7 @@ impl<SPI, CSBPin> SPIInterface<SPI, CSBPin> {
 
 impl<SPI, CSBPin, InterfaceError, PinError> WriteToRegister for SPIInterface<SPI, CSBPin>
 where
-    SPI: SpiBus<u8, Error = InterfaceError>,
+    SPI: SpiDevice<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
     type Error = BMA400Error<InterfaceError, PinError>;
@@ -44,7 +44,7 @@ where
 
 impl<SPI, CSBPin, InterfaceError, PinError> ReadFromRegister for SPIInterface<SPI, CSBPin>
 where
-    SPI: SpiBus<u8, Error = InterfaceError>,
+    SPI: SpiDevice<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
     type Error = BMA400Error<InterfaceError, PinError>;
@@ -69,7 +69,7 @@ where
 
 impl<SPI, CSBPin, InterfaceError, PinError> BMA400<SPIInterface<SPI, CSBPin>>
 where
-    SPI: SpiBus<u8, Error = InterfaceError>,
+    SPI: SpiDevice<u8, Error = InterfaceError>,
     CSBPin: OutputPin<Error = PinError>,
 {
     /// Create a new instance of the BMA400 using 4-wire SPI
