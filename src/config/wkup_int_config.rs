@@ -1,15 +1,9 @@
 use crate::{
     interface::WriteToRegister,
     registers::{
-        WakeupIntConfig0,
-        WakeupIntConfig1,
-        WakeupIntConfig2,
-        WakeupIntConfig3,
-        WakeupIntConfig4,
+        WakeupIntConfig0, WakeupIntConfig1, WakeupIntConfig2, WakeupIntConfig3, WakeupIntConfig4,
     },
-    ConfigError,
-    WakeupIntRefMode,
-    BMA400,
+    ConfigError, WakeupIntRefMode, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -31,7 +25,7 @@ impl WakeupIntConfig {
 }
 
 /// Configure Wake-up Interrupt settings
-/// 
+///
 /// - [WakeupIntRefMode] using [`with_ref_mode()`](WakeupIntConfigBuilder::with_ref_mode)
 /// - Set the number of consecutive samples that must satisfy the condition before the interrupt is triggered using [`with_num_samples()`](WakeupIntConfigBuilder::with_num_samples)
 /// - Enable / Disable axes to be evaluated against the condition using [`with_axes()`](WakeupIntConfigBuilder::with_axes)
@@ -64,14 +58,20 @@ where
     ///
     /// This value is clamped to \[1, 8\]
     pub fn with_num_samples(mut self, num_samples: u8) -> Self {
-        self.config.wkup_int_config0 =
-            self.config.wkup_int_config0.with_num_samples(num_samples.clamp(1, 8) - 1);
+        self.config.wkup_int_config0 = self
+            .config
+            .wkup_int_config0
+            .with_num_samples(num_samples.clamp(1, 8) - 1);
         self
     }
     /// Select the axes to be used in evaluating the wake-up interrupt condition ()
     pub fn with_axes(mut self, x_en: bool, y_en: bool, z_en: bool) -> Self {
-        self.config.wkup_int_config0 =
-            self.config.wkup_int_config0.with_x_axis(x_en).with_y_axis(y_en).with_z_axis(z_en);
+        self.config.wkup_int_config0 = self
+            .config
+            .wkup_int_config0
+            .with_x_axis(x_en)
+            .with_y_axis(y_en)
+            .with_z_axis(z_en);
         self
     }
     // WkupIntConfig1
@@ -99,12 +99,18 @@ where
     ///
     /// In order for an axis to be evaluated it must be enabled using `with_axes()`
     pub fn with_ref_accel(mut self, x_ref: i8, y_ref: i8, z_ref: i8) -> Self {
-        self.config.wkup_int_config2 =
-            self.config.wkup_int_config2.with_x_ref(x_ref.to_le_bytes()[0]);
-        self.config.wkup_int_config3 =
-            self.config.wkup_int_config3.with_y_ref(y_ref.to_le_bytes()[0]);
-        self.config.wkup_int_config4 =
-            self.config.wkup_int_config4.with_z_ref(z_ref.to_le_bytes()[0]);
+        self.config.wkup_int_config2 = self
+            .config
+            .wkup_int_config2
+            .with_x_ref(x_ref.to_le_bytes()[0]);
+        self.config.wkup_int_config3 = self
+            .config
+            .wkup_int_config3
+            .with_y_ref(y_ref.to_le_bytes()[0]);
+        self.config.wkup_int_config4 = self
+            .config
+            .wkup_int_config4
+            .with_z_ref(z_ref.to_le_bytes()[0]);
         self
     }
     /// Write this configuration to device registers
@@ -141,32 +147,42 @@ where
         if self.device.config.wkup_int_config.wkup_int_config1.bits()
             != self.config.wkup_int_config1.bits()
         {
-            self.device.interface.write_register(self.config.wkup_int_config1)?;
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config1)?;
             self.device.config.wkup_int_config.wkup_int_config1 = self.config.wkup_int_config1;
         }
         if self.device.config.wkup_int_config.wkup_int_config2.bits()
             != self.config.wkup_int_config2.bits()
         {
-            self.device.interface.write_register(self.config.wkup_int_config2)?;
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config2)?;
             self.device.config.wkup_int_config.wkup_int_config2 = self.config.wkup_int_config2;
         }
         if self.device.config.wkup_int_config.wkup_int_config3.bits()
             != self.config.wkup_int_config3.bits()
         {
-            self.device.interface.write_register(self.config.wkup_int_config3)?;
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config3)?;
             self.device.config.wkup_int_config.wkup_int_config3 = self.config.wkup_int_config3;
         }
         if self.device.config.wkup_int_config.wkup_int_config4.bits()
             != self.config.wkup_int_config4.bits()
         {
-            self.device.interface.write_register(self.config.wkup_int_config4)?;
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config4)?;
             self.device.config.wkup_int_config.wkup_int_config4 = self.config.wkup_int_config4;
         }
         // (Re)-enable the interrupt
         if self.device.config.wkup_int_config.wkup_int_config0.bits()
             != self.config.wkup_int_config0.bits()
         {
-            self.device.interface.write_register(self.config.wkup_int_config0)?;
+            self.device
+                .interface
+                .write_register(self.config.wkup_int_config0)?;
             self.device.config.wkup_int_config.wkup_int_config0 = self.config.wkup_int_config0;
         }
         Ok(())

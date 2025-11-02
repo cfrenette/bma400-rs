@@ -1,13 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        IntConfig0,
-        IntConfig1,
-    },
-    ConfigError,
-    DataSource,
-    OutputDataRate,
-    BMA400,
+    registers::{IntConfig0, IntConfig1},
+    ConfigError, DataSource, OutputDataRate, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -27,7 +21,7 @@ impl IntConfig {
 }
 
 /// Enable or disable interrupts[^except] and set interrupt latch mode
-/// 
+///
 /// [^except]: To enable the Auto-Wakeup Interrupt see [`config_autowkup()`](BMA400::config_autowkup)
 pub struct IntConfigBuilder<'a, Interface: WriteToRegister> {
     config: IntConfig,
@@ -119,14 +113,20 @@ where
         // Gen 1
         if self.config.int_config0.gen1_int()
             && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
-            && matches!(self.device.config.gen1int_config.src(), DataSource::AccFilt1)
+            && matches!(
+                self.device.config.gen1int_config.src(),
+                DataSource::AccFilt1
+            )
         {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
         // Gen 2
         if self.config.int_config0.gen2_int()
             && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
-            && matches!(self.device.config.gen2int_config.src(), DataSource::AccFilt1)
+            && matches!(
+                self.device.config.gen2int_config.src(),
+                DataSource::AccFilt1
+            )
         {
             return Err(ConfigError::Filt1InterruptInvalidODR.into());
         }
@@ -139,11 +139,15 @@ where
         }
 
         if self.device.config.int_config.int_config0.bits() != self.config.int_config0.bits() {
-            self.device.interface.write_register(self.config.int_config0)?;
+            self.device
+                .interface
+                .write_register(self.config.int_config0)?;
             self.device.config.int_config.int_config0 = self.config.int_config0;
         }
         if self.device.config.int_config.int_config1.bits() != self.config.int_config1.bits() {
-            self.device.interface.write_register(self.config.int_config1)?;
+            self.device
+                .interface
+                .write_register(self.config.int_config1)?;
             self.device.config.int_config.int_config1 = self.config.int_config1;
         }
         Ok(())
@@ -153,10 +157,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        tests::get_test_device,
-        BMA400Error,
-    };
+    use crate::{tests::get_test_device, BMA400Error};
     #[test]
     fn test_dta_rdy() {
         let mut device = get_test_device();
@@ -238,18 +239,28 @@ mod tests {
     fn test_tap_int_config_err() {
         let mut device = get_test_device();
         // Set the output data rate to 100Hz
-        assert!(matches!(device.config_accel().with_odr(OutputDataRate::Hz100).write(), Ok(())));
+        assert!(matches!(
+            device
+                .config_accel()
+                .with_odr(OutputDataRate::Hz100)
+                .write(),
+            Ok(())
+        ));
         // Try to enable the single tap interrupt
         let result = device.config_interrupts().with_s_tap_int(true).write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::TapIntEnabledInvalidODR
+            ))
         ));
         // Try to enable the double tap interrupt
         let result = device.config_interrupts().with_d_tap_int(true).write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::TapIntEnabledInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::TapIntEnabledInvalidODR
+            ))
         ));
     }
     #[test]
@@ -260,7 +271,9 @@ mod tests {
         let result = device.config_interrupts().with_gen1_int(true).write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
     #[test]
@@ -271,7 +284,9 @@ mod tests {
         let result = device.config_interrupts().with_gen2_int(true).write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
     #[test]
@@ -282,7 +297,9 @@ mod tests {
         let result = device.config_interrupts().with_actch_int(true).write();
         assert!(matches!(
             result,
-            Err(BMA400Error::ConfigBuildError(ConfigError::Filt1InterruptInvalidODR))
+            Err(BMA400Error::ConfigBuildError(
+                ConfigError::Filt1InterruptInvalidODR
+            ))
         ));
     }
 }

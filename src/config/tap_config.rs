@@ -1,16 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        TapConfig0,
-        TapConfig1,
-    },
-    Axis,
-    ConfigError,
-    DoubleTapDuration,
-    MaxTapDuration,
-    MinTapDuration,
-    TapSensitivity,
-    BMA400,
+    registers::{TapConfig0, TapConfig1},
+    Axis, ConfigError, DoubleTapDuration, MaxTapDuration, MinTapDuration, TapSensitivity, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -20,7 +11,7 @@ pub struct TapConfig {
 }
 
 /// Configure Advanced Tap Interrupt Settings
-/// 
+///
 /// - Set the axis evaluated for the interrupt trigger condition using [`with_axis()`](TapConfigBuilder::with_axis)
 /// - [TapSensitivity] using [`with_sensitivity()`](TapConfigBuilder::with_sensitivity)
 /// - [MinTapDuration] using [`with_min_duration_btn_taps()`](TapConfigBuilder::with_min_duration_btn_taps)
@@ -93,16 +84,22 @@ where
             self.device.interface.write_register(tmp_int_config)?;
         }
         if tap1_changes {
-            self.device.interface.write_register(self.config.tap_config0)?;
+            self.device
+                .interface
+                .write_register(self.config.tap_config0)?;
             self.device.config.tap_config.tap_config0 = self.config.tap_config0;
         }
         if tap2_changes {
-            self.device.interface.write_register(self.config.tap_config1)?;
+            self.device
+                .interface
+                .write_register(self.config.tap_config1)?;
             self.device.config.tap_config.tap_config1 = self.config.tap_config1;
         }
         // Re-enable the interrupt, if disabled
         if self.device.config.int_config.get_config1().bits() != tmp_int_config.bits() {
-            self.device.interface.write_register(self.device.config.int_config.get_config1())?;
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config1())?;
         }
         Ok(())
     }

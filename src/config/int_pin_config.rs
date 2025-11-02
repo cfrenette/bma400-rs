@@ -1,15 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        Int12IOCtrl,
-        Int12Map,
-        Int1Map,
-        Int2Map,
-    },
-    ConfigError,
-    InterruptPins,
-    PinOutputConfig,
-    BMA400,
+    registers::{Int12IOCtrl, Int12Map, Int1Map, Int2Map},
+    ConfigError, InterruptPins, PinOutputConfig, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -92,7 +84,7 @@ where
             device,
         }
     }
-    
+
     // Int1Map / Int2Map
     /// Map Data Ready Interrupt to [InterruptPins]
     pub fn with_drdy(mut self, mapped_to: InterruptPins) -> Self {
@@ -240,8 +232,10 @@ where
             if self.device.config.wkup_int_config.is_int_en()
                 && !matches!(self.config.wkup_map(), InterruptPins::None)
             {
-                tmp_wkup_int_config0 =
-                    tmp_wkup_int_config0.with_x_axis(false).with_y_axis(false).with_z_axis(false);
+                tmp_wkup_int_config0 = tmp_wkup_int_config0
+                    .with_x_axis(false)
+                    .with_y_axis(false)
+                    .with_z_axis(false);
             }
             // Activity Change
             if int_config1.actch_int() && !matches!(self.config.actch_map(), InterruptPins::None) {
@@ -278,13 +272,17 @@ where
             self.device.config.int_pin_config.int2_map = self.config.int2_map;
         }
         if self.device.config.int_pin_config.int12_map.bits() != self.config.int12_map.bits() {
-            self.device.interface.write_register(self.config.int12_map)?;
+            self.device
+                .interface
+                .write_register(self.config.int12_map)?;
             self.device.config.int_pin_config.int12_map = self.config.int12_map;
         }
         if self.device.config.int_pin_config.int12_io_ctrl.bits()
             != self.config.int12_io_ctrl.bits()
         {
-            self.device.interface.write_register(self.config.int12_io_ctrl)?;
+            self.device
+                .interface
+                .write_register(self.config.int12_io_ctrl)?;
             self.device.config.int_pin_config.int12_io_ctrl = self.config.int12_io_ctrl;
         }
         // Restore the disabled interrupts
@@ -304,10 +302,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        tests::get_test_device,
-        PinOutputLevel,
-    };
+    use crate::{tests::get_test_device, PinOutputLevel};
     #[test]
     fn test_mapped_pins() {
         assert!(matches!(mapped_pins(false, false), InterruptPins::None));

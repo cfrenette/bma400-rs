@@ -1,20 +1,8 @@
 use crate::{
-    hal::blocking::i2c::{
-        Write,
-        WriteRead,
-    },
-    interface::{
-        ReadFromRegister,
-        WriteToRegister,
-    },
-    registers::{
-        ChipId,
-        ConfigReg,
-        ReadReg,
-    },
-    BMA400Error,
-    Config,
-    BMA400,
+    hal::blocking::i2c::{Write, WriteRead},
+    interface::{ReadFromRegister, WriteToRegister},
+    registers::{ChipId, ConfigReg, ReadReg},
+    BMA400Error, Config, BMA400,
 };
 
 // This is set by the SDO Pin level. (p. 108 of datasheet)
@@ -45,7 +33,9 @@ where
     type Error = BMA400Error<E, ()>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        self.i2c.write(ADDR, &[register.addr(), register.to_byte()]).map_err(BMA400Error::IOError)
+        self.i2c
+            .write(ADDR, &[register.addr(), register.to_byte()])
+            .map_err(BMA400Error::IOError)
     }
 }
 
@@ -55,8 +45,14 @@ where
 {
     type Error = BMA400Error<E, ()>;
 
-    fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.i2c.write_read(ADDR, &[register.addr()], buffer).map_err(BMA400Error::IOError)
+    fn read_register<T: ReadReg>(
+        &mut self,
+        register: T,
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        self.i2c
+            .write_read(ADDR, &[register.addr()], buffer)
+            .map_err(BMA400Error::IOError)
     }
 }
 
@@ -65,7 +61,7 @@ where
     I2C: WriteRead<Error = E> + Write<Error = E>,
 {
     /// Create a new instance of the BMA400 using I²C
-    /// 
+    ///
     /// # Examples
     /// ```
     /// # use embedded_hal_mock::i2c::{Mock, Transaction};

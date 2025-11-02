@@ -1,23 +1,10 @@
 use embedded_hal::digital::v2::OutputPin;
 
 use crate::{
-    hal::blocking::spi::{
-        Transfer,
-        Write,
-    },
-    interface::{
-        ReadFromRegister,
-        WriteToRegister,
-    },
-    registers::{
-        ChipId,
-        ConfigReg,
-        InterfaceConfig,
-        ReadReg,
-    },
-    BMA400Error,
-    Config,
-    BMA400,
+    hal::blocking::spi::{Transfer, Write},
+    interface::{ReadFromRegister, WriteToRegister},
+    registers::{ChipId, ConfigReg, InterfaceConfig, ReadReg},
+    BMA400Error, Config, BMA400,
 };
 
 /// SPI Interface wrapper
@@ -44,9 +31,15 @@ where
     type Error = BMA400Error<InterfaceError, PinError>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
-        self.csb.set_low().map_err(BMA400Error::ChipSelectPinError)?;
-        self.spi.write(&[register.addr(), register.to_byte()]).map_err(BMA400Error::IOError)?;
-        self.csb.set_high().map_err(BMA400Error::ChipSelectPinError)?;
+        self.csb
+            .set_low()
+            .map_err(BMA400Error::ChipSelectPinError)?;
+        self.spi
+            .write(&[register.addr(), register.to_byte()])
+            .map_err(BMA400Error::IOError)?;
+        self.csb
+            .set_high()
+            .map_err(BMA400Error::ChipSelectPinError)?;
         Ok(())
     }
 }
@@ -58,11 +51,21 @@ where
 {
     type Error = BMA400Error<InterfaceError, PinError>;
 
-    fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.csb.set_low().map_err(BMA400Error::ChipSelectPinError)?;
-        self.spi.transfer(&mut [register.addr() | 1 << 7, 0]).map_err(BMA400Error::IOError)?;
+    fn read_register<T: ReadReg>(
+        &mut self,
+        register: T,
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        self.csb
+            .set_low()
+            .map_err(BMA400Error::ChipSelectPinError)?;
+        self.spi
+            .transfer(&mut [register.addr() | 1 << 7, 0])
+            .map_err(BMA400Error::IOError)?;
         self.spi.transfer(buffer).map_err(BMA400Error::IOError)?;
-        self.csb.set_high().map_err(BMA400Error::ChipSelectPinError)?;
+        self.csb
+            .set_high()
+            .map_err(BMA400Error::ChipSelectPinError)?;
         Ok(())
     }
 }
@@ -73,7 +76,7 @@ where
     CSBPin: OutputPin<Error = PinError>,
 {
     /// Create a new instance of the BMA400 using 4-wire SPI
-    /// 
+    ///
     /// # Examples
     /// ```
     /// # use embedded_hal_mock::{
@@ -100,7 +103,10 @@ where
     /// let mut accelerometer = BMA400::new_spi(spi, csb_pin);
     /// assert!(accelerometer.is_ok());
     /// ```
-    pub fn new_spi(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
+    pub fn new_spi(
+        spi: SPI,
+        csb: CSBPin,
+    ) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();
         // Initialize SPI Mode by doing a dummy read
@@ -115,7 +121,7 @@ where
         }
     }
     /// Create a new instance of the BMA400 using 3-wire SPI
-    /// 
+    ///
     /// # Examples
     /// ```
     /// # use embedded_hal_mock::{
@@ -145,7 +151,10 @@ where
     /// let mut accelerometer = BMA400::new_spi_3wire(spi, csb_pin);
     /// assert!(accelerometer.is_ok());
     /// ```
-    pub fn new_spi_3wire(spi: SPI, csb: CSBPin) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
+    pub fn new_spi_3wire(
+        spi: SPI,
+        csb: CSBPin,
+    ) -> Result<BMA400<SPIInterface<SPI, CSBPin>>, BMA400Error<InterfaceError, PinError>> {
         let mut interface = SPIInterface { spi, csb };
         let config = Config::default();
         // Initialize SPI Mode by doing a dummy read
