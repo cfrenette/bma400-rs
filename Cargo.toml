@@ -1,6 +1,6 @@
 [package]
 name = "bma400"
-version = "0.2.0"
+version = "1.0.0"
 authors = ["Cory Frenette <cory@frenette.dev>"]
 repository = "https://github.com/cfrenette/bma400-rs"
 license = "MIT OR Apache-2.0"
@@ -8,11 +8,12 @@ description = "A platform-agnostic Rust driver for the BMA400 12-bit ultra-low-p
 readme = "README.md"
 keywords = ["accelerometer", "mems", "bma400", "embedded-hal-driver"]
 categories = ["embedded", "hardware-support", "no-std"]
-edition = "2021"
+edition = "2024"
+rustversion = "^1.75"
 
 [dependencies]
-bitflags = "1.3.2"
-embedded-hal = "0.2.7"
+bitflags = "1.3"
+embedded-hal = "1.0"
 
 [features]
 i2c = []
@@ -22,5 +23,5 @@ spi = []
 float = []
 
 [dev-dependencies]
-embedded-hal-mock = "0.9.0"
-bma400 = { path = ".", features = ["i2c-default", "spi", "float"]}
+embedded-hal-mock = { version = "0.11", features = ["eh1"] }
+bma400 = { path = ".", features = ["i2c-default", "spi", "float"] }
