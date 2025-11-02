@@ -1,12 +1,7 @@
 use crate::{
     interface::WriteToRegister,
-    registers::{
-        AutoLowPow0,
-        AutoLowPow1,
-    },
-    AutoLPTimeoutTrigger,
-    ConfigError,
-    BMA400,
+    registers::{AutoLowPow0, AutoLowPow1},
+    AutoLPTimeoutTrigger, ConfigError, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -16,7 +11,7 @@ pub struct AutoLpConfig {
 }
 
 /// Configure Auto Low Power settings
-/// 
+///
 /// - Set the timeout counter for low power mode using [`with_timeout()`](AutoLpConfigBuilder::with_timeout)
 /// - [AutoLPTimeoutTrigger] (trigger and timer reset condition) using [`with_auto_lp_trigger()`](AutoLpConfigBuilder::with_auto_lp_trigger)
 /// - Set Generic Interrupt 1 as a trigger condition for auto low power using [`with_gen1_int_trigger()`](AutoLpConfigBuilder::with_gen1_int_trigger)
@@ -71,13 +66,17 @@ where
         if self.device.config.auto_lp_config.auto_low_pow0.bits()
             != self.config.auto_low_pow0.bits()
         {
-            self.device.interface.write_register(self.config.auto_low_pow0)?;
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow0)?;
             self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
         }
         if self.device.config.auto_lp_config.auto_low_pow1.bits()
             != self.config.auto_low_pow1.bits()
         {
-            self.device.interface.write_register(self.config.auto_low_pow1)?;
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow1)?;
             self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
         }
         Ok(())

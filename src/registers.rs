@@ -1,27 +1,11 @@
 use crate::{
     types::{
-        ActChgObsPeriod,
-        AutoLPTimeoutTrigger,
-        Axis,
-        DataSource,
-        DoubleTapDuration,
-        Filter1Bandwidth,
-        MaxTapDuration,
-        MinTapDuration,
-        OrientIntRefMode,
-        OutputDataRate,
-        OversampleRate,
-        PinOutputConfig,
-        PinOutputLevel,
-        PowerMode,
-        Scale,
-        TapSensitivity,
+        ActChgObsPeriod, AutoLPTimeoutTrigger, Axis, DataSource, DoubleTapDuration,
+        Filter1Bandwidth, MaxTapDuration, MinTapDuration, OrientIntRefMode, OutputDataRate,
+        OversampleRate, PinOutputConfig, PinOutputLevel, PowerMode, Scale, TapSensitivity,
         WakeupIntRefMode,
     },
-    GenIntCriterionMode,
-    GenIntLogicMode,
-    GenIntRefMode,
-    Hysteresis,
+    GenIntCriterionMode, GenIntLogicMode, GenIntRefMode, Hysteresis,
 };
 
 pub trait ReadReg {
@@ -819,12 +803,12 @@ impl AutoLowPow1 {
     pub const fn with_auto_lp_timeout_mode(self, mode: AutoLPTimeoutTrigger) -> Self {
         match mode {
             AutoLPTimeoutTrigger::TimeoutDisabled => self.difference(Self::AUTO_LP_TIMEOUT),
-            AutoLPTimeoutTrigger::TimeoutEnabledNoReset => {
-                self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT0)
-            }
-            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => {
-                self.difference(Self::AUTO_LP_TIMEOUT).union(Self::AUT_LP_TIMEOUT1)
-            }
+            AutoLPTimeoutTrigger::TimeoutEnabledNoReset => self
+                .difference(Self::AUTO_LP_TIMEOUT)
+                .union(Self::AUT_LP_TIMEOUT0),
+            AutoLPTimeoutTrigger::TimeoutEnabledGen2IntReset => self
+                .difference(Self::AUTO_LP_TIMEOUT)
+                .union(Self::AUT_LP_TIMEOUT1),
         }
     }
     pub const fn with_gen1_int_trigger(self, enabled: bool) -> Self {
@@ -914,7 +898,11 @@ cfg_register! {
 
 impl WakeupIntConfig0 {
     pub const fn wkup_int_en(&self) -> bool {
-        self.intersects(Self::WKUP_X_EN.union(Self::WKUP_Y_EN).union(Self::WKUP_Z_EN))
+        self.intersects(
+            Self::WKUP_X_EN
+                .union(Self::WKUP_Y_EN)
+                .union(Self::WKUP_Z_EN),
+        )
     }
     pub const fn with_z_axis(self, enabled: bool) -> Self {
         if enabled {
@@ -938,7 +926,8 @@ impl WakeupIntConfig0 {
         }
     }
     pub const fn with_num_samples(self, num_samples: u8) -> Self {
-        self.difference(Self::NUM_SAMPLES).union(Self::from_bits_truncate(num_samples << 2))
+        self.difference(Self::NUM_SAMPLES)
+            .union(Self::from_bits_truncate(num_samples << 2))
     }
     pub const fn with_reference_mode(self, ref_mode: WakeupIntRefMode) -> Self {
         match ref_mode {
@@ -1804,9 +1793,10 @@ impl ActChgConfig1 {
             ActChgObsPeriod::Samples128 => {
                 self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS1)
             }
-            ActChgObsPeriod::Samples256 => {
-                self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS1).union(Self::NUM_SMPLS0)
-            }
+            ActChgObsPeriod::Samples256 => self
+                .difference(Self::NUM_SAMPLES)
+                .union(Self::NUM_SMPLS1)
+                .union(Self::NUM_SMPLS0),
             ActChgObsPeriod::Samples512 => {
                 self.difference(Self::NUM_SAMPLES).union(Self::NUM_SMPLS2)
             }
@@ -1840,16 +1830,19 @@ impl TapConfig0 {
             TapSensitivity::SENS0 => self.difference(Self::TAP_SENS),
             TapSensitivity::SENS1 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS0),
             TapSensitivity::SENS2 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS1),
-            TapSensitivity::SENS3 => {
-                self.difference(Self::TAP_SENS).union(Self::TAP_SENS1).union(Self::TAP_SENS0)
-            }
+            TapSensitivity::SENS3 => self
+                .difference(Self::TAP_SENS)
+                .union(Self::TAP_SENS1)
+                .union(Self::TAP_SENS0),
             TapSensitivity::SENS4 => self.difference(Self::TAP_SENS).union(Self::TAP_SENS2),
-            TapSensitivity::SENS5 => {
-                self.difference(Self::TAP_SENS).union(Self::TAP_SENS2).union(Self::TAP_SENS0)
-            }
-            TapSensitivity::SENS6 => {
-                self.difference(Self::TAP_SENS).union(Self::TAP_SENS2).union(Self::TAP_SENS1)
-            }
+            TapSensitivity::SENS5 => self
+                .difference(Self::TAP_SENS)
+                .union(Self::TAP_SENS2)
+                .union(Self::TAP_SENS0),
+            TapSensitivity::SENS6 => self
+                .difference(Self::TAP_SENS)
+                .union(Self::TAP_SENS2)
+                .union(Self::TAP_SENS1),
             TapSensitivity::SENS7 => self.union(Self::TAP_SENS),
         }
     }

@@ -1,22 +1,14 @@
-use bma400::{
-    SPIInterface,
-    types::*,
-    BMA400,
-};
+use bma400::{types::*, SPIInterface, BMA400};
 use embedded_hal_mock::{
     delay::MockNoop,
-    pin::{
-        Mock as MockPin,
-        State,
-        Transaction as PinTransaction,
-    },
-    spi::{
-        Mock as MockSPI,
-        Transaction,
-    },
+    pin::{Mock as MockPin, State, Transaction as PinTransaction},
+    spi::{Mock as MockSPI, Transaction},
 };
 
-fn new(expected_io: &[Transaction], expected_pin: &[PinTransaction]) -> BMA400<SPIInterface<MockSPI, MockPin>> {
+fn new(
+    expected_io: &[Transaction],
+    expected_pin: &[PinTransaction],
+) -> BMA400<SPIInterface<MockSPI, MockPin>> {
     BMA400::new_spi(MockSPI::new(expected_io), MockPin::new(expected_pin)).unwrap()
 }
 
@@ -241,7 +233,10 @@ fn get_sensor_clock() {
     init(&mut expected_io, &mut expected_pin);
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x8A, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00, 0x00, 0x00], vec![0xF8, 0xFF, 0xFF]));
+    expected_io.push(Transaction::transfer(
+        vec![0x00, 0x00, 0x00],
+        vec![0xF8, 0xFF, 0xFF],
+    ));
     expected_pin.push(PinTransaction::set(State::High));
     let mut device = new(&expected_io, &expected_pin);
     let t = device.get_sensor_clock().unwrap();
@@ -483,14 +478,20 @@ fn get_int_status1() {
     assert!(!status.ieng_overrun_stat());
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
-    assert!(matches!(status.step_int_stat(), StepIntStatus::ManyStepDetect));
+    assert!(matches!(
+        status.step_int_stat(),
+        StepIntStatus::ManyStepDetect
+    ));
 
     // step_int == 1
     let status = device.get_int_status1().unwrap();
     assert!(!status.ieng_overrun_stat());
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
-    assert!(matches!(status.step_int_stat(), StepIntStatus::OneStepDetect));
+    assert!(matches!(
+        status.step_int_stat(),
+        StepIntStatus::OneStepDetect
+    ));
 }
 
 #[test]
@@ -642,7 +643,10 @@ fn get_step_count() {
     // Step Count = 15793920 (test byte order)
     expected_pin.push(PinTransaction::set(State::Low));
     expected_io.push(Transaction::transfer(vec![0x95, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00, 0x00, 0x00], vec![0x00, 0xFF, 0xF0]));
+    expected_io.push(Transaction::transfer(
+        vec![0x00, 0x00, 0x00],
+        vec![0x00, 0xFF, 0xF0],
+    ));
     expected_pin.push(PinTransaction::set(State::High));
 
     let mut device = new(&expected_io, &expected_pin);
@@ -809,9 +813,21 @@ fn config_interrupts() {
     let mut device = new(&expected_io, &expected_pin);
 
     // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
-    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_actchg_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
+    device
+        .config_gen1_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
+    device
+        .config_gen2_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
 
     // Set Everything
     device
@@ -1555,23 +1571,11 @@ fn self_test(
     const FAIL_Z_NEG: i16 = 300;
 
     let x_pos = PASS_X_POS;
-    let x_neg = if x_fail {
-        FAIL_X_NEG
-    } else {
-        PASS_X_NEG
-    };
-    let y_pos = if y_fail {
-        FAIL_Y_POS
-    } else {
-        PASS_Y_POS
-    };
+    let x_neg = if x_fail { FAIL_X_NEG } else { PASS_X_NEG };
+    let y_pos = if y_fail { FAIL_Y_POS } else { PASS_Y_POS };
     let y_neg = PASS_Y_NEG;
     let z_pos = PASS_Z_POS;
-    let z_neg = if z_fail {
-        FAIL_Z_NEG
-    } else {
-        PASS_Z_NEG
-    };
+    let z_neg = if z_fail { FAIL_Z_NEG } else { PASS_Z_NEG };
 
     // Disable Interrupts, Set Test Config
     self_test_setup(expected_io, expected_pin);
@@ -1688,11 +1692,23 @@ fn perform_self_test() {
     let mut device = new(&expected_io, &expected_pin);
 
     // ActChgConfig
-    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_actchg_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
     // Gen1IntConfig
-    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_gen1_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
     // Gen2IntConfig
-    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_gen2_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
 
     // AccConfig
     device

@@ -1,7 +1,4 @@
-use crate::registers::{
-    ConfigReg,
-    ReadReg,
-};
+use crate::registers::{ConfigReg, ReadReg};
 
 pub trait WriteToRegister {
     type Error;
@@ -10,5 +7,9 @@ pub trait WriteToRegister {
 
 pub trait ReadFromRegister {
     type Error;
-    fn read_register<T: ReadReg>(&mut self, register: T, buffer: &mut [u8]) -> Result<(), Self::Error>;
+    fn read_register<T: ReadReg>(
+        &mut self,
+        register: T,
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error>;
 }

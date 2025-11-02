@@ -1,15 +1,8 @@
 #![allow(clippy::vec_init_then_push)]
-use bma400::{
-    I2CInterface,
-    types::*,
-    BMA400,
-};
+use bma400::{types::*, I2CInterface, BMA400};
 use embedded_hal_mock::{
     delay::MockNoop,
-    i2c::{
-        Mock,
-        Transaction,
-    },
+    i2c::{Mock, Transaction},
 };
 
 #[cfg(feature = "i2c-default")]
@@ -32,7 +25,10 @@ fn init_bad_chip_id() {
 #[test]
 fn destroy() {
     // Expecting to initialize twice, once before and once after the call to destroy()
-    let expected = vec![Transaction::write_read(ADDR, vec![0x00], vec![0x90]), Transaction::write_read(ADDR, vec![0x00], vec![0x90])];
+    let expected = vec![
+        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
+        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
+    ];
     let mut i2c = Mock::new(&expected);
     let device = BMA400::new_i2c(i2c).unwrap();
     let iface = device.destroy();
@@ -180,7 +176,11 @@ fn get_data() {
 fn get_sensor_clock() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
-    expected.push(Transaction::write_read(ADDR, vec![0x0A], vec![0xF8, 0xFF, 0xFF]));
+    expected.push(Transaction::write_read(
+        ADDR,
+        vec![0x0A],
+        vec![0xF8, 0xFF, 0xFF],
+    ));
     let mut device = new(&expected);
     let t = device.get_sensor_clock().unwrap();
     assert_eq!(t, 0xFFFFF8);
@@ -372,14 +372,20 @@ fn get_int_status1() {
     assert!(!status.ieng_overrun_stat());
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
-    assert!(matches!(status.step_int_stat(), StepIntStatus::ManyStepDetect));
+    assert!(matches!(
+        status.step_int_stat(),
+        StepIntStatus::ManyStepDetect
+    ));
 
     // step_int == 1
     let status = device.get_int_status1().unwrap();
     assert!(!status.ieng_overrun_stat());
     assert!(!status.d_tap_stat());
     assert!(!status.s_tap_stat());
-    assert!(matches!(status.step_int_stat(), StepIntStatus::OneStepDetect));
+    assert!(matches!(
+        status.step_int_stat(),
+        StepIntStatus::OneStepDetect
+    ));
 }
 
 #[test]
@@ -497,7 +503,11 @@ fn get_step_count() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
 
-    expected.push(Transaction::write_read(ADDR, vec![0x15], vec![0x00, 0xFF, 0xF0]));
+    expected.push(Transaction::write_read(
+        ADDR,
+        vec![0x15],
+        vec![0x00, 0xFF, 0xF0],
+    ));
     let mut device = new(&expected);
     let count = device.get_step_count().unwrap();
     assert_eq!(count, 15793920);
@@ -604,9 +614,21 @@ fn config_interrupts() {
     let mut device = new(&expected);
 
     // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
-    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
-    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_actchg_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
+    device
+        .config_gen1_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
+    device
+        .config_gen2_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
 
     // Set Everything
     device
@@ -1172,23 +1194,11 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected: &mut Vec<Transa
     const FAIL_Z_NEG: i16 = 300;
 
     let x_pos = PASS_X_POS;
-    let x_neg = if x_fail {
-        FAIL_X_NEG
-    } else {
-        PASS_X_NEG
-    };
-    let y_pos = if y_fail {
-        FAIL_Y_POS
-    } else {
-        PASS_Y_POS
-    };
+    let x_neg = if x_fail { FAIL_X_NEG } else { PASS_X_NEG };
+    let y_pos = if y_fail { FAIL_Y_POS } else { PASS_Y_POS };
     let y_neg = PASS_Y_NEG;
     let z_pos = PASS_Z_POS;
-    let z_neg = if z_fail {
-        FAIL_Z_NEG
-    } else {
-        PASS_Z_NEG
-    };
+    let z_neg = if z_fail { FAIL_Z_NEG } else { PASS_Z_NEG };
 
     //Disable Interrupts, Set Test Config
     self_test_setup(expected);
@@ -1276,11 +1286,23 @@ fn perform_self_test() {
     let mut device = new(&expected);
 
     // ActChgConfig
-    device.config_actchg_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_actchg_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
     // Gen1IntConfig
-    device.config_gen1_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_gen1_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
     // Gen2IntConfig
-    device.config_gen2_int().with_src(DataSource::AccFilt2).write().unwrap();
+    device
+        .config_gen2_int()
+        .with_src(DataSource::AccFilt2)
+        .write()
+        .unwrap();
 
     // AccConfig
     device
