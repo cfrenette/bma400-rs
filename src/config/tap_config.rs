@@ -1,7 +1,7 @@
 use crate::{
+    Axis, BMA400, ConfigError, DoubleTapDuration, MaxTapDuration, MinTapDuration, TapSensitivity,
     interface::WriteToRegister,
     registers::{TapConfig0, TapConfig1},
-    Axis, ConfigError, DoubleTapDuration, MaxTapDuration, MinTapDuration, TapSensitivity, BMA400,
 };
 
 #[derive(Clone, Default)]

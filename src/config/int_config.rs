@@ -1,7 +1,7 @@
 use crate::{
+    BMA400, ConfigError, DataSource, OutputDataRate,
     interface::WriteToRegister,
     registers::{IntConfig0, IntConfig1},
-    ConfigError, DataSource, OutputDataRate, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -157,7 +157,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::get_test_device, BMA400Error};
+    use crate::{BMA400Error, tests::get_test_device};
     #[test]
     fn test_dta_rdy() {
         let mut device = get_test_device();

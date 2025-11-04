@@ -1,7 +1,7 @@
 use crate::{
+    BMA400, ConfigError, DataSource,
     interface::WriteToRegister,
     registers::{FifoConfig0, FifoConfig1, FifoConfig2, FifoPwrConfig},
-    ConfigError, DataSource, BMA400,
 };
 
 #[derive(Clone, Default)]

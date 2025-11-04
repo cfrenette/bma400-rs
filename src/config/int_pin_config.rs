@@ -1,7 +1,7 @@
 use crate::{
+    BMA400, ConfigError, InterruptPins, PinOutputConfig,
     interface::WriteToRegister,
-    registers::{Int12IOCtrl, Int12Map, Int1Map, Int2Map},
-    ConfigError, InterruptPins, PinOutputConfig, BMA400,
+    registers::{Int1Map, Int2Map, Int12IOCtrl, Int12Map},
 };
 
 #[derive(Clone, Default)]
@@ -302,7 +302,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::get_test_device, PinOutputLevel};
+    use crate::{PinOutputLevel, tests::get_test_device};
     #[test]
     fn test_mapped_pins() {
         assert!(matches!(mapped_pins(false, false), InterruptPins::None));

@@ -1,7 +1,7 @@
 use crate::{
+    BMA400, ConfigError,
     interface::WriteToRegister,
     registers::{AutoWakeup0, AutoWakeup1},
-    ConfigError, BMA400,
 };
 
 #[derive(Clone, Default)]

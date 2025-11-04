@@ -1,132 +1,118 @@
-use bma400::{types::*, SPIInterface, BMA400};
-use embedded_hal_mock::{
-    delay::MockNoop,
-    pin::{Mock as MockPin, State, Transaction as PinTransaction},
+use bma400::{BMA400, SPIInterface, types::*};
+use embedded_hal_mock::eh1::{
+    delay::{CheckedDelay, Transaction as DelayTransaction},
     spi::{Mock as MockSPI, Transaction},
 };
 
-fn new(
-    expected_io: &[Transaction],
-    expected_pin: &[PinTransaction],
-) -> BMA400<SPIInterface<MockSPI, MockPin>> {
-    BMA400::new_spi(MockSPI::new(expected_io), MockPin::new(expected_pin)).unwrap()
+struct Transactions(Vec<Transaction<u8>>);
+
+impl Transactions {
+    fn push(&mut self, expected: Transaction<u8>) {
+        let inner = &mut self.0;
+        inner.push(Transaction::transaction_start());
+        inner.push(expected);
+        inner.push(Transaction::transaction_end());
+    }
+}
+
+fn new(expected_io: &Transactions) -> BMA400<SPIInterface<MockSPI<u8>>> {
+    let spi = MockSPI::new(&expected_io.0);
+    BMA400::new_spi(spi).unwrap()
+}
+
+fn cleanup(device: BMA400<SPIInterface<MockSPI<u8>>>) {
+    device.destroy().destroy().done();
 }
 
 #[test]
 fn init_bad_chip_id() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x89]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    let result = BMA400::new_spi(MockSPI::new(&expected_io), MockPin::new(&expected_pin));
+    let mut expected_io = Transactions(Vec::new());
+    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x89]));
+    let mut spi = MockSPI::new(&expected_io.0);
+    let result = BMA400::new_spi(&mut spi);
     assert!(matches!(result, Err(BMA400Error::ChipIdReadFailed)));
+    spi.done();
 }
 
-fn init(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x90]));
-    expected_pin.push(PinTransaction::set(State::High));
+fn init(expected_io: &mut Transactions) {
+    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x90]));
 }
 
 #[test]
 fn destroy() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
+    let mut expected_io = Transactions(Vec::new());
     // Expecting to initialize twice, once before and once after the call to destroy()
-    init(&mut expected_io, &mut expected_pin);
-    init(&mut expected_io, &mut expected_pin);
-    let mut spi = MockSPI::new(&expected_io);
-    let mut csb = MockPin::new(&expected_pin);
-    let device = BMA400::new_spi(spi, csb).unwrap();
+    init(&mut expected_io);
+    init(&mut expected_io);
+    let mut spi = MockSPI::new(&expected_io.0);
+    let device = BMA400::new_spi(spi).unwrap();
     let iface = device.destroy();
-    (spi, csb) = iface.destroy();
-    BMA400::new_spi(spi, csb).unwrap();
+    spi = iface.destroy();
+    BMA400::new_spi(&mut spi).unwrap();
+    spi.done();
 }
 
 #[test]
 fn get_chip_id() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x80, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x90]));
-    expected_pin.push(PinTransaction::set(State::High));
-    let mut device = new(&expected_io, &expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x90]));
+    let mut device = new(&expected_io);
     let id = device.get_id().unwrap();
     assert_eq!(id, 0x90);
+    cleanup(device);
 }
 
 #[test]
 fn get_cmd_error() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x82, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0xFD]));
-    expected_pin.push(PinTransaction::set(State::High));
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x82, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0xFD]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x82, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x82, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     let status = device.get_cmd_error().unwrap();
     assert!(!status);
     let status = device.get_cmd_error().unwrap();
     assert!(status);
+    cleanup(device);
 }
 
 #[test]
 fn get_status() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
     // drdy Set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x83, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x80]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x80]));
 
     // cmd_rdy Set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x83, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
 
     // power_mode == LowPower
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x83, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
 
     // power_mode == Normal
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x83, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x04]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
 
     // interrupt triggered Set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x83, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // drdy
     let status = device.get_status().unwrap();
@@ -162,25 +148,24 @@ fn get_status() {
     assert!(!status.cmd_rdy());
     assert!(status.int_active());
     assert!(matches!(status.power_mode(), PowerMode::Sleep));
+    cleanup(device);
 }
 
 #[test]
 fn get_unscaled_data() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
         vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
         vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
     ));
-    expected_pin.push(PinTransaction::set(State::High));
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     let m = device.get_unscaled_data().unwrap();
     assert_eq!(m.x, -2047);
     assert_eq!(m.y, -1);
     assert_eq!(m.z, 2047);
+    cleanup(device);
 }
 
 fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
@@ -190,31 +175,27 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
         Scale::Range8G => 0x89,
         Scale::Range16G => 0xC9,
     };
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
     if let Scale::Range4G = scale {
         // The default setting is 4G so we shouldn't see any configuration write
-        expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-        expected_io.push(Transaction::transfer(
+        expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
+        expected_io.push(Transaction::transfer_in_place(
             vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
             vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
         ));
     } else {
-        expected_io.push(Transaction::write(vec![0x1A, byte]));
-        expected_pin.push(PinTransaction::set(State::High));
-        expected_pin.push(PinTransaction::set(State::Low));
-        expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-        expected_io.push(Transaction::transfer(
+        expected_io.push(Transaction::write_vec(vec![0x1A, byte]));
+        expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
+        expected_io.push(Transaction::transfer_in_place(
             vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
             vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
         ))
     }
-    expected_pin.push(PinTransaction::set(State::High));
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     device.config_accel().with_scale(scale).write().unwrap();
     let m = device.get_data().unwrap();
+    cleanup(device);
     (m.x, m.y, m.z)
 }
 
@@ -228,102 +209,79 @@ fn get_data() {
 
 #[test]
 fn get_sensor_clock() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8A, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x8A, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
         vec![0x00, 0x00, 0x00],
         vec![0xF8, 0xFF, 0xFF],
     ));
-    expected_pin.push(PinTransaction::set(State::High));
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     let t = device.get_sensor_clock().unwrap();
     assert_eq!(t, 0xFFFFF8);
+    cleanup(device);
 }
 
 #[test]
 fn get_reset_status() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // No Reset Detected
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8D, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8D, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
 
     // Reset Detected
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8D, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8D, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     let reset = device.get_reset_status().unwrap();
     assert!(!reset);
     let reset = device.get_reset_status().unwrap();
     assert!(reset);
+    cleanup(device);
 }
 
 #[test]
 fn get_int_status0() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // drdy set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x80]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x80]));
 
     // fwm set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x40]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x40]));
 
     // ffull set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x20]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x20]));
 
     // ieng_ovrrn set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
 
     // gen2 set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x08]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x08]));
 
     // gen1 set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x04]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
 
     // orientch set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
 
     // wkup set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8E, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // drdy
     let status = device.get_int_status0().unwrap();
@@ -412,45 +370,35 @@ fn get_int_status0() {
     assert!(!status.gen1_stat());
     assert!(!status.orientch_stat());
     assert!(status.wkup_stat());
+    cleanup(device);
 }
 
 #[test]
 fn get_int_status1() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // ieng_ovrrn set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8F, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
 
     // d_tap set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8F, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x08]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x08]));
 
     // s_tap set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8F, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x04]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
 
     // step_int == 2
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8F, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
 
     // step_int == 1
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8F, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // ieng_ovrrn
     let status = device.get_int_status1().unwrap();
@@ -492,39 +440,31 @@ fn get_int_status1() {
         status.step_int_stat(),
         StepIntStatus::OneStepDetect
     ));
+    cleanup(device);
 }
 
 #[test]
 fn get_int_status2() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // ieng_ovrrn set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x90, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
 
     // actch_z set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x90, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x04]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
 
     // actch_y set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x90, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
 
     // actch_x set
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x90, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // ieng_ovrrn
     let status = device.get_int_status2().unwrap();
@@ -553,50 +493,50 @@ fn get_int_status2() {
     assert!(!status.actch_z_stat());
     assert!(!status.actch_y_stat());
     assert!(status.actch_x_stat());
+    cleanup(device);
 }
 
 #[test]
 fn get_fifo_len() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // Read full FIFO (1024, non-zero values in reserved space)
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x92, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00, 0x00], vec![0x00, 0xF4]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x92, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
+        vec![0x00, 0x00],
+        vec![0x00, 0xF4],
+    ));
 
     // Read FIFO (640, non-zero values in both bytes)
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x92, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00, 0x00], vec![0x80, 0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x92, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
+        vec![0x00, 0x00],
+        vec![0x80, 0x02],
+    ));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     let len = device.get_fifo_len().unwrap();
     assert_eq!(len, 1024);
     let len = device.get_fifo_len().unwrap();
     assert_eq!(len, 640);
+    cleanup(device);
 }
 
 #[test]
 fn read_fifo_frames() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x94, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x94, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
         Vec::from([0u8; 15]),
         vec![
             0x48, 0x6E, 0x9E, 0x01, 0x80, 0x0F, 0xFF, 0x0F, 0x7F, 0xA0, 0xF8, 0xFF, 0xFF, 0x80,
             0x00,
         ],
     ));
-    expected_pin.push(PinTransaction::set(State::High));
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     let mut buffer = [0u8; 15];
     let frames = device.read_fifo_frames(&mut buffer).unwrap();
     let mut count = 0;
@@ -619,135 +559,102 @@ fn read_fifo_frames() {
         count += 1;
     }
     assert_eq!(count, 3);
+    cleanup(device);
 }
 
 #[test]
 fn flush_fifo() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x7E, 0xB0]));
-    expected_pin.push(PinTransaction::set(State::High));
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x7E, 0xB0]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     device.flush_fifo().unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn get_step_count() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // Step Count = 15793920 (test byte order)
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x95, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(
+    expected_io.push(Transaction::write_vec(vec![0x95, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
         vec![0x00, 0x00, 0x00],
         vec![0x00, 0xFF, 0xF0],
     ));
-    expected_pin.push(PinTransaction::set(State::High));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     let count = device.get_step_count().unwrap();
     assert_eq!(count, 15793920);
+    cleanup(device);
 }
 
 #[test]
 fn clear_step_count() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x7E, 0xB1]));
-    expected_pin.push(PinTransaction::set(State::High));
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x7E, 0xB1]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     device.clear_step_count().unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn get_step_activity() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x98, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x98, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x02]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x98, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-    let mut device = new(&expected_io, &expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
+    expected_io.push(Transaction::write_vec(vec![0x98, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push(Transaction::write_vec(vec![0x98, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
+    expected_io.push(Transaction::write_vec(vec![0x98, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
+    let mut device = new(&expected_io);
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Walk));
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Run));
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Still));
+    cleanup(device);
 }
 
 #[test]
 fn get_raw_temp() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
     // temp == -48 (-1C)
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x91, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0xD0]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x91, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0xD0]));
 
     // temp == 127 (87.5C)
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x91, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x7F]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x91, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x7F]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     let temp = device.get_raw_temp().unwrap();
     assert_eq!(temp, -48);
     let temp = device.get_raw_temp().unwrap();
     assert_eq!(temp, 127);
+    cleanup(device);
 }
 
 #[test]
 fn config_accel() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x19, 0xE2]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x19, 0xE2]));
+    expected_io.push(Transaction::write_vec(vec![0x1A, 0xFB]));
+    expected_io.push(Transaction::write_vec(vec![0x1B, 0x08]));
+    expected_io.push(Transaction::write_vec(vec![0x19, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x1A, 0x05]));
+    expected_io.push(Transaction::write_vec(vec![0x1B, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1A, 0xFB]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1B, 0x08]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x19, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1A, 0x05]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1B, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -774,43 +681,23 @@ fn config_accel() {
         .with_reg_dta_src(DataSource::AccFilt1)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_interrupts() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x56, 0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x56, 0x10]));
+    expected_io.push(Transaction::write_vec(vec![0x3F, 0x10]));
+    expected_io.push(Transaction::write_vec(vec![0x4A, 0x10]));
+    expected_io.push(Transaction::write_vec(vec![0x1F, 0xEE]));
+    expected_io.push(Transaction::write_vec(vec![0x20, 0x9D]));
+    expected_io.push(Transaction::write_vec(vec![0x1F, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x20, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x3F, 0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x4A, 0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1F, 0xEE]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x20, 0x9D]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1F, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x20, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Activity Change, Gen Int1, Gen Int2 to use AccFilt2 so we can enable them
     device
@@ -862,55 +749,26 @@ fn config_interrupts() {
         .with_step_int(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_int_pins() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x21, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x21, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x22, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x23, 0xDD]));
+    expected_io.push(Transaction::write_vec(vec![0x24, 0x66]));
+    expected_io.push(Transaction::write_vec(vec![0x21, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x23, 0xD0]));
+    expected_io.push(Transaction::write_vec(vec![0x24, 0x60]));
+    expected_io.push(Transaction::write_vec(vec![0x22, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x23, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x24, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x22, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x23, 0xDD]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x24, 0x66]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x21, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x23, 0xD0]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x24, 0x60]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x22, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x23, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x24, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -966,47 +824,24 @@ fn config_int_pins() {
         .with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_fifo() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x26, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x26, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x27, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x28, 0x03]));
+    expected_io.push(Transaction::write_vec(vec![0x29, 0x01]));
+    expected_io.push(Transaction::write_vec(vec![0x26, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x27, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x28, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x29, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x27, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x28, 0x03]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x29, 0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x26, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x27, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x28, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x29, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1035,31 +870,20 @@ fn config_fifo() {
         .with_read_disabled(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_auto_lp() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2A, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2A, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x2B, 0xFB]));
+    expected_io.push(Transaction::write_vec(vec![0x2A, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x2B, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2B, 0xFB]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2A, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2B, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1080,31 +904,20 @@ fn config_auto_lp() {
         .with_gen1_int_trigger(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_autowkup() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2C, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2C, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF6]));
+    expected_io.push(Transaction::write_vec(vec![0x2C, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x2D, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2D, 0xF6]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2C, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2D, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1123,62 +936,33 @@ fn config_autowkup() {
         .with_activity_int(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_wkup_int() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x30, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x31, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x32, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x33, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x30, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x31, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x32, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x33, 0xFF]));
 
     // Enable the interrupt last
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2F, 0xFE]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2F, 0xFE]));
 
     // Disable the interrupt first, keeping other settings intact
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2F, 0x1E]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x30, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x31, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x32, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x33, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2F, 0x1E]));
+    expected_io.push(Transaction::write_vec(vec![0x30, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x31, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x32, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x33, 0x00]));
 
     // Re-enable / write IntConfig0 changes last
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2F, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2F, 0x00]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1201,18 +985,16 @@ fn config_wkup_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_orientchg_int() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     let mut write = |bytes: Vec<u8>| {
-        expected_pin.push(PinTransaction::set(State::Low));
-        expected_io.push(Transaction::write(bytes));
-        expected_pin.push(PinTransaction::set(State::High));
+        expected_io.push(Transaction::write_vec(bytes));
     };
 
     write(vec![0x35, 0xF8]);
@@ -1235,7 +1017,7 @@ fn config_orientchg_int() {
     write(vec![0x3D, 0x00]);
     write(vec![0x3E, 0x00]);
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1260,18 +1042,16 @@ fn config_orientchg_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_gen1_int() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     let mut write = |bytes: Vec<u8>| {
-        expected_pin.push(PinTransaction::set(State::Low));
-        expected_io.push(Transaction::write(bytes));
-        expected_pin.push(PinTransaction::set(State::High));
+        expected_io.push(Transaction::write_vec(bytes));
     };
 
     write(vec![0x3F, 0xFF]);
@@ -1298,7 +1078,7 @@ fn config_gen1_int() {
     write(vec![0x48, 0x00]);
     write(vec![0x49, 0x00]);
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1329,18 +1109,16 @@ fn config_gen1_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_gen2_int() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     let mut write = |bytes: Vec<u8>| {
-        expected_pin.push(PinTransaction::set(State::Low));
-        expected_io.push(Transaction::write(bytes));
-        expected_pin.push(PinTransaction::set(State::High));
+        expected_io.push(Transaction::write_vec(bytes));
     };
 
     write(vec![0x4A, 0xFF]);
@@ -1367,7 +1145,7 @@ fn config_gen2_int() {
     write(vec![0x53, 0x00]);
     write(vec![0x54, 0x00]);
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1398,31 +1176,20 @@ fn config_gen2_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_actchg_int() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x55, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x55, 0xFF]));
+    expected_io.push(Transaction::write_vec(vec![0x56, 0xF4]));
+    expected_io.push(Transaction::write_vec(vec![0x55, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x56, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x56, 0xF4]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x55, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x56, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1443,31 +1210,20 @@ fn config_actchg_int() {
         .with_obs_period(ActChgObsPeriod::Samples32)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
 fn config_tap() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x57, 0x17]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x57, 0x17]));
+    expected_io.push(Transaction::write_vec(vec![0x58, 0x3F]));
+    expected_io.push(Transaction::write_vec(vec![0x57, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x58, 0x00]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x58, 0x3F]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x57, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x58, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
 
     // Set Everything
     device
@@ -1490,74 +1246,51 @@ fn config_tap() {
         .with_max_tap_duration(MaxTapDuration::Samples6)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
-fn self_test_setup(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
+fn self_test_setup(expected_io: &mut Transactions) {
     // Disable Interrupts
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1F, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x20, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2D, 0xF4]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x1F, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x20, 0x00]));
+    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF4]));
 
     // Disable FIFO
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x26, 0x1F]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x26, 0x1F]));
 
     // Set PowerMode
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x19, 0xE2]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x19, 0xE2]));
 
     // Set Range = 4G, OSR = OSR3, ODR = 100Hz
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1A, 0x78]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x1A, 0x78]));
 }
 
-fn restore_config(expected_io: &mut Vec<Transaction>, expected_pin: &mut Vec<PinTransaction>) {
+fn restore_config(expected_io: &mut Transactions) {
     // Restore AccConfig0
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x19, 0xE0]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x19, 0xE0]));
 
     // Restore AccConfig1
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1A, 0x09]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x1A, 0x09]));
 
     // Restore IntConfig0
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1F, 0xEE]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x1F, 0xEE]));
 
     // Restore IntConfig1
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x20, 0x9D]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x20, 0x9D]));
 
     // Restore AutoWkupConfig1
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2D, 0xF6]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF6]));
 
     // Restore FifoConfig
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x26, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x26, 0xFF]));
 }
 
 fn self_test(
     x_fail: bool,
     y_fail: bool,
     z_fail: bool,
-    expected_io: &mut Vec<Transaction>,
-    expected_pin: &mut Vec<PinTransaction>,
+    expected_io: &mut Transactions,
+    expected_delay: &mut Vec<DelayTransaction>,
 ) {
     const PASS_X_POS: i16 = 767;
     const PASS_X_NEG: i16 = -734;
@@ -1578,17 +1311,20 @@ fn self_test(
     let z_neg = if z_fail { FAIL_Z_NEG } else { PASS_Z_NEG };
 
     // Disable Interrupts, Set Test Config
-    self_test_setup(expected_io, expected_pin);
+    self_test_setup(expected_io);
+
+    // Wait 2ms
+    expected_delay.push(DelayTransaction::delay_ms(2));
 
     // Set Positive Test Parameters
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x7D, 0x07]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x7D, 0x07]));
+
+    // Wait 50ms
+    expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(
+    expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
         Vec::from([0u8; 6]),
         vec![
             x_pos.to_le_bytes()[0],
@@ -1599,17 +1335,16 @@ fn self_test(
             z_pos.to_le_bytes()[1],
         ],
     ));
-    expected_pin.push(PinTransaction::set(State::High));
 
     // Write Negative Test Parameters
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x7D, 0x0F]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x7D, 0x0F]));
+
+    // Wait 50ms
+    expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x84, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(
+    expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(
         Vec::from([0u8; 6]),
         vec![
             x_neg.to_le_bytes()[0],
@@ -1620,76 +1355,59 @@ fn self_test(
             z_neg.to_le_bytes()[1],
         ],
     ));
-    expected_pin.push(PinTransaction::set(State::High));
 
     // Disable Self-Test
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x7D, 0x00]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x7D, 0x00]));
 
-    restore_config(expected_io, expected_pin);
+    // Wait 50ms
+    expected_delay.push(DelayTransaction::delay_ms(50));
+
+    restore_config(expected_io);
 }
 
 #[test]
 fn perform_self_test() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
     // Enable all interrupts, fifo, etc to
     // test restoring configuration post-test
 
     // Actch Int Data Src = AccFilt2
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x56, 0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x56, 0x10]));
 
     // Gen Int1 Data Src = AccFilt2
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x3F, 0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x3F, 0x10]));
 
     // Gen Int2 Data Src = AccFilt2
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x4A, 0x10]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x4A, 0x10]));
 
     // Set non-power mode settings in AccConfig0
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x19, 0xE0]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x19, 0xE0]));
 
     // Set Range = 2G, OSR = OSR0, ODR = 200Hz
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1A, 0x09]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x1A, 0x09]));
 
     // Set IntConfig0
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x1F, 0xEE]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x1F, 0xEE]));
 
     // Set IntConfig1
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x20, 0x9D]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x20, 0x9D]));
 
     // Set Wakeup Int, Settings
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x2D, 0xF6]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF6]));
 
     // Enable FIFO, Settings
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x26, 0xFF]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x26, 0xFF]));
 
-    self_test(false, false, false, &mut expected_io, &mut expected_pin);
-    self_test(true, false, false, &mut expected_io, &mut expected_pin);
-    self_test(false, true, false, &mut expected_io, &mut expected_pin);
-    self_test(false, false, true, &mut expected_io, &mut expected_pin);
+    let mut expected_delay = Vec::<DelayTransaction>::new();
 
-    let mut device = new(&expected_io, &expected_pin);
+    self_test(false, false, false, &mut expected_io, &mut expected_delay);
+    self_test(true, false, false, &mut expected_io, &mut expected_delay);
+    self_test(false, true, false, &mut expected_io, &mut expected_delay);
+    self_test(false, false, true, &mut expected_io, &mut expected_delay);
+
+    let mut device = new(&expected_io);
 
     // ActChgConfig
     device
@@ -1759,7 +1477,7 @@ fn perform_self_test() {
         .write()
         .unwrap();
 
-    let mut timer = MockNoop::new();
+    let mut timer = CheckedDelay::new(&expected_delay);
 
     // Pass
     let result = device.perform_self_test(&mut timer);
@@ -1776,23 +1494,22 @@ fn perform_self_test() {
     // Fail Z
     let result = device.perform_self_test(&mut timer);
     assert!(matches!(result, Err(BMA400Error::SelfTestFailedError)));
+
+    timer.done();
+    cleanup(device);
 }
 
 #[test]
 fn soft_reset() {
-    let mut expected_io = Vec::new();
-    let mut expected_pin = Vec::new();
-    init(&mut expected_io, &mut expected_pin);
+    let mut expected_io = Transactions(Vec::new());
+    init(&mut expected_io);
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::write(vec![0x7E, 0xB6]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x7E, 0xB6]));
 
-    expected_pin.push(PinTransaction::set(State::Low));
-    expected_io.push(Transaction::transfer(vec![0x8D, 0x00], vec![0x00, 0x00]));
-    expected_io.push(Transaction::transfer(vec![0x00], vec![0x01]));
-    expected_pin.push(PinTransaction::set(State::High));
+    expected_io.push(Transaction::write_vec(vec![0x8D, 0x00]));
+    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
 
-    let mut device = new(&expected_io, &expected_pin);
+    let mut device = new(&expected_io);
     device.soft_reset().unwrap();
+    cleanup(device);
 }

@@ -1,10 +1,10 @@
 use crate::{
+    BMA400, ConfigError, DataSource, OrientIntRefMode,
     interface::WriteToRegister,
     registers::{
         OrientChgConfig0, OrientChgConfig1, OrientChgConfig3, OrientChgConfig4, OrientChgConfig5,
         OrientChgConfig6, OrientChgConfig7, OrientChgConfig8, OrientChgConfig9,
     },
-    ConfigError, DataSource, OrientIntRefMode, BMA400,
 };
 
 #[derive(Clone, Default)]
