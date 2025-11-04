@@ -1,9 +1,9 @@
 use crate::{
+    BMA400, ConfigError, WakeupIntRefMode,
     interface::WriteToRegister,
     registers::{
         WakeupIntConfig0, WakeupIntConfig1, WakeupIntConfig2, WakeupIntConfig3, WakeupIntConfig4,
     },
-    ConfigError, WakeupIntRefMode, BMA400,
 };
 
 #[derive(Clone, Default)]

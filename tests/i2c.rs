@@ -1,7 +1,7 @@
 #![allow(clippy::vec_init_then_push)]
-use bma400::{types::*, I2CInterface, BMA400};
-use embedded_hal_mock::{
-    delay::MockNoop,
+use bma400::{BMA400, I2CInterface, types::*};
+use embedded_hal_mock::eh1::{
+    delay::{CheckedDelay, Transaction as DelayTransaction},
     i2c::{Mock, Transaction},
 };
 
@@ -14,12 +14,18 @@ fn new(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
     BMA400::new_i2c(Mock::new(expected)).unwrap()
 }
 
+fn cleanup(device: BMA400<I2CInterface<Mock>>) {
+    device.destroy().destroy().done();
+}
+
 #[test]
 fn init_bad_chip_id() {
     let mut expected = Vec::new();
     expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x89]));
-    let result = BMA400::new_i2c(Mock::new(&expected));
+    let mut i2c = Mock::new(&expected);
+    let result = BMA400::new_i2c(&mut i2c);
     assert!(matches!(result, Err(BMA400Error::ChipIdReadFailed)));
+    i2c.done();
 }
 
 #[test]
@@ -33,7 +39,8 @@ fn destroy() {
     let device = BMA400::new_i2c(i2c).unwrap();
     let iface = device.destroy();
     i2c = iface.destroy();
-    BMA400::new_i2c(i2c).unwrap();
+    BMA400::new_i2c(&mut i2c).unwrap();
+    i2c.done();
 }
 
 #[test]
@@ -44,6 +51,7 @@ fn get_chip_id() {
     let mut device = new(&expected);
     let id = device.get_id().unwrap();
     assert_eq!(id, 0x90);
+    cleanup(device);
 }
 
 #[test]
@@ -57,6 +65,7 @@ fn get_cmd_error() {
     assert!(!status);
     let status = device.get_cmd_error().unwrap();
     assert!(status);
+    cleanup(device);
 }
 
 #[test]
@@ -116,6 +125,7 @@ fn get_status() {
     assert!(!status.cmd_rdy());
     assert!(status.int_active());
     assert!(matches!(status.power_mode(), PowerMode::Sleep));
+    cleanup(device);
 }
 
 #[test]
@@ -132,6 +142,7 @@ fn get_unscaled_data() {
     assert_eq!(m.x, -2047);
     assert_eq!(m.y, -1);
     assert_eq!(m.z, 2047);
+    cleanup(device);
 }
 
 fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
@@ -161,6 +172,7 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
     let mut device = new(&expected);
     device.config_accel().with_scale(scale).write().unwrap();
     let m = device.get_data().unwrap();
+    cleanup(device);
     (m.x, m.y, m.z)
 }
 
@@ -184,6 +196,7 @@ fn get_sensor_clock() {
     let mut device = new(&expected);
     let t = device.get_sensor_clock().unwrap();
     assert_eq!(t, 0xFFFFF8);
+    cleanup(device);
 }
 
 #[test]
@@ -202,6 +215,7 @@ fn get_reset_status() {
     assert!(!reset);
     let reset = device.get_reset_status().unwrap();
     assert!(reset);
+    cleanup(device);
 }
 
 #[test]
@@ -322,6 +336,7 @@ fn get_int_status() {
     assert!(!status.gen1_stat());
     assert!(!status.orientch_stat());
     assert!(status.wkup_stat());
+    cleanup(device);
 }
 
 #[test]
@@ -386,6 +401,7 @@ fn get_int_status1() {
         status.step_int_stat(),
         StepIntStatus::OneStepDetect
     ));
+    cleanup(device);
 }
 
 #[test]
@@ -434,6 +450,7 @@ fn get_int_status2() {
     assert!(!status.actch_z_stat());
     assert!(!status.actch_y_stat());
     assert!(status.actch_x_stat());
+    cleanup(device);
 }
 
 #[test]
@@ -448,6 +465,7 @@ fn get_fifo_len() {
     assert_eq!(len, 1024);
     let len = device.get_fifo_len().unwrap();
     assert_eq!(len, 640);
+    cleanup(device);
 }
 
 #[test]
@@ -485,6 +503,7 @@ fn read_fifo_frames() {
         count += 1;
     }
     assert_eq!(count, 3);
+    cleanup(device);
 }
 
 #[test]
@@ -496,6 +515,7 @@ fn flush_fifo() {
 
     let mut device = new(&expected);
     device.flush_fifo().unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -511,6 +531,7 @@ fn get_step_count() {
     let mut device = new(&expected);
     let count = device.get_step_count().unwrap();
     assert_eq!(count, 15793920);
+    cleanup(device);
 }
 
 #[test]
@@ -521,6 +542,7 @@ fn clear_step_count() {
     expected.push(Transaction::write(ADDR, vec![0x7E, 0xB1]));
     let mut device = new(&expected);
     device.clear_step_count().unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -538,6 +560,7 @@ fn get_step_activity() {
     assert!(matches!(activity, Activity::Run));
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Still));
+    cleanup(device);
 }
 
 #[test]
@@ -552,6 +575,7 @@ fn get_raw_temp() {
     assert_eq!(temp, -48);
     let temp = device.get_raw_temp().unwrap();
     assert_eq!(temp, 127);
+    cleanup(device);
 }
 
 #[test]
@@ -594,6 +618,7 @@ fn config_accel() {
         .with_reg_dta_src(DataSource::AccFilt1)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -663,6 +688,7 @@ fn config_interrupts() {
         .with_step_int(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -739,6 +765,7 @@ fn config_int_pins() {
         .with_int2_cfg(PinOutputConfig::PushPull(PinOutputLevel::ActiveLow))
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -785,6 +812,7 @@ fn config_fifo() {
         .with_read_disabled(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -819,6 +847,7 @@ fn config_auto_lp() {
         .with_gen1_int_trigger(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -851,6 +880,7 @@ fn config_autowkup() {
         .with_activity_int(false)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -897,6 +927,7 @@ fn config_wkup_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -949,6 +980,7 @@ fn config_orientchg_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -1011,6 +1043,7 @@ fn config_gen1_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -1073,6 +1106,7 @@ fn config_gen2_int() {
         .with_ref_accel(0, 0, 0)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -1107,6 +1141,7 @@ fn config_actchg_int() {
         .with_obs_period(ActChgObsPeriod::Samples32)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 #[test]
@@ -1143,6 +1178,7 @@ fn config_tap() {
         .with_max_tap_duration(MaxTapDuration::Samples6)
         .write()
         .unwrap();
+    cleanup(device);
 }
 
 fn self_test_setup(expected: &mut Vec<Transaction>) {
@@ -1181,7 +1217,13 @@ fn restore_config(expected: &mut Vec<Transaction>) {
     expected.push(Transaction::write(ADDR, vec![0x26, 0xFF]));
 }
 
-fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected: &mut Vec<Transaction>) {
+fn self_test(
+    x_fail: bool,
+    y_fail: bool,
+    z_fail: bool,
+    expected: &mut Vec<Transaction>,
+    expected_delay: &mut Vec<DelayTransaction>,
+) {
     const PASS_X_POS: i16 = 767;
     const PASS_X_NEG: i16 = -734;
     const PASS_Y_POS: i16 = 401;
@@ -1203,8 +1245,14 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected: &mut Vec<Transa
     //Disable Interrupts, Set Test Config
     self_test_setup(expected);
 
+    // Wait 2ms
+    expected_delay.push(DelayTransaction::delay_ms(2));
+
     // Set Positive Test Parameters
     expected.push(Transaction::write(ADDR, vec![0x7D, 0x07]));
+
+    // Wait 50ms
+    expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
     expected.push(Transaction::write_read(
@@ -1223,6 +1271,9 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected: &mut Vec<Transa
     // Write Negative Test Parameters
     expected.push(Transaction::write(ADDR, vec![0x7D, 0x0F]));
 
+    // Wait 50ms
+    expected_delay.push(DelayTransaction::delay_ms(50));
+
     // Read Results
     expected.push(Transaction::write_read(
         ADDR,
@@ -1239,6 +1290,9 @@ fn self_test(x_fail: bool, y_fail: bool, z_fail: bool, expected: &mut Vec<Transa
 
     // Disable Self-Test
     expected.push(Transaction::write(ADDR, vec![0x7D, 0x00]));
+
+    // Wait 50ms
+    expected_delay.push(DelayTransaction::delay_ms(50));
 
     restore_config(expected);
 }
@@ -1278,10 +1332,12 @@ fn perform_self_test() {
     // Enable FIFO, Settings
     expected.push(Transaction::write(ADDR, vec![0x26, 0xFF]));
 
-    self_test(false, false, false, &mut expected);
-    self_test(true, false, false, &mut expected);
-    self_test(false, true, false, &mut expected);
-    self_test(false, false, true, &mut expected);
+    let mut expected_delay = Vec::<DelayTransaction>::new();
+
+    self_test(false, false, false, &mut expected, &mut expected_delay);
+    self_test(true, false, false, &mut expected, &mut expected_delay);
+    self_test(false, true, false, &mut expected, &mut expected_delay);
+    self_test(false, false, true, &mut expected, &mut expected_delay);
 
     let mut device = new(&expected);
 
@@ -1353,7 +1409,7 @@ fn perform_self_test() {
         .write()
         .unwrap();
 
-    let mut timer = MockNoop::new();
+    let mut timer = CheckedDelay::new(&expected_delay);
 
     // Pass
     let result = device.perform_self_test(&mut timer);
@@ -1370,6 +1426,9 @@ fn perform_self_test() {
     // Fail Z
     let result = device.perform_self_test(&mut timer);
     assert!(matches!(result, Err(BMA400Error::SelfTestFailedError)));
+
+    timer.done();
+    cleanup(device);
 }
 
 #[test]
@@ -1382,4 +1441,5 @@ fn soft_reset() {
 
     let mut device = new(&expected);
     device.soft_reset().unwrap();
+    cleanup(device);
 }

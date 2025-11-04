@@ -1,8 +1,8 @@
 use crate::{
+    BMA400, ConfigError, DataSource, Filter1Bandwidth, OutputDataRate, OversampleRate, PowerMode,
+    Scale,
     interface::WriteToRegister,
     registers::{AccConfig0, AccConfig1, AccConfig2},
-    ConfigError, DataSource, Filter1Bandwidth, OutputDataRate, OversampleRate, PowerMode, Scale,
-    BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -155,7 +155,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::get_test_device, BMA400Error};
+    use crate::{BMA400Error, tests::get_test_device};
     #[test]
     fn test_power_mode() {
         let mut device = get_test_device();

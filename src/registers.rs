@@ -1,11 +1,11 @@
 use crate::{
+    GenIntCriterionMode, GenIntLogicMode, GenIntRefMode, Hysteresis,
     types::{
         ActChgObsPeriod, AutoLPTimeoutTrigger, Axis, DataSource, DoubleTapDuration,
         Filter1Bandwidth, MaxTapDuration, MinTapDuration, OrientIntRefMode, OutputDataRate,
         OversampleRate, PinOutputConfig, PinOutputLevel, PowerMode, Scale, TapSensitivity,
         WakeupIntRefMode,
     },
-    GenIntCriterionMode, GenIntLogicMode, GenIntRefMode, Hysteresis,
 };
 
 pub trait ReadReg {
@@ -34,7 +34,7 @@ macro_rules! r_register {
 
 macro_rules! cfg_register {
     ($name:ident: $address:literal = $default:literal {
-        $(const $field_name:ident = $bitmask:expr;)+
+        $(const $field_name:ident = $bitmask:expr_2021;)+
     }) => {
         bitflags::bitflags! {
             pub struct $name: u8 {

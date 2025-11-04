@@ -36,9 +36,9 @@ mod gen_int_config;
 use gen_int_config::{Gen1IntConfig, Gen2IntConfig};
 
 use crate::{
+    BMA400Error, Scale,
     interface::WriteToRegister,
     registers::{AccConfig1, IntConfig0, IntConfig1},
-    BMA400Error, Scale,
 };
 
 #[derive(Default, Clone)]
@@ -64,12 +64,12 @@ impl Config {
     pub fn is_fifo_read_disabled(&self) -> bool {
         self.fifo_config.is_read_disabled()
     }
-    pub fn setup_self_test<Interface, InterfaceError, PinError>(
+    pub fn setup_self_test<Interface, InterfaceError>(
         &self,
         interface: &mut Interface,
-    ) -> Result<(), BMA400Error<InterfaceError, PinError>>
+    ) -> Result<(), BMA400Error<InterfaceError>>
     where
-        Interface: WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
+        Interface: WriteToRegister<Error = BMA400Error<InterfaceError>>,
     {
         // Disable Interrupts
         interface.write_register(IntConfig0::from_bits_truncate(0x00))?;
@@ -94,12 +94,12 @@ impl Config {
         interface.write_register(AccConfig1::from_bits_truncate(0x78))?;
         Ok(())
     }
-    pub fn cleanup_self_test<Interface, InterfaceError, PinError>(
+    pub fn cleanup_self_test<Interface, InterfaceError>(
         &self,
         interface: &mut Interface,
-    ) -> Result<(), BMA400Error<InterfaceError, PinError>>
+    ) -> Result<(), BMA400Error<InterfaceError>>
     where
-        Interface: WriteToRegister<Error = BMA400Error<InterfaceError, PinError>>,
+        Interface: WriteToRegister<Error = BMA400Error<InterfaceError>>,
     {
         // Restore AccConfig
         interface.write_register(self.acc_config.get_config0())?;

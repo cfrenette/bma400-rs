@@ -1,7 +1,7 @@
 use crate::{
+    AutoLPTimeoutTrigger, BMA400, ConfigError,
     interface::WriteToRegister,
     registers::{AutoLowPow0, AutoLowPow1},
-    AutoLPTimeoutTrigger, ConfigError, BMA400,
 };
 
 #[derive(Clone, Default)]

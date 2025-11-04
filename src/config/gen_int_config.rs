@@ -1,15 +1,15 @@
 use crate::{
+    BMA400, ConfigError, DataSource, GenIntCriterionMode, GenIntLogicMode, GenIntRefMode,
+    Hysteresis, OutputDataRate,
     config::Config,
     interface::WriteToRegister,
     registers::{
-        Gen1IntConfig0, Gen1IntConfig1, Gen1IntConfig2, Gen1IntConfig3, Gen1IntConfig31,
-        Gen1IntConfig4, Gen1IntConfig5, Gen1IntConfig6, Gen1IntConfig7, Gen1IntConfig8,
-        Gen1IntConfig9, Gen2IntConfig0, Gen2IntConfig1, Gen2IntConfig2, Gen2IntConfig3,
-        Gen2IntConfig31, Gen2IntConfig4, Gen2IntConfig5, Gen2IntConfig6, Gen2IntConfig7,
-        Gen2IntConfig8, Gen2IntConfig9,
+        Gen1IntConfig0, Gen1IntConfig1, Gen1IntConfig2, Gen1IntConfig3, Gen1IntConfig4,
+        Gen1IntConfig5, Gen1IntConfig6, Gen1IntConfig7, Gen1IntConfig8, Gen1IntConfig9,
+        Gen1IntConfig31, Gen2IntConfig0, Gen2IntConfig1, Gen2IntConfig2, Gen2IntConfig3,
+        Gen2IntConfig4, Gen2IntConfig5, Gen2IntConfig6, Gen2IntConfig7, Gen2IntConfig8,
+        Gen2IntConfig9, Gen2IntConfig31,
     },
-    ConfigError, DataSource, GenIntCriterionMode, GenIntLogicMode, GenIntRefMode, Hysteresis,
-    OutputDataRate, BMA400,
 };
 
 #[derive(Clone, Default)]
@@ -551,7 +551,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::get_test_device, BMA400Error};
+    use crate::{BMA400Error, tests::get_test_device};
     #[test]
     fn test_axes() {
         let mut device = get_test_device();
