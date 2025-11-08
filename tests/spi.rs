@@ -7,10 +7,20 @@ use embedded_hal_mock::eh1::{
 struct Transactions(Vec<Transaction<u8>>);
 
 impl Transactions {
-    fn push(&mut self, expected: Transaction<u8>) {
+    fn push_read(&mut self, addr: u8, expected: Vec<u8>) {
         let inner = &mut self.0;
         inner.push(Transaction::transaction_start());
-        inner.push(expected);
+        inner.push(Transaction::write_vec(vec![addr, 0x00]));
+        inner.push(Transaction::read_vec(expected));
+        inner.push(Transaction::transaction_end());
+    }
+    fn push_write(&mut self, addr: u8, expected: &mut Vec<u8>) {
+        let inner = &mut self.0;
+        let mut write = Vec::with_capacity(expected.len() + 1);
+        write.push(addr);
+        write.append(expected);
+        inner.push(Transaction::transaction_start());
+        inner.push(Transaction::write_vec(write));
         inner.push(Transaction::transaction_end());
     }
 }
@@ -27,10 +37,8 @@ fn cleanup(device: BMA400<SPIInterface<MockSPI<u8>>>) {
 #[test]
 fn init_bad_chip_id() {
     let mut expected_io = Transactions(Vec::new());
-    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x89]));
+    expected_io.push_read(0x80, vec![0x00]);
+    expected_io.push_read(0x80, vec![0x89]);
     let mut spi = MockSPI::new(&expected_io.0);
     let result = BMA400::new_spi(&mut spi);
     assert!(matches!(result, Err(BMA400Error::ChipIdReadFailed)));
@@ -38,10 +46,8 @@ fn init_bad_chip_id() {
 }
 
 fn init(expected_io: &mut Transactions) {
-    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x90]));
+    expected_io.push_read(0x80, vec![0x00]);
+    expected_io.push_read(0x80, vec![0x90]);
 }
 
 #[test]
@@ -62,8 +68,7 @@ fn destroy() {
 fn get_chip_id() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x80, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x90]));
+    expected_io.push_read(0x80, vec![0x90]);
     let mut device = new(&expected_io);
     let id = device.get_id().unwrap();
     assert_eq!(id, 0x90);
@@ -74,11 +79,8 @@ fn get_chip_id() {
 fn get_cmd_error() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x82, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0xFD]));
-
-    expected_io.push(Transaction::write_vec(vec![0x82, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
+    expected_io.push_read(0x82, vec![0xFD]);
+    expected_io.push_read(0x82, vec![0x02]);
 
     let mut device = new(&expected_io);
     let status = device.get_cmd_error().unwrap();
@@ -93,24 +95,19 @@ fn get_status() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
     // drdy Set
-    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x80]));
+    expected_io.push_read(0x83, vec![0x80]);
 
     // cmd_rdy Set
-    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
+    expected_io.push_read(0x83, vec![0x10]);
 
     // power_mode == LowPower
-    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
+    expected_io.push_read(0x83, vec![0x02]);
 
     // power_mode == Normal
-    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
+    expected_io.push_read(0x83, vec![0x04]);
 
     // interrupt triggered Set
-    expected_io.push(Transaction::write_vec(vec![0x83, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push_read(0x83, vec![0x01]);
 
     let mut device = new(&expected_io);
 
@@ -155,11 +152,7 @@ fn get_status() {
 fn get_unscaled_data() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-        vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
-    ));
+    expected_io.push_read(0x84, vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07]);
     let mut device = new(&expected_io);
     let m = device.get_unscaled_data().unwrap();
     assert_eq!(m.x, -2047);
@@ -179,18 +172,10 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
     init(&mut expected_io);
     if let Scale::Range4G = scale {
         // The default setting is 4G so we shouldn't see any configuration write
-        expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
-        expected_io.push(Transaction::transfer_in_place(
-            vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-            vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
-        ));
+        expected_io.push_read(0x84, vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07]);
     } else {
-        expected_io.push(Transaction::write_vec(vec![0x1A, byte]));
-        expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
-        expected_io.push(Transaction::transfer_in_place(
-            vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-            vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
-        ))
+        expected_io.push_write(0x1A, &mut vec![byte]);
+        expected_io.push_read(0x84, vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07]);
     }
     let mut device = new(&expected_io);
     device.config_accel().with_scale(scale).write().unwrap();
@@ -211,11 +196,7 @@ fn get_data() {
 fn get_sensor_clock() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x8A, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        vec![0x00, 0x00, 0x00],
-        vec![0xF8, 0xFF, 0xFF],
-    ));
+    expected_io.push_read(0x8A, vec![0xF8, 0xFF, 0xFF]);
     let mut device = new(&expected_io);
     let t = device.get_sensor_clock().unwrap();
     assert_eq!(t, 0xFFFFF8);
@@ -228,12 +209,10 @@ fn get_reset_status() {
     init(&mut expected_io);
 
     // No Reset Detected
-    expected_io.push(Transaction::write_vec(vec![0x8D, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
+    expected_io.push_read(0x8D, vec![0x00]);
 
     // Reset Detected
-    expected_io.push(Transaction::write_vec(vec![0x8D, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push_read(0x8D, vec![0x01]);
 
     let mut device = new(&expected_io);
 
@@ -250,36 +229,28 @@ fn get_int_status0() {
     init(&mut expected_io);
 
     // drdy set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x80]));
+    expected_io.push_read(0x8E, vec![0x80]);
 
     // fwm set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x40]));
+    expected_io.push_read(0x8E, vec![0x40]);
 
     // ffull set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x20]));
+    expected_io.push_read(0x8E, vec![0x20]);
 
     // ieng_ovrrn set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
+    expected_io.push_read(0x8E, vec![0x10]);
 
     // gen2 set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x08]));
+    expected_io.push_read(0x8E, vec![0x08]);
 
     // gen1 set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
+    expected_io.push_read(0x8E, vec![0x04]);
 
     // orientch set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
+    expected_io.push_read(0x8E, vec![0x02]);
 
     // wkup set
-    expected_io.push(Transaction::write_vec(vec![0x8E, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push_read(0x8E, vec![0x01]);
 
     let mut device = new(&expected_io);
 
@@ -379,24 +350,19 @@ fn get_int_status1() {
     init(&mut expected_io);
 
     // ieng_ovrrn set
-    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
+    expected_io.push_read(0x8F, vec![0x10]);
 
     // d_tap set
-    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x08]));
+    expected_io.push_read(0x8F, vec![0x08]);
 
     // s_tap set
-    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
+    expected_io.push_read(0x8F, vec![0x04]);
 
     // step_int == 2
-    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
+    expected_io.push_read(0x8F, vec![0x02]);
 
     // step_int == 1
-    expected_io.push(Transaction::write_vec(vec![0x8F, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push_read(0x8F, vec![0x01]);
 
     let mut device = new(&expected_io);
 
@@ -449,20 +415,16 @@ fn get_int_status2() {
     init(&mut expected_io);
 
     // ieng_ovrrn set
-    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x10]));
+    expected_io.push_read(0x90, vec![0x10]);
 
     // actch_z set
-    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x04]));
+    expected_io.push_read(0x90, vec![0x04]);
 
     // actch_y set
-    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
+    expected_io.push_read(0x90, vec![0x02]);
 
     // actch_x set
-    expected_io.push(Transaction::write_vec(vec![0x90, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push_read(0x90, vec![0x01]);
 
     let mut device = new(&expected_io);
 
@@ -502,18 +464,10 @@ fn get_fifo_len() {
     init(&mut expected_io);
 
     // Read full FIFO (1024, non-zero values in reserved space)
-    expected_io.push(Transaction::write_vec(vec![0x92, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        vec![0x00, 0x00],
-        vec![0x00, 0xF4],
-    ));
+    expected_io.push_read(0x92, vec![0x00, 0xF4]);
 
     // Read FIFO (640, non-zero values in both bytes)
-    expected_io.push(Transaction::write_vec(vec![0x92, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        vec![0x00, 0x00],
-        vec![0x80, 0x02],
-    ));
+    expected_io.push_read(0x92, vec![0x80, 0x02]);
 
     let mut device = new(&expected_io);
 
@@ -528,14 +482,13 @@ fn get_fifo_len() {
 fn read_fifo_frames() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x94, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        Vec::from([0u8; 15]),
+    expected_io.push_read(
+        0x94,
         vec![
             0x48, 0x6E, 0x9E, 0x01, 0x80, 0x0F, 0xFF, 0x0F, 0x7F, 0xA0, 0xF8, 0xFF, 0xFF, 0x80,
             0x00,
         ],
-    ));
+    );
     let mut device = new(&expected_io);
     let mut buffer = [0u8; 15];
     let frames = device.read_fifo_frames(&mut buffer).unwrap();
@@ -566,7 +519,7 @@ fn read_fifo_frames() {
 fn flush_fifo() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x7E, 0xB0]));
+    expected_io.push_write(0x7E, &mut vec![0xB0]);
 
     let mut device = new(&expected_io);
     device.flush_fifo().unwrap();
@@ -579,11 +532,7 @@ fn get_step_count() {
     init(&mut expected_io);
 
     // Step Count = 15793920 (test byte order)
-    expected_io.push(Transaction::write_vec(vec![0x95, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        vec![0x00, 0x00, 0x00],
-        vec![0x00, 0xFF, 0xF0],
-    ));
+    expected_io.push_read(0x95, vec![0x00, 0xFF, 0xF0]);
 
     let mut device = new(&expected_io);
     let count = device.get_step_count().unwrap();
@@ -595,7 +544,7 @@ fn get_step_count() {
 fn clear_step_count() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x7E, 0xB1]));
+    expected_io.push_write(0x7E, &mut vec![0xB1]);
 
     let mut device = new(&expected_io);
     device.clear_step_count().unwrap();
@@ -606,12 +555,9 @@ fn clear_step_count() {
 fn get_step_activity() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
-    expected_io.push(Transaction::write_vec(vec![0x98, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
-    expected_io.push(Transaction::write_vec(vec![0x98, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x02]));
-    expected_io.push(Transaction::write_vec(vec![0x98, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x00]));
+    expected_io.push_read(0x98, vec![0x01]);
+    expected_io.push_read(0x98, vec![0x02]);
+    expected_io.push_read(0x98, vec![0x00]);
     let mut device = new(&expected_io);
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Walk));
@@ -627,12 +573,10 @@ fn get_raw_temp() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
     // temp == -48 (-1C)
-    expected_io.push(Transaction::write_vec(vec![0x91, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0xD0]));
+    expected_io.push_read(0x91, vec![0xD0]);
 
     // temp == 127 (87.5C)
-    expected_io.push(Transaction::write_vec(vec![0x91, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x7F]));
+    expected_io.push_read(0x91, vec![0x7F]);
 
     let mut device = new(&expected_io);
     let temp = device.get_raw_temp().unwrap();
@@ -647,12 +591,12 @@ fn config_accel() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x19, 0xE2]));
-    expected_io.push(Transaction::write_vec(vec![0x1A, 0xFB]));
-    expected_io.push(Transaction::write_vec(vec![0x1B, 0x08]));
-    expected_io.push(Transaction::write_vec(vec![0x19, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x1A, 0x05]));
-    expected_io.push(Transaction::write_vec(vec![0x1B, 0x00]));
+    expected_io.push_write(0x19, &mut vec![0xE2]);
+    expected_io.push_write(0x1A, &mut vec![0xFB]);
+    expected_io.push_write(0x1B, &mut vec![0x08]);
+    expected_io.push_write(0x19, &mut vec![0x00]);
+    expected_io.push_write(0x1A, &mut vec![0x05]);
+    expected_io.push_write(0x1B, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -689,13 +633,13 @@ fn config_interrupts() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x56, 0x10]));
-    expected_io.push(Transaction::write_vec(vec![0x3F, 0x10]));
-    expected_io.push(Transaction::write_vec(vec![0x4A, 0x10]));
-    expected_io.push(Transaction::write_vec(vec![0x1F, 0xEE]));
-    expected_io.push(Transaction::write_vec(vec![0x20, 0x9D]));
-    expected_io.push(Transaction::write_vec(vec![0x1F, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x20, 0x00]));
+    expected_io.push_write(0x56, &mut vec![0x10]);
+    expected_io.push_write(0x3F, &mut vec![0x10]);
+    expected_io.push_write(0x4A, &mut vec![0x10]);
+    expected_io.push_write(0x1F, &mut vec![0xEE]);
+    expected_io.push_write(0x20, &mut vec![0x9D]);
+    expected_io.push_write(0x1F, &mut vec![0x00]);
+    expected_io.push_write(0x20, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -757,16 +701,16 @@ fn config_int_pins() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x21, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x22, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x23, 0xDD]));
-    expected_io.push(Transaction::write_vec(vec![0x24, 0x66]));
-    expected_io.push(Transaction::write_vec(vec![0x21, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x23, 0xD0]));
-    expected_io.push(Transaction::write_vec(vec![0x24, 0x60]));
-    expected_io.push(Transaction::write_vec(vec![0x22, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x23, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x24, 0x00]));
+    expected_io.push_write(0x21, &mut vec![0xFF]);
+    expected_io.push_write(0x22, &mut vec![0xFF]);
+    expected_io.push_write(0x23, &mut vec![0xDD]);
+    expected_io.push_write(0x24, &mut vec![0x66]);
+    expected_io.push_write(0x21, &mut vec![0x00]);
+    expected_io.push_write(0x23, &mut vec![0xD0]);
+    expected_io.push_write(0x24, &mut vec![0x60]);
+    expected_io.push_write(0x22, &mut vec![0x00]);
+    expected_io.push_write(0x23, &mut vec![0x00]);
+    expected_io.push_write(0x24, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -832,14 +776,14 @@ fn config_fifo() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x26, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x27, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x28, 0x03]));
-    expected_io.push(Transaction::write_vec(vec![0x29, 0x01]));
-    expected_io.push(Transaction::write_vec(vec![0x26, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x27, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x28, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x29, 0x00]));
+    expected_io.push_write(0x26, &mut vec![0xFF]);
+    expected_io.push_write(0x27, &mut vec![0xFF]);
+    expected_io.push_write(0x28, &mut vec![0x03]);
+    expected_io.push_write(0x29, &mut vec![0x01]);
+    expected_io.push_write(0x26, &mut vec![0x00]);
+    expected_io.push_write(0x27, &mut vec![0x00]);
+    expected_io.push_write(0x28, &mut vec![0x00]);
+    expected_io.push_write(0x29, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -878,10 +822,10 @@ fn config_auto_lp() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x2A, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x2B, 0xFB]));
-    expected_io.push(Transaction::write_vec(vec![0x2A, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x2B, 0x00]));
+    expected_io.push_write(0x2A, &mut vec![0xFF]);
+    expected_io.push_write(0x2B, &mut vec![0xFB]);
+    expected_io.push_write(0x2A, &mut vec![0x00]);
+    expected_io.push_write(0x2B, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -912,10 +856,10 @@ fn config_autowkup() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x2C, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF6]));
-    expected_io.push(Transaction::write_vec(vec![0x2C, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x2D, 0x00]));
+    expected_io.push_write(0x2C, &mut vec![0xFF]);
+    expected_io.push_write(0x2D, &mut vec![0xF6]);
+    expected_io.push_write(0x2C, &mut vec![0x00]);
+    expected_io.push_write(0x2D, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -944,23 +888,23 @@ fn config_wkup_int() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x30, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x31, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x32, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x33, 0xFF]));
+    expected_io.push_write(0x30, &mut vec![0xFF]);
+    expected_io.push_write(0x31, &mut vec![0xFF]);
+    expected_io.push_write(0x32, &mut vec![0xFF]);
+    expected_io.push_write(0x33, &mut vec![0xFF]);
 
     // Enable the interrupt last
-    expected_io.push(Transaction::write_vec(vec![0x2F, 0xFE]));
+    expected_io.push_write(0x2F, &mut vec![0xFE]);
 
     // Disable the interrupt first, keeping other settings intact
-    expected_io.push(Transaction::write_vec(vec![0x2F, 0x1E]));
-    expected_io.push(Transaction::write_vec(vec![0x30, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x31, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x32, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x33, 0x00]));
+    expected_io.push_write(0x2F, &mut vec![0x1E]);
+    expected_io.push_write(0x30, &mut vec![0x00]);
+    expected_io.push_write(0x31, &mut vec![0x00]);
+    expected_io.push_write(0x32, &mut vec![0x00]);
+    expected_io.push_write(0x33, &mut vec![0x00]);
 
     // Re-enable / write IntConfig0 changes last
-    expected_io.push(Transaction::write_vec(vec![0x2F, 0x00]));
+    expected_io.push_write(0x2F, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -993,8 +937,9 @@ fn config_orientchg_int() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    let mut write = |bytes: Vec<u8>| {
-        expected_io.push(Transaction::write_vec(bytes));
+    let mut write = |mut bytes: Vec<u8>| {
+        let (addr, expected) = bytes.split_first_mut().unwrap();
+        expected_io.push_write(*addr, &mut expected.into());
     };
 
     write(vec![0x35, 0xF8]);
@@ -1050,8 +995,9 @@ fn config_gen1_int() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    let mut write = |bytes: Vec<u8>| {
-        expected_io.push(Transaction::write_vec(bytes));
+    let mut write = |mut bytes: Vec<u8>| {
+        let (addr, expected) = bytes.split_first_mut().unwrap();
+        expected_io.push_write(*addr, &mut expected.into());
     };
 
     write(vec![0x3F, 0xFF]);
@@ -1117,8 +1063,9 @@ fn config_gen2_int() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    let mut write = |bytes: Vec<u8>| {
-        expected_io.push(Transaction::write_vec(bytes));
+    let mut write = |mut bytes: Vec<u8>| {
+        let (addr, expected) = bytes.split_first_mut().unwrap();
+        expected_io.push_write(*addr, &mut expected.into());
     };
 
     write(vec![0x4A, 0xFF]);
@@ -1184,10 +1131,10 @@ fn config_actchg_int() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x55, 0xFF]));
-    expected_io.push(Transaction::write_vec(vec![0x56, 0xF4]));
-    expected_io.push(Transaction::write_vec(vec![0x55, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x56, 0x00]));
+    expected_io.push_write(0x55, &mut vec![0xFF]);
+    expected_io.push_write(0x56, &mut vec![0xF4]);
+    expected_io.push_write(0x55, &mut vec![0x00]);
+    expected_io.push_write(0x56, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -1218,10 +1165,10 @@ fn config_tap() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x57, 0x17]));
-    expected_io.push(Transaction::write_vec(vec![0x58, 0x3F]));
-    expected_io.push(Transaction::write_vec(vec![0x57, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x58, 0x00]));
+    expected_io.push_write(0x57, &mut vec![0x17]);
+    expected_io.push_write(0x58, &mut vec![0x3F]);
+    expected_io.push_write(0x57, &mut vec![0x00]);
+    expected_io.push_write(0x58, &mut vec![0x00]);
 
     let mut device = new(&expected_io);
 
@@ -1251,38 +1198,38 @@ fn config_tap() {
 
 fn self_test_setup(expected_io: &mut Transactions) {
     // Disable Interrupts
-    expected_io.push(Transaction::write_vec(vec![0x1F, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x20, 0x00]));
-    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF4]));
+    expected_io.push_write(0x1F, &mut vec![0x00]);
+    expected_io.push_write(0x20, &mut vec![0x00]);
+    expected_io.push_write(0x2D, &mut vec![0xF4]);
 
     // Disable FIFO
-    expected_io.push(Transaction::write_vec(vec![0x26, 0x1F]));
+    expected_io.push_write(0x26, &mut vec![0x1F]);
 
     // Set PowerMode
-    expected_io.push(Transaction::write_vec(vec![0x19, 0xE2]));
+    expected_io.push_write(0x19, &mut vec![0xE2]);
 
     // Set Range = 4G, OSR = OSR3, ODR = 100Hz
-    expected_io.push(Transaction::write_vec(vec![0x1A, 0x78]));
+    expected_io.push_write(0x1A, &mut vec![0x78]);
 }
 
 fn restore_config(expected_io: &mut Transactions) {
     // Restore AccConfig0
-    expected_io.push(Transaction::write_vec(vec![0x19, 0xE0]));
+    expected_io.push_write(0x19, &mut vec![0xE0]);
 
     // Restore AccConfig1
-    expected_io.push(Transaction::write_vec(vec![0x1A, 0x09]));
+    expected_io.push_write(0x1A, &mut vec![0x09]);
 
     // Restore IntConfig0
-    expected_io.push(Transaction::write_vec(vec![0x1F, 0xEE]));
+    expected_io.push_write(0x1F, &mut vec![0xEE]);
 
     // Restore IntConfig1
-    expected_io.push(Transaction::write_vec(vec![0x20, 0x9D]));
+    expected_io.push_write(0x20, &mut vec![0x9D]);
 
     // Restore AutoWkupConfig1
-    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF6]));
+    expected_io.push_write(0x2D, &mut vec![0xF6]);
 
     // Restore FifoConfig
-    expected_io.push(Transaction::write_vec(vec![0x26, 0xFF]));
+    expected_io.push_write(0x26, &mut vec![0xFF]);
 }
 
 fn self_test(
@@ -1317,15 +1264,14 @@ fn self_test(
     expected_delay.push(DelayTransaction::delay_ms(2));
 
     // Set Positive Test Parameters
-    expected_io.push(Transaction::write_vec(vec![0x7D, 0x07]));
+    expected_io.push_write(0x7D, &mut vec![0x07]);
 
     // Wait 50ms
     expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
-    expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        Vec::from([0u8; 6]),
+    expected_io.push_read(
+        0x84,
         vec![
             x_pos.to_le_bytes()[0],
             x_pos.to_le_bytes()[1],
@@ -1334,18 +1280,17 @@ fn self_test(
             z_pos.to_le_bytes()[0],
             z_pos.to_le_bytes()[1],
         ],
-    ));
+    );
 
     // Write Negative Test Parameters
-    expected_io.push(Transaction::write_vec(vec![0x7D, 0x0F]));
+    expected_io.push_write(0x7D, &mut vec![0x0F]);
 
     // Wait 50ms
     expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
-    expected_io.push(Transaction::write_vec(vec![0x84, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(
-        Vec::from([0u8; 6]),
+    expected_io.push_read(
+        0x84,
         vec![
             x_neg.to_le_bytes()[0],
             x_neg.to_le_bytes()[1],
@@ -1354,10 +1299,10 @@ fn self_test(
             z_neg.to_le_bytes()[0],
             z_neg.to_le_bytes()[1],
         ],
-    ));
+    );
 
     // Disable Self-Test
-    expected_io.push(Transaction::write_vec(vec![0x7D, 0x00]));
+    expected_io.push_write(0x7D, &mut vec![0x00]);
 
     // Wait 50ms
     expected_delay.push(DelayTransaction::delay_ms(50));
@@ -1374,31 +1319,31 @@ fn perform_self_test() {
     // test restoring configuration post-test
 
     // Actch Int Data Src = AccFilt2
-    expected_io.push(Transaction::write_vec(vec![0x56, 0x10]));
+    expected_io.push_write(0x56, &mut vec![0x10]);
 
     // Gen Int1 Data Src = AccFilt2
-    expected_io.push(Transaction::write_vec(vec![0x3F, 0x10]));
+    expected_io.push_write(0x3F, &mut vec![0x10]);
 
     // Gen Int2 Data Src = AccFilt2
-    expected_io.push(Transaction::write_vec(vec![0x4A, 0x10]));
+    expected_io.push_write(0x4A, &mut vec![0x10]);
 
     // Set non-power mode settings in AccConfig0
-    expected_io.push(Transaction::write_vec(vec![0x19, 0xE0]));
+    expected_io.push_write(0x19, &mut vec![0xE0]);
 
     // Set Range = 2G, OSR = OSR0, ODR = 200Hz
-    expected_io.push(Transaction::write_vec(vec![0x1A, 0x09]));
+    expected_io.push_write(0x1A, &mut vec![0x09]);
 
     // Set IntConfig0
-    expected_io.push(Transaction::write_vec(vec![0x1F, 0xEE]));
+    expected_io.push_write(0x1F, &mut vec![0xEE]);
 
     // Set IntConfig1
-    expected_io.push(Transaction::write_vec(vec![0x20, 0x9D]));
+    expected_io.push_write(0x20, &mut vec![0x9D]);
 
     // Set Wakeup Int, Settings
-    expected_io.push(Transaction::write_vec(vec![0x2D, 0xF6]));
+    expected_io.push_write(0x2D, &mut vec![0xF6]);
 
     // Enable FIFO, Settings
-    expected_io.push(Transaction::write_vec(vec![0x26, 0xFF]));
+    expected_io.push_write(0x26, &mut vec![0xFF]);
 
     let mut expected_delay = Vec::<DelayTransaction>::new();
 
@@ -1504,10 +1449,8 @@ fn soft_reset() {
     let mut expected_io = Transactions(Vec::new());
     init(&mut expected_io);
 
-    expected_io.push(Transaction::write_vec(vec![0x7E, 0xB6]));
-
-    expected_io.push(Transaction::write_vec(vec![0x8D, 0x00]));
-    expected_io.push(Transaction::transfer_in_place(vec![0x00], vec![0x01]));
+    expected_io.push_write(0x7E, &mut vec![0xB6]);
+    expected_io.push_read(0x8D, vec![0x01]);
 
     let mut device = new(&expected_io);
     device.soft_reset().unwrap();

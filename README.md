@@ -28,16 +28,14 @@ I²C - `cargo add bma400 --features=i2c-default`
  // Import an embedded hal implementation
  use linux_embedded_hal::{
   Spidev, 
-  Pin
 }; // replace as appropriate w/ hal crate for your MCU
  use bma400::{
      BMA400,
      PowerMode,
      Scale,
  };
- // spi implements embedded-hal spi::Transfer and spi::Write
- // csb_pin implements embedded-hal digital::v2::OutputPin
- let mut accelerometer = BMA400::new_spi(spi, csb_pin).unwrap();
+ // spi implements embedded-hal spi::SpiDevice
+ let mut accelerometer = BMA400::new_spi(spi).unwrap();
  ```
  
  From here it's the same API for both:

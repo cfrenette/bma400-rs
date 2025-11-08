@@ -1,7 +1,8 @@
 use crate::{
     BMA400, BMA400Error, Config,
-    hal::spi::SpiDevice,
-    interface::{ReadFromRegister, WriteToRegister},
+    embedded_hal::spi::{Operation, SpiDevice},
+    embedded_hal_async::spi::SpiDevice as AsyncSpiDevice,
+    interface::{AsyncReadFromRegister, AsyncWriteToRegister, ReadFromRegister, WriteToRegister},
     registers::{ChipId, ConfigReg, InterfaceConfig, ReadReg},
 };
 
@@ -46,10 +47,10 @@ where
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
         self.spi
-            .write(&[register.addr() | 1 << 7, 0])
-            .map_err(BMA400Error::IOError)?;
-        self.spi
-            .transfer_in_place(buffer)
+            .transaction(&mut [
+                Operation::Write(&[register.addr() | 1 << 7, 0]),
+                Operation::Read(buffer),
+            ])
             .map_err(BMA400Error::IOError)?;
         Ok(())
     }
@@ -68,15 +69,11 @@ where
     /// # let expected_io = vec![
     /// #   Transaction::transaction_start(),
     /// #   Transaction::write_vec(vec![0x80, 0x00]),
-    /// #   Transaction::transaction_end(),
-    /// #   Transaction::transaction_start(),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
+    /// #   Transaction::read_vec(vec![0x00]),
     /// #   Transaction::transaction_end(),
     /// #   Transaction::transaction_start(),
     /// #   Transaction::write_vec(vec![0x80, 0x00]),
-    /// #   Transaction::transaction_end(),
-    /// #   Transaction::transaction_start(),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+    /// #   Transaction::read_vec(vec![0x90]),
     /// #   Transaction::transaction_end(),
     /// # ];
     /// # let mut spi = Mock::new(&expected_io);
@@ -108,15 +105,11 @@ where
     /// # let expected_io = vec![
     /// #   Transaction::transaction_start(),
     /// #   Transaction::write_vec(vec![0x80, 0x00]),
-    /// #   Transaction::transaction_end(),
-    /// #   Transaction::transaction_start(),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
+    /// #   Transaction::read_vec(vec![0x00]),
     /// #   Transaction::transaction_end(),
     /// #   Transaction::transaction_start(),
     /// #   Transaction::write_vec(vec![0x80, 0x00]),
-    /// #   Transaction::transaction_end(),
-    /// #   Transaction::transaction_start(),
-    /// #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+    /// #   Transaction::read_vec(vec![0x90]),
     /// #   Transaction::transaction_end(),
     /// #   Transaction::transaction_start(),
     /// #   Transaction::write_vec(vec![0x7C, 0x01]),

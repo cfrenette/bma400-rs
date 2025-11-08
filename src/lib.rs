@@ -35,15 +35,11 @@
 //! # let expected_io = vec![
 //! #   Transaction::transaction_start(),
 //! #   Transaction::write_vec(vec![0x80, 0x00]),
-//! #   Transaction::transaction_end(),
-//! #   Transaction::transaction_start(),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
+//! #   Transaction::read_vec(vec![0x00]),
 //! #   Transaction::transaction_end(),
 //! #   Transaction::transaction_start(),
 //! #   Transaction::write_vec(vec![0x80, 0x00]),
-//! #   Transaction::transaction_end(),
-//! #   Transaction::transaction_start(),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+//! #   Transaction::read_vec(vec![0x90]),
 //! #   Transaction::transaction_end(),
 //! # ];
 //! # let mut spi = Mock::new(&expected_io);
@@ -63,15 +59,11 @@
 //! # let expected_io = vec![
 //! #   Transaction::transaction_start(),
 //! #   Transaction::write_vec(vec![0x80, 0x00]),
-//! #   Transaction::transaction_end(),
-//! #   Transaction::transaction_start(),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x00]),
+//! #   Transaction::read_vec(vec![0x00]),
 //! #   Transaction::transaction_end(),
 //! #   Transaction::transaction_start(),
 //! #   Transaction::write_vec(vec![0x80, 0x00]),
-//! #   Transaction::transaction_end(),
-//! #   Transaction::transaction_start(),
-//! #   Transaction::transfer_in_place(vec![0x00], vec![0x90]),
+//! #   Transaction::read_vec(vec![0x90]),
 //! #   Transaction::transaction_end(),
 //! #   Transaction::transaction_start(),
 //! #   Transaction::write_vec(vec![0x19, 0x02]),
@@ -81,10 +73,7 @@
 //! #   Transaction::transaction_end(),
 //! #   Transaction::transaction_start(),
 //! #   Transaction::write_vec(vec![0x84, 0x00]),
-//! #   Transaction::transaction_end(),
-//! #   Transaction::transaction_start(),
-//! #   Transaction::transfer_in_place(
-//! #       vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+//! #   Transaction::read_vec(
 //! #       vec![0x1E, 0x00, 0x10, 0x00, 0xDC, 0x03],
 //! #   ),
 //! #   Transaction::transaction_end(),
@@ -156,8 +145,9 @@
 
 #![warn(missing_docs, unsafe_code)]
 #![no_std]
-pub(crate) use embedded_hal as hal;
-use hal::delay::DelayNs;
+pub(crate) use embedded_hal;
+use embedded_hal::delay::DelayNs;
+pub(crate) use embedded_hal_async;
 pub mod types;
 pub use types::*;
 pub(crate) mod registers;
@@ -792,7 +782,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_accel(&mut self) -> AccConfigBuilder<T> {
+    pub fn config_accel(&'_ mut self) -> AccConfigBuilder<'_, T> {
         AccConfigBuilder::new(self)
     }
 
@@ -821,7 +811,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_interrupts(&mut self) -> IntConfigBuilder<T> {
+    pub fn config_interrupts(&'_ mut self) -> IntConfigBuilder<'_, T> {
         IntConfigBuilder::new(self)
     }
 
@@ -852,7 +842,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_int_pins(&mut self) -> IntPinConfigBuilder<T> {
+    pub fn config_int_pins(&'_ mut self) -> IntPinConfigBuilder<'_, T> {
         IntPinConfigBuilder::new(self)
     }
 
@@ -889,7 +879,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_fifo(&mut self) -> FifoConfigBuilder<T> {
+    pub fn config_fifo(&'_ mut self) -> FifoConfigBuilder<'_, T> {
         FifoConfigBuilder::new(self)
     }
 
@@ -920,7 +910,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_auto_lp(&mut self) -> AutoLpConfigBuilder<T> {
+    pub fn config_auto_lp(&'_ mut self) -> AutoLpConfigBuilder<'_, T> {
         AutoLpConfigBuilder::new(self)
     }
 
@@ -952,7 +942,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_autowkup(&mut self) -> AutoWakeupConfigBuilder<T> {
+    pub fn config_autowkup(&'_ mut self) -> AutoWakeupConfigBuilder<'_, T> {
         AutoWakeupConfigBuilder::new(self)
     }
 
@@ -987,7 +977,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_wkup_int(&mut self) -> WakeupIntConfigBuilder<T> {
+    pub fn config_wkup_int(&'_ mut self) -> WakeupIntConfigBuilder<'_, T> {
         WakeupIntConfigBuilder::new(self)
     }
 
@@ -1022,7 +1012,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_orientchg_int(&mut self) -> OrientChgConfigBuilder<T> {
+    pub fn config_orientchg_int(&'_ mut self) -> OrientChgConfigBuilder<'_, T> {
         OrientChgConfigBuilder::new(self)
     }
 
@@ -1065,7 +1055,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_gen1_int(&mut self) -> GenIntConfigBuilder<T> {
+    pub fn config_gen1_int(&'_ mut self) -> GenIntConfigBuilder<'_, T> {
         GenIntConfigBuilder::new_gen1(self)
     }
 
@@ -1108,7 +1098,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_gen2_int(&mut self) -> GenIntConfigBuilder<T> {
+    pub fn config_gen2_int(&'_ mut self) -> GenIntConfigBuilder<'_, T> {
         GenIntConfigBuilder::new_gen2(self)
     }
 
@@ -1143,7 +1133,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done()
     /// ```
-    pub fn config_actchg_int(&mut self) -> ActChgConfigBuilder<T> {
+    pub fn config_actchg_int(&'_ mut self) -> ActChgConfigBuilder<'_, T> {
         ActChgConfigBuilder::new(self)
     }
 
@@ -1176,7 +1166,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub fn config_tap(&mut self) -> TapConfigBuilder<T> {
+    pub fn config_tap(&'_ mut self) -> TapConfigBuilder<'_, T> {
         TapConfigBuilder::new(self)
     }
 
