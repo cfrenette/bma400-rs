@@ -1,6 +1,6 @@
 use crate::{
     BMA400, BMA400Error, Config,
-    hal::i2c::{I2c, SevenBitAddress},
+    embedded_hal::i2c::{I2c, SevenBitAddress},
     interface::{ReadFromRegister, WriteToRegister},
     registers::{ChipId, ConfigReg, ReadReg},
 };

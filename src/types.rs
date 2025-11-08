@@ -533,7 +533,7 @@ pub struct FifoFrames<'a> {
 }
 
 impl<'a> FifoFrames<'a> {
-    pub(crate) fn new(bytes: &[u8]) -> FifoFrames {
+    pub(crate) fn new(bytes: &'_ [u8]) -> FifoFrames<'_> {
         FifoFrames { index: 0, bytes }
     }
 }
