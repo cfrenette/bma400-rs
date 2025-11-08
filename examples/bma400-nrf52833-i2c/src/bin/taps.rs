@@ -3,17 +3,17 @@
 
 use bma400_nrf52833_i2c as _; // global logger + panicking behavior + memory layout
 
+use bma400::{BMA400, I2CInterface, InterruptPins, OutputDataRate, PowerMode};
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
 use cortex_m::prelude::_embedded_hal_blocking_delay_DelayMs;
 use cortex_m_rt::entry;
 use nrf52833_hal::{
-    gpio,
+    Timer, gpio,
     gpiote::Gpiote,
-    pac::{self, interrupt, TWIM0},
-    twim::{Frequency, Pins, Twim}, Timer,
+    pac::{self, TWIM0, interrupt},
+    twim::{Frequency, Pins, Twim},
 };
-use bma400::{BMA400, PowerMode, OutputDataRate, I2CInterface, InterruptPins};
 
 // Shared access to the accelerometer and GPIO Tasks and Events peripheral
 static GPIO: Mutex<RefCell<Option<Gpiote>>> = Mutex::new(RefCell::new(None));
@@ -38,34 +38,36 @@ fn main() -> ! {
 
     // BMA400: Set the power mode to normal and the output data rate to 200Hz
     accel
-    .config_accel()
-    .with_power_mode(PowerMode::Normal)
-    .with_odr(OutputDataRate::Hz200)
-    .write().unwrap();
-
+        .config_accel()
+        .with_power_mode(PowerMode::Normal)
+        .with_odr(OutputDataRate::Hz200)
+        .write()
+        .unwrap();
 
     // BMA400: Map the tap interrupt to the INT1 pin
     accel
-    .config_int_pins()
-    .with_tap(InterruptPins::Int1)
-    .write().unwrap();
-
+        .config_int_pins()
+        .with_tap(InterruptPins::Int1)
+        .write()
+        .unwrap();
 
     // BMA400: Enable the single and double tap interrupts and set the interrupt mode
     // to latching (persist until cleared by reading the interrupt status register)
     accel
-    .config_interrupts()
-    .with_latch_int(true)
-    .with_d_tap_int(true)
-    .with_s_tap_int(true)
-    .write().unwrap();
-
+        .config_interrupts()
+        .with_latch_int(true)
+        .with_d_tap_int(true)
+        .with_s_tap_int(true)
+        .write()
+        .unwrap();
 
     // Set up the hardware interrupt for the pin connected to INT1
     let gpiote = Gpiote::new(peripherals.GPIOTE);
     let channel0 = gpiote.channel0();
-    channel0.input_pin(&p0.p0_10.into_floating_input().degrade())
-    .lo_to_hi().enable_interrupt();
+    channel0
+        .input_pin(&p0.p0_10.into_floating_input().degrade())
+        .lo_to_hi()
+        .enable_interrupt();
     channel0.reset_events();
 
     cortex_m::interrupt::free(move |cs| {
@@ -82,10 +84,9 @@ fn main() -> ! {
     loop {
         timer.delay_ms(2000u32);
         // Borrow mutably in an interrupt free context so we don't get interrupted while
-        // the mutex is locked 
+        // the mutex is locked
         cortex_m::interrupt::free(move |cs| {
             if let Some(bma400) = ACCEL.borrow(cs).borrow_mut().as_mut() {
-                
                 // BMA400: Read a one-shot measurement from the accelerometer
                 match bma400.get_unscaled_data() {
                     Err(_) => defmt::error!("An error occurred reading data!"),
@@ -95,7 +96,7 @@ fn main() -> ! {
         });
     }
     // Convenience function if we don't have a non-returning loop
-    //bma400_nrf52833::exit() 
+    //bma400_nrf52833::exit()
 }
 
 // Tap Interrupt Handler
@@ -107,8 +108,6 @@ fn GPIOTE() {
             let tap = gpiote.channel0().is_event_triggered();
             if tap {
                 if let Some(bma400) = ACCEL.borrow(cs).borrow_mut().as_mut() {
-                    
-                    
                     // BMA400: Read the status register
                     match bma400.get_int_status1() {
                         Err(_) => defmt::error!("An error occurred retrieving interrupt status"),
@@ -129,3 +128,4 @@ fn GPIOTE() {
         }
     });
 }
+
