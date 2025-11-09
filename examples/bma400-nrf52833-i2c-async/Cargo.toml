@@ -1,0 +1,28 @@
+[package]
+authors = ["cfrenette <cory@frenette.dev>"]
+name = "bma400-nrf52833-i2c-async"
+edition = "2024"
+version = "1.0.0"
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+defmt = "1.0"
+defmt-rtt = "1.1"
+embassy-futures = { version = "0.1" }
+embassy-executor = { version = "0.9",  features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+embedded-hal-bus = "0.3"
+embedded-hal-async = "1.0"
+embassy-nrf = { version = "0.7", features = ["nrf52833", "time", "time-driver-rtc1", "gpiote", "nfc-pins-as-gpio"] }
+embassy-sync = { version = "0.7", features = ["defmt"] }
+embassy-time = { version = "0.5", features = ["defmt", "defmt-timestamp-uptime"] }
+static_cell = { version = "2.1" }
+panic-probe = { version = "1.0", features = ["print-defmt"] }
+
+[dependencies.bma400]
+path = "../../"
+features = ["i2c-default", "embedded-hal-async"]
+
+[profile.release]
+debug = 2
+
