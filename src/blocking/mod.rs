@@ -5,7 +5,7 @@ mod i2c;
 #[cfg(any(feature = "spi", test))]
 mod spi;
 
-pub trait ReadFromRegister {
+pub(crate) trait ReadFromRegister {
     type Error;
     fn read_register<T: ReadReg>(
         &mut self,
@@ -14,7 +14,7 @@ pub trait ReadFromRegister {
     ) -> Result<(), Self::Error>;
 }
 
-pub trait WriteToRegister {
+pub(crate) trait WriteToRegister {
     type Error;
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error>;
 }
