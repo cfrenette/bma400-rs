@@ -5,7 +5,7 @@ mod i2c;
 #[cfg(any(feature = "spi", test))]
 mod spi;
 
-pub trait ReadFromRegister {
+pub(crate) trait ReadFromRegister {
     type Error;
     async fn read_register<T: ReadReg>(
         &mut self,
@@ -14,7 +14,7 @@ pub trait ReadFromRegister {
     ) -> Result<(), Self::Error>;
 }
 
-pub trait WriteToRegister {
+pub(crate) trait WriteToRegister {
     type Error;
     async fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error>;
 }
@@ -635,7 +635,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_accel(&'_ mut self) -> AccConfigBuilder<'_, T> {
+    pub fn config_accel(&'_ mut self) -> AccConfigBuilder<'_, T> {
         AccConfigBuilder::new(self)
     }
 
@@ -664,7 +664,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_interrupts(&'_ mut self) -> IntConfigBuilder<'_, T> {
+    pub fn config_interrupts(&'_ mut self) -> IntConfigBuilder<'_, T> {
         IntConfigBuilder::new(self)
     }
 
@@ -695,7 +695,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_int_pins(&'_ mut self) -> IntPinConfigBuilder<'_, T> {
+    pub fn config_int_pins(&'_ mut self) -> IntPinConfigBuilder<'_, T> {
         IntPinConfigBuilder::new(self)
     }
 
@@ -732,7 +732,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_fifo(&'_ mut self) -> FifoConfigBuilder<'_, T> {
+    pub fn config_fifo(&'_ mut self) -> FifoConfigBuilder<'_, T> {
         FifoConfigBuilder::new(self)
     }
 
@@ -763,7 +763,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_auto_lp(&'_ mut self) -> AutoLpConfigBuilder<'_, T> {
+    pub fn config_auto_lp(&'_ mut self) -> AutoLpConfigBuilder<'_, T> {
         AutoLpConfigBuilder::new(self)
     }
 
@@ -795,7 +795,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_autowkup(&'_ mut self) -> AutoWakeupConfigBuilder<'_, T> {
+    pub fn config_autowkup(&'_ mut self) -> AutoWakeupConfigBuilder<'_, T> {
         AutoWakeupConfigBuilder::new(self)
     }
 
@@ -830,7 +830,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_wkup_int(&'_ mut self) -> WakeupIntConfigBuilder<'_, T> {
+    pub fn config_wkup_int(&'_ mut self) -> WakeupIntConfigBuilder<'_, T> {
         WakeupIntConfigBuilder::new(self)
     }
 
@@ -865,7 +865,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_orientchg_int(&'_ mut self) -> OrientChgConfigBuilder<'_, T> {
+    pub fn config_orientchg_int(&'_ mut self) -> OrientChgConfigBuilder<'_, T> {
         OrientChgConfigBuilder::new(self)
     }
 
@@ -908,7 +908,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_gen1_int(&'_ mut self) -> GenIntConfigBuilder<'_, T> {
+    pub fn config_gen1_int(&'_ mut self) -> GenIntConfigBuilder<'_, T> {
         GenIntConfigBuilder::new_gen1(self)
     }
 
@@ -951,7 +951,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_gen2_int(&'_ mut self) -> GenIntConfigBuilder<'_, T> {
+    pub fn config_gen2_int(&'_ mut self) -> GenIntConfigBuilder<'_, T> {
         GenIntConfigBuilder::new_gen2(self)
     }
 
@@ -986,7 +986,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done()
     /// ```
-    pub async fn config_actchg_int(&'_ mut self) -> ActChgConfigBuilder<'_, T> {
+    pub fn config_actchg_int(&'_ mut self) -> ActChgConfigBuilder<'_, T> {
         ActChgConfigBuilder::new(self)
     }
 
@@ -1019,7 +1019,7 @@ where
     ///     .write().unwrap();
     /// # i2c.done();
     /// ```
-    pub async fn config_tap(&'_ mut self) -> TapConfigBuilder<'_, T> {
+    pub fn config_tap(&'_ mut self) -> TapConfigBuilder<'_, T> {
         TapConfigBuilder::new(self)
     }
 
