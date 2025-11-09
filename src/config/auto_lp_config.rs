@@ -1,6 +1,5 @@
 use crate::{
-    AutoLPTimeoutTrigger, BMA400, ConfigError,
-    interface::WriteToRegister,
+    AutoLPTimeoutTrigger, BMA400,
     registers::{AutoLowPow0, AutoLowPow1},
 };
 
@@ -16,16 +15,68 @@ pub struct AutoLpConfig {
 /// - [AutoLPTimeoutTrigger] (trigger and timer reset condition) using [`with_auto_lp_trigger()`](AutoLpConfigBuilder::with_auto_lp_trigger)
 /// - Set Generic Interrupt 1 as a trigger condition for auto low power using [`with_gen1_int_trigger()`](AutoLpConfigBuilder::with_gen1_int_trigger)
 /// - Set Data Ready as a trigger condition for auto low power using [`with_drdy_trigger()`](AutoLpConfigBuilder::with_drdy_trigger)
-pub struct AutoLpConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct AutoLpConfigBuilder<'a, Interface> {
     config: AutoLpConfig,
     device: &'a mut BMA400<Interface>,
 }
 
+#[cfg(not(feature = "embedded-hal-async"))]
 impl<'a, Interface, E> AutoLpConfigBuilder<'a, Interface>
 where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
+    Interface: crate::blocking::WriteToRegister<Error = E>,
 {
+    /// Write the configuration to device registers
+    pub fn write(self) -> Result<(), E> {
+        if self.device.config.auto_lp_config.auto_low_pow0.bits()
+            != self.config.auto_low_pow0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow0)?;
+            self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
+        }
+        if self.device.config.auto_lp_config.auto_low_pow1.bits()
+            != self.config.auto_low_pow1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow1)?;
+            self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal-async")]
+impl<'a, Interface, E> AutoLpConfigBuilder<'a, Interface>
+where
+    Interface: crate::asynch::WriteToRegister<Error = E>,
+{
+    /// Write the configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if self.device.config.auto_lp_config.auto_low_pow0.bits()
+            != self.config.auto_low_pow0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow0)
+                .await?;
+            self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
+        }
+        if self.device.config.auto_lp_config.auto_low_pow1.bits()
+            != self.config.auto_low_pow1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_low_pow1)
+                .await?;
+            self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
+        }
+        Ok(())
+    }
+}
+
+impl<'a, Interface> AutoLpConfigBuilder<'a, Interface> {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoLpConfigBuilder<'a, Interface> {
         AutoLpConfigBuilder {
             config: device.config.auto_lp_config.clone(),
@@ -60,26 +111,6 @@ where
     pub fn with_drdy_trigger(mut self, enabled: bool) -> Self {
         self.config.auto_low_pow1 = self.config.auto_low_pow1.with_drdy_trigger(enabled);
         self
-    }
-    /// Write the configuration to device registers
-    pub fn write(self) -> Result<(), E> {
-        if self.device.config.auto_lp_config.auto_low_pow0.bits()
-            != self.config.auto_low_pow0.bits()
-        {
-            self.device
-                .interface
-                .write_register(self.config.auto_low_pow0)?;
-            self.device.config.auto_lp_config.auto_low_pow0 = self.config.auto_low_pow0;
-        }
-        if self.device.config.auto_lp_config.auto_low_pow1.bits()
-            != self.config.auto_low_pow1.bits()
-        {
-            self.device
-                .interface
-                .write_register(self.config.auto_low_pow1)?;
-            self.device.config.auto_lp_config.auto_low_pow1 = self.config.auto_low_pow1;
-        }
-        Ok(())
     }
 }
 

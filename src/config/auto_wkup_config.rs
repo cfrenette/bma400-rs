@@ -1,6 +1,5 @@
 use crate::{
-    BMA400, ConfigError,
-    interface::WriteToRegister,
+    BMA400,
     registers::{AutoWakeup0, AutoWakeup1},
 };
 
@@ -26,11 +25,63 @@ pub struct AutoWakeupConfigBuilder<'a, Interface> {
     device: &'a mut BMA400<Interface>,
 }
 
+#[cfg(not(feature = "embedded-hal-async"))]
 impl<'a, Interface, E> AutoWakeupConfigBuilder<'a, Interface>
 where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
+    Interface: crate::blocking::WriteToRegister<Error = E>,
 {
+    /// Write this configuration to device registers
+    pub fn write(self) -> Result<(), E> {
+        if self.device.config.auto_wkup_config.auto_wakeup0.bits()
+            != self.config.auto_wakeup0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup0)?;
+            self.device.config.auto_wkup_config.auto_wakeup0 = self.config.auto_wakeup0;
+        }
+        if self.device.config.auto_wkup_config.auto_wakeup1.bits()
+            != self.config.auto_wakeup1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup1)?;
+            self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal-async")]
+impl<'a, Interface, E> AutoWakeupConfigBuilder<'a, Interface>
+where
+    Interface: crate::asynch::WriteToRegister<Error = E>,
+{
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if self.device.config.auto_wkup_config.auto_wakeup0.bits()
+            != self.config.auto_wakeup0.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup0)
+                .await?;
+            self.device.config.auto_wkup_config.auto_wakeup0 = self.config.auto_wakeup0;
+        }
+        if self.device.config.auto_wkup_config.auto_wakeup1.bits()
+            != self.config.auto_wakeup1.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.auto_wakeup1)
+                .await?;
+            self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
+        }
+        Ok(())
+    }
+}
+
+impl<'a, Interface> AutoWakeupConfigBuilder<'a, Interface> {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> AutoWakeupConfigBuilder<'a, Interface> {
         AutoWakeupConfigBuilder {
             config: device.config.auto_wkup_config.clone(),
@@ -55,26 +106,6 @@ where
     pub fn with_activity_int(mut self, enabled: bool) -> Self {
         self.config.auto_wakeup1 = self.config.auto_wakeup1.with_wakeup_int(enabled);
         self
-    }
-    /// Write this configuration to device registers
-    pub fn write(self) -> Result<(), E> {
-        if self.device.config.auto_wkup_config.auto_wakeup0.bits()
-            != self.config.auto_wakeup0.bits()
-        {
-            self.device
-                .interface
-                .write_register(self.config.auto_wakeup0)?;
-            self.device.config.auto_wkup_config.auto_wakeup0 = self.config.auto_wakeup0;
-        }
-        if self.device.config.auto_wkup_config.auto_wakeup1.bits()
-            != self.config.auto_wakeup1.bits()
-        {
-            self.device
-                .interface
-                .write_register(self.config.auto_wakeup1)?;
-            self.device.config.auto_wkup_config.auto_wakeup1 = self.config.auto_wakeup1;
-        }
-        Ok(())
     }
 }
 

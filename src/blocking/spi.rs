@@ -1,25 +1,9 @@
 use crate::{
-    BMA400, BMA400Error, Config,
+    BMA400, BMA400Error, Config, SPIInterface,
+    blocking::{ReadFromRegister, WriteToRegister},
     embedded_hal::spi::{Operation, SpiDevice},
-    embedded_hal_async::spi::SpiDevice as AsyncSpiDevice,
-    interface::{AsyncReadFromRegister, AsyncWriteToRegister, ReadFromRegister, WriteToRegister},
     registers::{ChipId, ConfigReg, InterfaceConfig, ReadReg},
 };
-
-/// SPI Interface wrapper
-// Wrapper class to instantiate BMA400 with an SPI interface
-// (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
-#[derive(Debug)]
-pub struct SPIInterface<SPI> {
-    spi: SPI,
-}
-
-impl<SPI: SpiDevice> SPIInterface<SPI> {
-    /// Consumes the Interface returning underlying SPI peripheral and the pin
-    pub fn destroy(self) -> SPI {
-        self.spi
-    }
-}
 
 impl<SPI> WriteToRegister for SPIInterface<SPI>
 where

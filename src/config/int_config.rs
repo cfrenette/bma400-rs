@@ -1,6 +1,5 @@
 use crate::{
     BMA400, ConfigError, DataSource, OutputDataRate,
-    interface::WriteToRegister,
     registers::{IntConfig0, IntConfig1},
 };
 
@@ -23,16 +22,134 @@ impl IntConfig {
 /// Enable or disable interrupts[^except] and set interrupt latch mode
 ///
 /// [^except]: To enable the Auto-Wakeup Interrupt see [`config_autowkup()`](BMA400::config_autowkup)
-pub struct IntConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct IntConfigBuilder<'a, Interface> {
     config: IntConfig,
     device: &'a mut BMA400<Interface>,
 }
 
+#[cfg(not(feature = "embedded-hal-async"))]
 impl<'a, Interface, E> IntConfigBuilder<'a, Interface>
 where
-    Interface: WriteToRegister<Error = E>,
+    Interface: crate::blocking::WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
+    /// Write this configuration to device registers
+    pub fn write(self) -> Result<(), E> {
+        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200)
+        {
+            return Err(ConfigError::TapIntEnabledInvalidODR.into());
+        }
+
+        // Check DataSource for each enabled interrupt that can use Filt1 and validate
+
+        // Gen 1
+        if self.config.int_config0.gen1_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(
+                self.device.config.gen1int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // Gen 2
+        if self.config.int_config0.gen2_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(
+                self.device.config.gen2int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // Activity Change
+        if self.config.int_config1.actch_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1)
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+
+        if self.device.config.int_config.int_config0.bits() != self.config.int_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int_config0)?;
+            self.device.config.int_config.int_config0 = self.config.int_config0;
+        }
+        if self.device.config.int_config.int_config1.bits() != self.config.int_config1.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int_config1)?;
+            self.device.config.int_config.int_config1 = self.config.int_config1;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal-async")]
+impl<'a, Interface, E> IntConfigBuilder<'a, Interface>
+where
+    Interface: crate::asynch::WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200)
+        {
+            return Err(ConfigError::TapIntEnabledInvalidODR.into());
+        }
+
+        // Check DataSource for each enabled interrupt that can use Filt1 and validate
+
+        // Gen 1
+        if self.config.int_config0.gen1_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(
+                self.device.config.gen1int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // Gen 2
+        if self.config.int_config0.gen2_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(
+                self.device.config.gen2int_config.src(),
+                DataSource::AccFilt1
+            )
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+        // Activity Change
+        if self.config.int_config1.actch_int()
+            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
+            && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1)
+        {
+            return Err(ConfigError::Filt1InterruptInvalidODR.into());
+        }
+
+        if self.device.config.int_config.int_config0.bits() != self.config.int_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int_config0)
+                .await?;
+            self.device.config.int_config.int_config0 = self.config.int_config0;
+        }
+        if self.device.config.int_config.int_config1.bits() != self.config.int_config1.bits() {
+            self.device
+                .interface
+                .write_register(self.config.int_config1)
+                .await?;
+            self.device.config.int_config.int_config1 = self.config.int_config1;
+        }
+        Ok(())
+    }
+}
+
+impl<'a, Interface> IntConfigBuilder<'a, Interface> {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> IntConfigBuilder<'a, Interface> {
         IntConfigBuilder {
             config: device.config.int_config.clone(),
@@ -99,58 +216,6 @@ where
     pub fn with_step_int(mut self, enabled: bool) -> Self {
         self.config.int_config1 = self.config.int_config1.with_step_int(enabled);
         self
-    }
-    /// Write this configuration to device registers
-    pub fn write(self) -> Result<(), E> {
-        if (self.config.int_config1.d_tap_int() || self.config.int_config1.s_tap_int())
-            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz200)
-        {
-            return Err(ConfigError::TapIntEnabledInvalidODR.into());
-        }
-
-        // Check DataSource for each enabled interrupt that can use Filt1 and validate
-
-        // Gen 1
-        if self.config.int_config0.gen1_int()
-            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
-            && matches!(
-                self.device.config.gen1int_config.src(),
-                DataSource::AccFilt1
-            )
-        {
-            return Err(ConfigError::Filt1InterruptInvalidODR.into());
-        }
-        // Gen 2
-        if self.config.int_config0.gen2_int()
-            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
-            && matches!(
-                self.device.config.gen2int_config.src(),
-                DataSource::AccFilt1
-            )
-        {
-            return Err(ConfigError::Filt1InterruptInvalidODR.into());
-        }
-        // Activity Change
-        if self.config.int_config1.actch_int()
-            && !matches!(self.device.config.acc_config.odr(), OutputDataRate::Hz100)
-            && matches!(self.device.config.actchg_config.src(), DataSource::AccFilt1)
-        {
-            return Err(ConfigError::Filt1InterruptInvalidODR.into());
-        }
-
-        if self.device.config.int_config.int_config0.bits() != self.config.int_config0.bits() {
-            self.device
-                .interface
-                .write_register(self.config.int_config0)?;
-            self.device.config.int_config.int_config0 = self.config.int_config0;
-        }
-        if self.device.config.int_config.int_config1.bits() != self.config.int_config1.bits() {
-            self.device
-                .interface
-                .write_register(self.config.int_config1)?;
-            self.device.config.int_config.int_config1 = self.config.int_config1;
-        }
-        Ok(())
     }
 }
 
