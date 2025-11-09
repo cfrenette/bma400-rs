@@ -1,3 +1,4 @@
+//! Accelerometer configuration options
 mod accel_config;
 use accel_config::AccConfig;
 mod int_config;
@@ -35,11 +36,7 @@ pub use wkup_int_config::WakeupIntConfigBuilder;
 mod gen_int_config;
 use gen_int_config::{Gen1IntConfig, Gen2IntConfig};
 
-use crate::{
-    BMA400Error, Scale,
-    interface::WriteToRegister,
-    registers::{AccConfig1, IntConfig0, IntConfig1},
-};
+use crate::Scale;
 
 #[derive(Default, Clone)]
 pub(crate) struct Config {
@@ -64,52 +61,16 @@ impl Config {
     pub fn is_fifo_read_disabled(&self) -> bool {
         self.fifo_config.is_read_disabled()
     }
-    pub fn setup_self_test<Interface, InterfaceError>(
-        &self,
-        interface: &mut Interface,
-    ) -> Result<(), BMA400Error<InterfaceError>>
-    where
-        Interface: WriteToRegister<Error = BMA400Error<InterfaceError>>,
-    {
-        // Disable Interrupts
-        interface.write_register(IntConfig0::from_bits_truncate(0x00))?;
-        interface.write_register(IntConfig1::from_bits_truncate(0x00))?;
-        interface.write_register(self.auto_wkup_config.get_config1().with_wakeup_int(false))?;
-        // Disable FIFO
-        interface.write_register(
-            self.fifo_config
-                .get_config0()
-                .with_fifo_x(false)
-                .with_fifo_y(false)
-                .with_fifo_z(false),
-        )?;
-
-        // Set PowerMode = Normal
-        interface.write_register(
-            self.acc_config
-                .get_config0()
-                .with_power_mode(crate::PowerMode::Normal),
-        )?;
-        // Set Range = 4G, OSR = OSR3, ODR = 100Hz
-        interface.write_register(AccConfig1::from_bits_truncate(0x78))?;
-        Ok(())
+    pub fn acc_config(&self) -> &AccConfig {
+        &self.acc_config
     }
-    pub fn cleanup_self_test<Interface, InterfaceError>(
-        &self,
-        interface: &mut Interface,
-    ) -> Result<(), BMA400Error<InterfaceError>>
-    where
-        Interface: WriteToRegister<Error = BMA400Error<InterfaceError>>,
-    {
-        // Restore AccConfig
-        interface.write_register(self.acc_config.get_config0())?;
-        interface.write_register(self.acc_config.get_config1())?;
-        // Restore IntConfig
-        interface.write_register(self.int_config.get_config0())?;
-        interface.write_register(self.int_config.get_config1())?;
-        interface.write_register(self.auto_wkup_config.get_config1())?;
-        // Restore FifoConfig
-        interface.write_register(self.fifo_config.get_config0())?;
-        Ok(())
+    pub fn auto_wkup_config(&self) -> &AutoWakeupConfig {
+        &self.auto_wkup_config
+    }
+    pub fn fifo_config(&self) -> &FifoConfig {
+        &self.fifo_config
+    }
+    pub fn int_config(&self) -> &IntConfig {
+        &self.int_config
     }
 }

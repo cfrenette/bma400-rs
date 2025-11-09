@@ -1,49 +1,28 @@
 use crate::{
-    BMA400, BMA400Error, Config,
+    BMA400, BMA400Error, Config, I2CAddr, I2CInterface,
+    blocking::{ReadFromRegister, WriteToRegister},
     embedded_hal::i2c::{I2c, SevenBitAddress},
-    interface::{ReadFromRegister, WriteToRegister},
     registers::{ChipId, ConfigReg, ReadReg},
 };
 
-// This is set by the SDO Pin level. (p. 108 of datasheet)
-#[cfg(any(feature = "i2c-default", test))]
-pub const ADDR: u8 = 0b00010100;
-#[cfg(feature = "i2c-alt")]
-pub const ADDR: u8 = 0b00010101;
-
-/// I²C Interface wrapper
-// Wrapper class to instantiate BMA400 with an I²C interface
-// (extending the Write and WriteRead traits to WriteToRegister and ReadFromRegister)
-#[derive(Debug)]
-pub struct I2CInterface<I2C> {
-    i2c: I2C,
-}
-
-impl<I2C> I2CInterface<I2C> {
-    /// Consumes the Interface returning underlying I²C peripheral
-    pub fn destroy(self) -> I2C {
-        self.i2c
-    }
-}
-
-impl<I2C, E> WriteToRegister for I2CInterface<I2C>
+impl<I2C> WriteToRegister for I2CInterface<I2C>
 where
-    I2C: I2c<SevenBitAddress, Error = E>,
+    I2C: I2c<SevenBitAddress>,
 {
-    type Error = BMA400Error<E>;
+    type Error = BMA400Error<I2C::Error>;
 
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error> {
         self.i2c
-            .write(ADDR, &[register.addr(), register.to_byte()])
+            .write(Self::ADDR, &[register.addr(), register.to_byte()])
             .map_err(BMA400Error::IOError)
     }
 }
 
-impl<I2C, E> ReadFromRegister for I2CInterface<I2C>
+impl<I2C> ReadFromRegister for I2CInterface<I2C>
 where
-    I2C: I2c<SevenBitAddress, Error = E>,
+    I2C: I2c<SevenBitAddress>,
 {
-    type Error = BMA400Error<E>;
+    type Error = BMA400Error<I2C::Error>;
 
     fn read_register<T: ReadReg>(
         &mut self,
@@ -51,14 +30,14 @@ where
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
         self.i2c
-            .write_read(ADDR, &[register.addr()], buffer)
+            .write_read(Self::ADDR, &[register.addr()], buffer)
             .map_err(BMA400Error::IOError)
     }
 }
 
-impl<I2C, E> BMA400<I2CInterface<I2C>>
+impl<I2C> BMA400<I2CInterface<I2C>>
 where
-    I2C: I2c<SevenBitAddress, Error = E> + I2c<SevenBitAddress, Error = E>,
+    I2C: I2c<SevenBitAddress>,
 {
     /// Create a new instance of the BMA400 using I²C
     ///
@@ -73,7 +52,7 @@ where
     /// assert!(accelerometer.is_ok());
     /// # i2c.done();
     /// ```
-    pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<E>> {
+    pub fn new_i2c(i2c: I2C) -> Result<BMA400<I2CInterface<I2C>>, BMA400Error<I2C::Error>> {
         let mut interface = I2CInterface { i2c };
         let config = Config::default();
         let mut chip_id = [0u8; 1];

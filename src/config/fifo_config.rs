@@ -1,6 +1,5 @@
 use crate::{
-    BMA400, ConfigError, DataSource,
-    interface::WriteToRegister,
+    BMA400, DataSource,
     registers::{FifoConfig0, FifoConfig1, FifoConfig2, FifoPwrConfig},
 };
 
@@ -31,16 +30,127 @@ impl FifoConfig {
 /// - Enable / Disable automatic flush on power mode change using [`with_auto_flush()`](FifoConfigBuilder::with_auto_flush)
 /// - Set the fill threshold for the FIFO watermark interrupt using [`with_watermark_thresh()`](FifoConfigBuilder::with_watermark_thresh)
 /// - Manually Enable / Disable the FIFO read circuit using [`with_read_disabled()`](FifoConfigBuilder::with_read_disabled)
-pub struct FifoConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct FifoConfigBuilder<'a, Interface> {
     config: FifoConfig,
     device: &'a mut BMA400<Interface>,
 }
 
+#[cfg(not(feature = "embedded-hal-async"))]
 impl<'a, Interface, E> FifoConfigBuilder<'a, Interface>
 where
-    Interface: WriteToRegister<Error = E>,
-    E: From<ConfigError>,
+    Interface: crate::blocking::WriteToRegister<Error = E>,
 {
+    /// Write this configuration to device registers
+    pub fn write(self) -> Result<(), E> {
+        if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config0)?;
+            self.device.config.fifo_config.fifo_config0 = self.config.fifo_config0;
+        }
+        let wm1_changes =
+            self.device.config.fifo_config.fifo_config1.bits() != self.config.fifo_config1.bits();
+        let wm2_changes =
+            self.device.config.fifo_config.fifo_config2.bits() != self.config.fifo_config2.bits();
+        let fifo_wm_changes = wm1_changes || wm2_changes;
+        let mut tmp_int_config = self.device.config.int_config.get_config0();
+
+        // If enabled, temporarily disable the FIFO Watermark Interrupt to change the config
+        if self.device.config.int_config.get_config0().fwm_int() && fifo_wm_changes {
+            tmp_int_config = tmp_int_config.with_fwm_int(false);
+            self.device.interface.write_register(tmp_int_config)?;
+        }
+        if wm1_changes {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config1)?;
+            self.device.config.fifo_config.fifo_config1 = self.config.fifo_config1;
+        }
+        if wm2_changes {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config2)?;
+            self.device.config.fifo_config.fifo_config2 = self.config.fifo_config2;
+        }
+        // Re-enable the interrupt if it was changed
+        if self.device.config.int_config.get_config0().bits() != tmp_int_config.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())?;
+        }
+        if self.device.config.fifo_config.fifo_pwr_config.bits()
+            != self.config.fifo_pwr_config.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.fifo_pwr_config)?;
+            self.device.config.fifo_config.fifo_pwr_config = self.config.fifo_pwr_config
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal-async")]
+impl<'a, Interface, E> FifoConfigBuilder<'a, Interface>
+where
+    Interface: crate::asynch::WriteToRegister<Error = E>,
+{
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config0)
+                .await?;
+            self.device.config.fifo_config.fifo_config0 = self.config.fifo_config0;
+        }
+        let wm1_changes =
+            self.device.config.fifo_config.fifo_config1.bits() != self.config.fifo_config1.bits();
+        let wm2_changes =
+            self.device.config.fifo_config.fifo_config2.bits() != self.config.fifo_config2.bits();
+        let fifo_wm_changes = wm1_changes || wm2_changes;
+        let mut tmp_int_config = self.device.config.int_config.get_config0();
+
+        // If enabled, temporarily disable the FIFO Watermark Interrupt to change the config
+        if self.device.config.int_config.get_config0().fwm_int() && fifo_wm_changes {
+            tmp_int_config = tmp_int_config.with_fwm_int(false);
+            self.device.interface.write_register(tmp_int_config).await?;
+        }
+        if wm1_changes {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config1)
+                .await?;
+            self.device.config.fifo_config.fifo_config1 = self.config.fifo_config1;
+        }
+        if wm2_changes {
+            self.device
+                .interface
+                .write_register(self.config.fifo_config2)
+                .await?;
+            self.device.config.fifo_config.fifo_config2 = self.config.fifo_config2;
+        }
+        // Re-enable the interrupt if it was changed
+        if self.device.config.int_config.get_config0().bits() != tmp_int_config.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config0())
+                .await?;
+        }
+        if self.device.config.fifo_config.fifo_pwr_config.bits()
+            != self.config.fifo_pwr_config.bits()
+        {
+            self.device
+                .interface
+                .write_register(self.config.fifo_pwr_config)
+                .await?;
+            self.device.config.fifo_config.fifo_pwr_config = self.config.fifo_pwr_config
+        }
+        Ok(())
+    }
+}
+
+impl<'a, Interface> FifoConfigBuilder<'a, Interface> {
     pub(crate) fn new(device: &'a mut BMA400<Interface>) -> FifoConfigBuilder<'a, Interface> {
         FifoConfigBuilder {
             config: device.config.fifo_config.clone(),
@@ -120,54 +230,6 @@ where
         self.config.fifo_config1 = self.config.fifo_config1.with_fifo_wtrmk_threshold(bytes[0]);
         self.config.fifo_config2 = self.config.fifo_config2.with_fifo_wtrmk_threshold(bytes[1]);
         self
-    }
-    /// Write this configuration to device registers
-    pub fn write(self) -> Result<(), E> {
-        if self.device.config.fifo_config.fifo_config0.bits() != self.config.fifo_config0.bits() {
-            self.device
-                .interface
-                .write_register(self.config.fifo_config0)?;
-            self.device.config.fifo_config.fifo_config0 = self.config.fifo_config0;
-        }
-        let wm1_changes =
-            self.device.config.fifo_config.fifo_config1.bits() != self.config.fifo_config1.bits();
-        let wm2_changes =
-            self.device.config.fifo_config.fifo_config2.bits() != self.config.fifo_config2.bits();
-        let fifo_wm_changes = wm1_changes || wm2_changes;
-        let mut tmp_int_config = self.device.config.int_config.get_config0();
-
-        // If enabled, temporarily disable the FIFO Watermark Interrupt to change the config
-        if self.device.config.int_config.get_config0().fwm_int() && fifo_wm_changes {
-            tmp_int_config = tmp_int_config.with_fwm_int(false);
-            self.device.interface.write_register(tmp_int_config)?;
-        }
-        if wm1_changes {
-            self.device
-                .interface
-                .write_register(self.config.fifo_config1)?;
-            self.device.config.fifo_config.fifo_config1 = self.config.fifo_config1;
-        }
-        if wm2_changes {
-            self.device
-                .interface
-                .write_register(self.config.fifo_config2)?;
-            self.device.config.fifo_config.fifo_config2 = self.config.fifo_config2;
-        }
-        // Re-enable the interrupt if it was changed
-        if self.device.config.int_config.get_config0().bits() != tmp_int_config.bits() {
-            self.device
-                .interface
-                .write_register(self.device.config.int_config.get_config0())?;
-        }
-        if self.device.config.fifo_config.fifo_pwr_config.bits()
-            != self.config.fifo_pwr_config.bits()
-        {
-            self.device
-                .interface
-                .write_register(self.config.fifo_pwr_config)?;
-            self.device.config.fifo_config.fifo_pwr_config = self.config.fifo_pwr_config
-        }
-        Ok(())
     }
 }
 

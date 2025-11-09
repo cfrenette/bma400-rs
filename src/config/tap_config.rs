@@ -1,6 +1,5 @@
 use crate::{
     Axis, BMA400, ConfigError, DoubleTapDuration, MaxTapDuration, MinTapDuration, TapSensitivity,
-    interface::WriteToRegister,
     registers::{TapConfig0, TapConfig1},
 };
 
@@ -17,16 +16,105 @@ pub struct TapConfig {
 /// - [MinTapDuration] using [`with_min_duration_btn_taps()`](TapConfigBuilder::with_min_duration_btn_taps)
 /// - [DoubleTapDuration] using [`with_max_double_tap_window()`](TapConfigBuilder::with_max_double_tap_window)
 /// - [MaxTapDuration] using [`with_max_tap_duration()`](TapConfigBuilder::with_max_tap_duration)
-pub struct TapConfigBuilder<'a, Interface: WriteToRegister> {
+pub struct TapConfigBuilder<'a, Interface> {
     config: TapConfig,
     device: &'a mut BMA400<Interface>,
 }
 
+#[cfg(not(feature = "embedded-hal-async"))]
 impl<'a, Interface, E> TapConfigBuilder<'a, Interface>
 where
-    Interface: WriteToRegister<Error = E>,
+    Interface: crate::blocking::WriteToRegister<Error = E>,
     E: From<ConfigError>,
 {
+    /// Write this configuration to device registers
+    pub fn write(self) -> Result<(), E> {
+        let tap1_changes =
+            self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
+        let tap2_changes =
+            self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
+        let tap_changes = tap1_changes || tap2_changes;
+        let mut tmp_int_config = self.device.config.int_config.get_config1();
+
+        // Disable the interrupt, if active
+        if (self.device.config.int_config.get_config1().d_tap_int()
+            || self.device.config.int_config.get_config1().d_tap_int())
+            && tap_changes
+        {
+            tmp_int_config = tmp_int_config.with_s_tap_int(false).with_d_tap_int(false);
+            self.device.interface.write_register(tmp_int_config)?;
+        }
+        if tap1_changes {
+            self.device
+                .interface
+                .write_register(self.config.tap_config0)?;
+            self.device.config.tap_config.tap_config0 = self.config.tap_config0;
+        }
+        if tap2_changes {
+            self.device
+                .interface
+                .write_register(self.config.tap_config1)?;
+            self.device.config.tap_config.tap_config1 = self.config.tap_config1;
+        }
+        // Re-enable the interrupt, if disabled
+        if self.device.config.int_config.get_config1().bits() != tmp_int_config.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config1())?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal-async")]
+impl<'a, Interface, E> TapConfigBuilder<'a, Interface>
+where
+    Interface: crate::asynch::WriteToRegister<Error = E>,
+    E: From<ConfigError>,
+{
+    /// Write this configuration to device registers
+    pub async fn write(self) -> Result<(), E> {
+        let tap1_changes =
+            self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
+        let tap2_changes =
+            self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
+        let tap_changes = tap1_changes || tap2_changes;
+        let mut tmp_int_config = self.device.config.int_config.get_config1();
+
+        // Disable the interrupt, if active
+        if (self.device.config.int_config.get_config1().d_tap_int()
+            || self.device.config.int_config.get_config1().d_tap_int())
+            && tap_changes
+        {
+            tmp_int_config = tmp_int_config.with_s_tap_int(false).with_d_tap_int(false);
+            self.device.interface.write_register(tmp_int_config).await?;
+        }
+        if tap1_changes {
+            self.device
+                .interface
+                .write_register(self.config.tap_config0)
+                .await?;
+            self.device.config.tap_config.tap_config0 = self.config.tap_config0;
+        }
+        if tap2_changes {
+            self.device
+                .interface
+                .write_register(self.config.tap_config1)
+                .await?;
+            self.device.config.tap_config.tap_config1 = self.config.tap_config1;
+        }
+        // Re-enable the interrupt, if disabled
+        if self.device.config.int_config.get_config1().bits() != tmp_int_config.bits() {
+            self.device
+                .interface
+                .write_register(self.device.config.int_config.get_config1())
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a, Interface> TapConfigBuilder<'a, Interface> {
     pub(crate) fn new(device: &'_ mut BMA400<Interface>) -> TapConfigBuilder<'_, Interface> {
         TapConfigBuilder {
             config: device.config.tap_config.clone(),
@@ -65,43 +153,6 @@ where
     pub fn with_max_tap_duration(mut self, duration: MaxTapDuration) -> Self {
         self.config.tap_config1 = self.config.tap_config1.with_max_tap_duration(duration);
         self
-    }
-    /// Write this configuration to device registers
-    pub fn write(self) -> Result<(), E> {
-        let tap1_changes =
-            self.device.config.tap_config.tap_config0.bits() != self.config.tap_config0.bits();
-        let tap2_changes =
-            self.device.config.tap_config.tap_config1.bits() != self.config.tap_config1.bits();
-        let tap_changes = tap1_changes || tap2_changes;
-        let mut tmp_int_config = self.device.config.int_config.get_config1();
-
-        // Disable the interrupt, if active
-        if (self.device.config.int_config.get_config1().d_tap_int()
-            || self.device.config.int_config.get_config1().d_tap_int())
-            && tap_changes
-        {
-            tmp_int_config = tmp_int_config.with_s_tap_int(false).with_d_tap_int(false);
-            self.device.interface.write_register(tmp_int_config)?;
-        }
-        if tap1_changes {
-            self.device
-                .interface
-                .write_register(self.config.tap_config0)?;
-            self.device.config.tap_config.tap_config0 = self.config.tap_config0;
-        }
-        if tap2_changes {
-            self.device
-                .interface
-                .write_register(self.config.tap_config1)?;
-            self.device.config.tap_config.tap_config1 = self.config.tap_config1;
-        }
-        // Re-enable the interrupt, if disabled
-        if self.device.config.int_config.get_config1().bits() != tmp_int_config.bits() {
-            self.device
-                .interface
-                .write_register(self.device.config.int_config.get_config1())?;
-        }
-        Ok(())
     }
 }
 
