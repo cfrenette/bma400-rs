@@ -21,7 +21,7 @@ panic-probe = { version = "1.0", features = ["print-defmt"] }
 
 [dependencies.bma400]
 path = "../../"
-features = ["i2c-default", "embedded-hal-async"]
+features = ["i2c", "embedded-hal-async"]
 
 [profile.release]
 debug = 2

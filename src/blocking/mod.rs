@@ -1,11 +1,11 @@
-use crate::{BMA400, BMA400Error, DelayNs, config::*, registers::*, types::*};
+use crate::{BMA400, BMA400Error, DelayNs, config::*, private, registers::*, types::*};
 
 #[cfg(any(feature = "i2c", test))]
 mod i2c;
 #[cfg(any(feature = "spi", test))]
 mod spi;
 
-pub(crate) trait ReadFromRegister {
+pub trait ReadFromRegister: private::Sealed {
     type Error;
     fn read_register<T: ReadReg>(
         &mut self,
@@ -14,7 +14,7 @@ pub(crate) trait ReadFromRegister {
     ) -> Result<(), Self::Error>;
 }
 
-pub(crate) trait WriteToRegister {
+pub trait WriteToRegister: private::Sealed {
     type Error;
     fn write_register<T: ConfigReg>(&mut self, register: T) -> Result<(), Self::Error>;
 }

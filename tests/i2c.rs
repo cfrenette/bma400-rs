@@ -5,10 +5,7 @@ use embedded_hal_mock::eh1::{
     i2c::{Mock, Transaction},
 };
 
-#[cfg(feature = "i2c-default")]
-pub const ADDR: u8 = 0b00010100;
-#[cfg(feature = "i2c-alt")]
-pub const ADDR: u8 = 0b00010101;
+pub const DEFAULT_ADDR: u8 = 0b00010100;
 
 fn new(expected: &[Transaction]) -> BMA400<I2CInterface<Mock>> {
     BMA400::new_i2c(Mock::new(expected)).unwrap()
@@ -19,9 +16,23 @@ fn cleanup(device: BMA400<I2CInterface<Mock>>) {
 }
 
 #[test]
+fn new_alt() {
+    let mut expected = Vec::new();
+    expected.push(Transaction::write_read(0b10101, vec![0x00], vec![0x90]));
+    let mut i2c = Mock::new(&expected);
+    let result = BMA400::new_i2c_alt(&mut i2c);
+    assert!(result.is_ok());
+    i2c.done();
+}
+
+#[test]
 fn init_bad_chip_id() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x89]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x89],
+    ));
     let mut i2c = Mock::new(&expected);
     let result = BMA400::new_i2c(&mut i2c);
     assert!(matches!(result, Err(BMA400Error::ChipIdReadFailed)));
@@ -32,8 +43,8 @@ fn init_bad_chip_id() {
 fn destroy() {
     // Expecting to initialize twice, once before and once after the call to destroy()
     let expected = vec![
-        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
-        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
+        Transaction::write_read(DEFAULT_ADDR, vec![0x00], vec![0x90]),
+        Transaction::write_read(DEFAULT_ADDR, vec![0x00], vec![0x90]),
     ];
     let mut i2c = Mock::new(&expected);
     let device = BMA400::new_i2c(i2c).unwrap();
@@ -46,8 +57,16 @@ fn destroy() {
 #[test]
 fn get_chip_id() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
     let mut device = new(&expected);
     let id = device.get_id().unwrap();
     assert_eq!(id, 0x90);
@@ -57,9 +76,21 @@ fn get_chip_id() {
 #[test]
 fn get_cmd_error() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
-    expected.push(Transaction::write_read(ADDR, vec![0x02], vec![0xFD]));
-    expected.push(Transaction::write_read(ADDR, vec![0x02], vec![0x02]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x02],
+        vec![0xFD],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x02],
+        vec![0x02],
+    ));
     let mut device = new(&expected);
     let status = device.get_cmd_error().unwrap();
     assert!(!status);
@@ -72,22 +103,46 @@ fn get_cmd_error() {
 fn get_status() {
     let mut expected = Vec::new();
 
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     // drdy Set
-    expected.push(Transaction::write_read(ADDR, vec![0x03], vec![0x80]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x03],
+        vec![0x80],
+    ));
 
     // cmd_rdy Set
-    expected.push(Transaction::write_read(ADDR, vec![0x03], vec![0x10]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x03],
+        vec![0x10],
+    ));
 
     // power_mode == LowPower
-    expected.push(Transaction::write_read(ADDR, vec![0x03], vec![0x02]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x03],
+        vec![0x02],
+    ));
 
     // power_mode == Normal
-    expected.push(Transaction::write_read(ADDR, vec![0x03], vec![0x04]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x03],
+        vec![0x04],
+    ));
 
     // interrupt triggered Set
-    expected.push(Transaction::write_read(ADDR, vec![0x03], vec![0x01]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x03],
+        vec![0x01],
+    ));
 
     let mut device = new(&expected);
 
@@ -131,9 +186,13 @@ fn get_status() {
 #[test]
 fn get_unscaled_data() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
     expected.push(Transaction::write_read(
-        ADDR,
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
         vec![0x04],
         vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
     ));
@@ -153,18 +212,22 @@ fn get_scaled_data(scale: Scale) -> (i16, i16, i16) {
         Scale::Range16G => 0xC9,
     };
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
     if let Scale::Range4G = scale {
         // The default setting is 4G so we shouldn't see any configuration write
         expected.push(Transaction::write_read(
-            ADDR,
+            DEFAULT_ADDR,
             vec![0x04],
             vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
         ));
     } else {
-        expected.push(Transaction::write(ADDR, vec![0x1A, byte]));
+        expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1A, byte]));
         expected.push(Transaction::write_read(
-            ADDR,
+            DEFAULT_ADDR,
             vec![0x04],
             vec![0x01, 0x08, 0xFF, 0x0F, 0xFF, 0x07],
         ));
@@ -187,9 +250,13 @@ fn get_data() {
 #[test]
 fn get_sensor_clock() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
     expected.push(Transaction::write_read(
-        ADDR,
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
         vec![0x0A],
         vec![0xF8, 0xFF, 0xFF],
     ));
@@ -202,13 +269,25 @@ fn get_sensor_clock() {
 #[test]
 fn get_reset_status() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     // No Reset Detected
-    expected.push(Transaction::write_read(ADDR, vec![0x0D], vec![0x00]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0D],
+        vec![0x00],
+    ));
 
     // Reset Detected
-    expected.push(Transaction::write_read(ADDR, vec![0x0D], vec![0x01]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0D],
+        vec![0x01],
+    ));
     let mut device = new(&expected);
 
     let reset = device.get_reset_status().unwrap();
@@ -221,31 +300,67 @@ fn get_reset_status() {
 #[test]
 fn get_int_status() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     // drdy set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x80]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x80],
+    ));
 
     // fwm set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x40]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x40],
+    ));
 
     // ffull set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x20]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x20],
+    ));
 
     // ieng_ovrrn set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x10]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x10],
+    ));
 
     // gen2 set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x08]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x08],
+    ));
 
     // gen1 set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x04]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x04],
+    ));
 
     // orientch set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x02]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x02],
+    ));
 
     // wkup set
-    expected.push(Transaction::write_read(ADDR, vec![0x0E], vec![0x01]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0E],
+        vec![0x01],
+    ));
 
     let mut device = new(&expected);
 
@@ -342,22 +457,46 @@ fn get_int_status() {
 #[test]
 fn get_int_status1() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     // ieng_ovrrn set
-    expected.push(Transaction::write_read(ADDR, vec![0x0F], vec![0x10]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0F],
+        vec![0x10],
+    ));
 
     // d_tap set
-    expected.push(Transaction::write_read(ADDR, vec![0x0F], vec![0x08]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0F],
+        vec![0x08],
+    ));
 
     // s_tap set
-    expected.push(Transaction::write_read(ADDR, vec![0x0F], vec![0x04]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0F],
+        vec![0x04],
+    ));
 
     // step_int == 2
-    expected.push(Transaction::write_read(ADDR, vec![0x0F], vec![0x02]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0F],
+        vec![0x02],
+    ));
 
     // step_int == 1
-    expected.push(Transaction::write_read(ADDR, vec![0x0F], vec![0x01]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0F],
+        vec![0x01],
+    ));
 
     let mut device = new(&expected);
 
@@ -407,19 +546,39 @@ fn get_int_status1() {
 #[test]
 fn get_int_status2() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     // ieng_ovrrn set
-    expected.push(Transaction::write_read(ADDR, vec![0x10], vec![0x10]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x10],
+        vec![0x10],
+    ));
 
     // actch_z set
-    expected.push(Transaction::write_read(ADDR, vec![0x10], vec![0x04]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x10],
+        vec![0x04],
+    ));
 
     // actch_y set
-    expected.push(Transaction::write_read(ADDR, vec![0x10], vec![0x02]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x10],
+        vec![0x02],
+    ));
 
     // actch_x set
-    expected.push(Transaction::write_read(ADDR, vec![0x10], vec![0x01]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x10],
+        vec![0x01],
+    ));
 
     let mut device = new(&expected);
 
@@ -456,9 +615,21 @@ fn get_int_status2() {
 #[test]
 fn get_fifo_len() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
-    expected.push(Transaction::write_read(ADDR, vec![0x12], vec![0x00, 0xF4]));
-    expected.push(Transaction::write_read(ADDR, vec![0x12], vec![0x80, 0x02]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x12],
+        vec![0x00, 0xF4],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x12],
+        vec![0x80, 0x02],
+    ));
 
     let mut device = new(&expected);
     let len = device.get_fifo_len().unwrap();
@@ -471,9 +642,13 @@ fn get_fifo_len() {
 #[test]
 fn read_fifo_frames() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
     expected.push(Transaction::write_read(
-        ADDR,
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
         vec![0x14],
         vec![
             0x48, 0x6E, 0x9E, 0x01, 0x80, 0x0F, 0xFF, 0x0F, 0x7F, 0xA0, 0xF8, 0xFF, 0xFF, 0x80,
@@ -509,9 +684,13 @@ fn read_fifo_frames() {
 #[test]
 fn flush_fifo() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x7E, 0xB0]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x7E, 0xB0]));
 
     let mut device = new(&expected);
     device.flush_fifo().unwrap();
@@ -521,10 +700,14 @@ fn flush_fifo() {
 #[test]
 fn get_step_count() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     expected.push(Transaction::write_read(
-        ADDR,
+        DEFAULT_ADDR,
         vec![0x15],
         vec![0x00, 0xFF, 0xF0],
     ));
@@ -537,9 +720,13 @@ fn get_step_count() {
 #[test]
 fn clear_step_count() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x7E, 0xB1]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x7E, 0xB1]));
     let mut device = new(&expected);
     device.clear_step_count().unwrap();
     cleanup(device);
@@ -548,11 +735,27 @@ fn clear_step_count() {
 #[test]
 fn get_step_activity() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write_read(ADDR, vec![0x18], vec![0x01]));
-    expected.push(Transaction::write_read(ADDR, vec![0x18], vec![0x02]));
-    expected.push(Transaction::write_read(ADDR, vec![0x18], vec![0x00]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x18],
+        vec![0x01],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x18],
+        vec![0x02],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x18],
+        vec![0x00],
+    ));
     let mut device = new(&expected);
     let activity = device.get_step_activity().unwrap();
     assert!(matches!(activity, Activity::Walk));
@@ -566,10 +769,22 @@ fn get_step_activity() {
 #[test]
 fn get_raw_temp() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write_read(ADDR, vec![0x11], vec![0xD0]));
-    expected.push(Transaction::write_read(ADDR, vec![0x11], vec![0x7F]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x11],
+        vec![0xD0],
+    ));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x11],
+        vec![0x7F],
+    ));
     let mut device = new(&expected);
     let temp = device.get_raw_temp().unwrap();
     assert_eq!(temp, -48);
@@ -581,15 +796,19 @@ fn get_raw_temp() {
 #[test]
 fn config_accel() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x19, 0xE2]));
-    expected.push(Transaction::write(ADDR, vec![0x1A, 0xFB]));
-    expected.push(Transaction::write(ADDR, vec![0x1B, 0x08]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x19, 0xE2]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1A, 0xFB]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1B, 0x08]));
 
-    expected.push(Transaction::write(ADDR, vec![0x19, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x1A, 0x05]));
-    expected.push(Transaction::write(ADDR, vec![0x1B, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x19, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1A, 0x05]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1B, 0x00]));
 
     let mut device = new(&expected);
 
@@ -624,17 +843,21 @@ fn config_accel() {
 #[test]
 fn config_interrupts() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x56, 0x10]));
-    expected.push(Transaction::write(ADDR, vec![0x3F, 0x10]));
-    expected.push(Transaction::write(ADDR, vec![0x4A, 0x10]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x56, 0x10]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3F, 0x10]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4A, 0x10]));
 
-    expected.push(Transaction::write(ADDR, vec![0x1F, 0xEE]));
-    expected.push(Transaction::write(ADDR, vec![0x20, 0x9D]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1F, 0xEE]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x20, 0x9D]));
 
-    expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x20, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1F, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x20, 0x00]));
 
     let mut device = new(&expected);
 
@@ -694,20 +917,24 @@ fn config_interrupts() {
 #[test]
 fn config_int_pins() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x21, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x22, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x23, 0xDD]));
-    expected.push(Transaction::write(ADDR, vec![0x24, 0x66]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x21, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x22, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x23, 0xDD]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x24, 0x66]));
 
-    expected.push(Transaction::write(ADDR, vec![0x21, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x23, 0xD0]));
-    expected.push(Transaction::write(ADDR, vec![0x24, 0x60]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x21, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x23, 0xD0]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x24, 0x60]));
 
-    expected.push(Transaction::write(ADDR, vec![0x22, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x23, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x24, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x22, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x23, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x24, 0x00]));
 
     let mut device = new(&expected);
 
@@ -771,17 +998,21 @@ fn config_int_pins() {
 #[test]
 fn config_fifo() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x26, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x27, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x28, 0x03]));
-    expected.push(Transaction::write(ADDR, vec![0x29, 0x01]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x26, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x27, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x28, 0x03]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x29, 0x01]));
 
-    expected.push(Transaction::write(ADDR, vec![0x26, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x27, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x28, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x29, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x26, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x27, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x28, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x29, 0x00]));
 
     let mut device = new(&expected);
 
@@ -818,13 +1049,17 @@ fn config_fifo() {
 #[test]
 fn config_auto_lp() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x2A, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x2B, 0xFB]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2A, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2B, 0xFB]));
 
-    expected.push(Transaction::write(ADDR, vec![0x2A, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x2B, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2A, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2B, 0x00]));
 
     let mut device = new(&expected);
 
@@ -853,13 +1088,17 @@ fn config_auto_lp() {
 #[test]
 fn config_autowkup() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x2C, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x2D, 0xF6]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2C, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2D, 0xF6]));
 
-    expected.push(Transaction::write(ADDR, vec![0x2C, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x2D, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2C, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2D, 0x00]));
 
     let mut device = new(&expected);
 
@@ -886,23 +1125,27 @@ fn config_autowkup() {
 #[test]
 fn config_wkup_int() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x30, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x31, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x32, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x33, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x30, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x31, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x32, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x33, 0xFF]));
     // Enable the interrupt last
-    expected.push(Transaction::write(ADDR, vec![0x2F, 0xFE]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2F, 0xFE]));
 
     // Disable the interrupt first, keeping other settings intact
-    expected.push(Transaction::write(ADDR, vec![0x2F, 0x1E]));
-    expected.push(Transaction::write(ADDR, vec![0x30, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x31, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x32, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x33, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2F, 0x1E]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x30, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x31, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x32, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x33, 0x00]));
     // Re-enable / write IntConfig0 changes last
-    expected.push(Transaction::write(ADDR, vec![0x2F, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2F, 0x00]));
 
     let mut device = new(&expected);
 
@@ -933,27 +1176,31 @@ fn config_wkup_int() {
 #[test]
 fn config_orientchg_int() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x35, 0xF8]));
-    expected.push(Transaction::write(ADDR, vec![0x36, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x38, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x39, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x3A, 0x0F]));
-    expected.push(Transaction::write(ADDR, vec![0x3B, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x3C, 0x0F]));
-    expected.push(Transaction::write(ADDR, vec![0x3D, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x3E, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x35, 0xF8]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x36, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x38, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x39, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3A, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3B, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3C, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3D, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3E, 0x0F]));
 
-    expected.push(Transaction::write(ADDR, vec![0x35, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x36, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x38, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x39, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x3A, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x3B, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x3C, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x3D, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x3E, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x35, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x36, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x38, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x39, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3A, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3B, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3C, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3D, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3E, 0x00]));
 
     let mut device = new(&expected);
 
@@ -986,31 +1233,35 @@ fn config_orientchg_int() {
 #[test]
 fn config_gen1_int() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x3F, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x40, 0x03]));
-    expected.push(Transaction::write(ADDR, vec![0x41, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x42, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x43, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x44, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x45, 0x0F]));
-    expected.push(Transaction::write(ADDR, vec![0x46, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x47, 0x0F]));
-    expected.push(Transaction::write(ADDR, vec![0x48, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x49, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3F, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x40, 0x03]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x41, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x42, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x43, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x44, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x45, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x46, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x47, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x48, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x49, 0x0F]));
 
-    expected.push(Transaction::write(ADDR, vec![0x3F, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x40, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x41, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x42, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x43, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x44, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x45, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x46, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x47, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x48, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x49, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3F, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x40, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x41, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x42, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x43, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x44, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x45, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x46, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x47, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x48, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x49, 0x00]));
 
     let mut device = new(&expected);
 
@@ -1049,31 +1300,35 @@ fn config_gen1_int() {
 #[test]
 fn config_gen2_int() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x4A, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x4B, 0x03]));
-    expected.push(Transaction::write(ADDR, vec![0x4C, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x4D, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x4E, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x4F, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x50, 0x0F]));
-    expected.push(Transaction::write(ADDR, vec![0x51, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x52, 0x0F]));
-    expected.push(Transaction::write(ADDR, vec![0x53, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x54, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4A, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4B, 0x03]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4C, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4D, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4E, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4F, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x50, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x51, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x52, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x53, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x54, 0x0F]));
 
-    expected.push(Transaction::write(ADDR, vec![0x4A, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x4B, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x4C, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x4D, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x4E, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x4F, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x50, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x51, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x52, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x53, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x54, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4A, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4B, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4C, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4D, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4E, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4F, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x50, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x51, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x52, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x53, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x54, 0x00]));
 
     let mut device = new(&expected);
 
@@ -1112,13 +1367,17 @@ fn config_gen2_int() {
 #[test]
 fn config_actchg_int() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x55, 0xFF]));
-    expected.push(Transaction::write(ADDR, vec![0x56, 0xF4]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x55, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x56, 0xF4]));
 
-    expected.push(Transaction::write(ADDR, vec![0x55, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x56, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x55, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x56, 0x00]));
 
     let mut device = new(&expected);
 
@@ -1147,13 +1406,17 @@ fn config_actchg_int() {
 #[test]
 fn config_tap() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x57, 0x17]));
-    expected.push(Transaction::write(ADDR, vec![0x58, 0x3F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x57, 0x17]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x58, 0x3F]));
 
-    expected.push(Transaction::write(ADDR, vec![0x57, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x58, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x57, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x58, 0x00]));
 
     let mut device = new(&expected);
 
@@ -1183,38 +1446,38 @@ fn config_tap() {
 
 fn self_test_setup(expected: &mut Vec<Transaction>) {
     // Disable Interrupts
-    expected.push(Transaction::write(ADDR, vec![0x1F, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x20, 0x00]));
-    expected.push(Transaction::write(ADDR, vec![0x2D, 0xF4]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1F, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x20, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2D, 0xF4]));
 
     // Disable FIFO
-    expected.push(Transaction::write(ADDR, vec![0x26, 0x1F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x26, 0x1F]));
 
     // Set PowerMode
-    expected.push(Transaction::write(ADDR, vec![0x19, 0xE2]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x19, 0xE2]));
 
     // Set Range = 4G, OSR = OSR3, ODR = 100Hz
-    expected.push(Transaction::write(ADDR, vec![0x1A, 0x78]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1A, 0x78]));
 }
 
 fn restore_config(expected: &mut Vec<Transaction>) {
     // Restore AccConfig0
-    expected.push(Transaction::write(ADDR, vec![0x19, 0xE0]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x19, 0xE0]));
 
     // Restore AccConfig1
-    expected.push(Transaction::write(ADDR, vec![0x1A, 0x09]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1A, 0x09]));
 
     // Restore IntConfig0
-    expected.push(Transaction::write(ADDR, vec![0x1F, 0xEE]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1F, 0xEE]));
 
     // Restore IntConfig1
-    expected.push(Transaction::write(ADDR, vec![0x20, 0x9D]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x20, 0x9D]));
 
     // Restore AutoWkupConfig1
-    expected.push(Transaction::write(ADDR, vec![0x2D, 0xF6]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2D, 0xF6]));
 
     // Restore FifoConfig
-    expected.push(Transaction::write(ADDR, vec![0x26, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x26, 0xFF]));
 }
 
 fn self_test(
@@ -1249,14 +1512,14 @@ fn self_test(
     expected_delay.push(DelayTransaction::delay_ms(2));
 
     // Set Positive Test Parameters
-    expected.push(Transaction::write(ADDR, vec![0x7D, 0x07]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x7D, 0x07]));
 
     // Wait 50ms
     expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
     expected.push(Transaction::write_read(
-        ADDR,
+        DEFAULT_ADDR,
         vec![0x04],
         vec![
             x_pos.to_le_bytes()[0],
@@ -1269,14 +1532,14 @@ fn self_test(
     ));
 
     // Write Negative Test Parameters
-    expected.push(Transaction::write(ADDR, vec![0x7D, 0x0F]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x7D, 0x0F]));
 
     // Wait 50ms
     expected_delay.push(DelayTransaction::delay_ms(50));
 
     // Read Results
     expected.push(Transaction::write_read(
-        ADDR,
+        DEFAULT_ADDR,
         vec![0x04],
         vec![
             x_neg.to_le_bytes()[0],
@@ -1289,7 +1552,7 @@ fn self_test(
     ));
 
     // Disable Self-Test
-    expected.push(Transaction::write(ADDR, vec![0x7D, 0x00]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x7D, 0x00]));
 
     // Wait 50ms
     expected_delay.push(DelayTransaction::delay_ms(50));
@@ -1300,37 +1563,41 @@ fn self_test(
 #[test]
 fn perform_self_test() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
     // Enable all interrupts, fifo, etc to
     // test restoring configuration post-test
 
     // Actch Int Data Src = AccFilt2
-    expected.push(Transaction::write(ADDR, vec![0x56, 0x10]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x56, 0x10]));
 
     // Gen Int1 Data Src = AccFilt2
-    expected.push(Transaction::write(ADDR, vec![0x3F, 0x10]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x3F, 0x10]));
 
     // Gen Int2 Data Src = AccFilt2
-    expected.push(Transaction::write(ADDR, vec![0x4A, 0x10]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x4A, 0x10]));
 
     // Set all non-power mode settings in AccConfig0
-    expected.push(Transaction::write(ADDR, vec![0x19, 0xE0]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x19, 0xE0]));
 
     // Set Range = 2G, OSR = OSR0, ODR = 200Hz
-    expected.push(Transaction::write(ADDR, vec![0x1A, 0x09]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1A, 0x09]));
 
     // Set IntConfig0
-    expected.push(Transaction::write(ADDR, vec![0x1F, 0xEE]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x1F, 0xEE]));
 
     // Set IntConfig1
-    expected.push(Transaction::write(ADDR, vec![0x20, 0x9D]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x20, 0x9D]));
 
     // Set Wakeup Int, Settings
-    expected.push(Transaction::write(ADDR, vec![0x2D, 0xF6]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x2D, 0xF6]));
 
     // Enable FIFO, Settings
-    expected.push(Transaction::write(ADDR, vec![0x26, 0xFF]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x26, 0xFF]));
 
     let mut expected_delay = Vec::<DelayTransaction>::new();
 
@@ -1434,10 +1701,18 @@ fn perform_self_test() {
 #[test]
 fn soft_reset() {
     let mut expected = Vec::new();
-    expected.push(Transaction::write_read(ADDR, vec![0x00], vec![0x90]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x00],
+        vec![0x90],
+    ));
 
-    expected.push(Transaction::write(ADDR, vec![0x7E, 0xB6]));
-    expected.push(Transaction::write_read(ADDR, vec![0x0D], vec![0x01]));
+    expected.push(Transaction::write(DEFAULT_ADDR, vec![0x7E, 0xB6]));
+    expected.push(Transaction::write_read(
+        DEFAULT_ADDR,
+        vec![0x0D],
+        vec![0x01],
+    ));
 
     let mut device = new(&expected);
     device.soft_reset().unwrap();

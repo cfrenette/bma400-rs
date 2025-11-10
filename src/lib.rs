@@ -3,7 +3,7 @@
 //! [`embedded-hal`]: https://crates.io/crates/embedded-hal
 //!
 //! # Basic Usage
-//! I²C - `cargo add bma400 --features=i2c-default`
+//! I²C - `cargo add bma400 --features=i2c`
 //! ```
 //! // Import an embedded hal implementation
 //! use embedded_hal_mock::eh1::i2c::{Mock, Transaction};
@@ -18,7 +18,7 @@
 //! #        Transaction::write_read(ADDR, vec![0x00], vec![0x90]),
 //! #    ];
 //! # let mut i2c = Mock::new(&expected);
-//! // i2c implements embedded-hal i2c::I2c<SevenBitAddress>
+//! // i2c implements embedded-hal i2c::I2c
 //! let mut accelerometer = BMA400::new_i2c(&mut i2c).unwrap();
 //! # i2c.done();
 //! ```
@@ -97,8 +97,7 @@
 //! ```
 //! # Features
 //! BMA400 can currently be compiled with the following feature flags:
-//! - i2c-default: Use I²C with the default address `0b00010100` with SDO pin pulled to GND
-//! - i2c-alt: Use I²C with the alternate address `0b00010101` with SDO pin pulled to VDDIO[^address]
+//! - i2c: Use I²C
 //! - spi: Use SPI
 //! - float: Enable functions returning floating point values. Currently just `get_temp_celsius()`
 //! - embedded-hal-async: Swaps blocking API for async API implemented using embedded-hal-async
@@ -162,6 +161,12 @@ pub mod config;
 use config::Config;
 pub(crate) mod registers;
 
+mod private {
+    pub trait Sealed {}
+    impl<SPI> Sealed for crate::SPIInterface<SPI> {}
+    impl<I2C> Sealed for crate::I2CInterface<I2C> {}
+}
+
 /// A BMA400 device
 pub struct BMA400<T> {
     interface: T,
@@ -170,20 +175,12 @@ pub struct BMA400<T> {
 
 /// I²C Interface wrapper
 // Wrapper class to instantiate BMA400 with an I²C interface
-#[derive(Debug)]
 pub struct I2CInterface<I2C> {
+    // Suppress Lint: this is used in the trait impl
+    #[allow(unused)]
+    addr: u8,
     i2c: I2C,
 }
-
-// This is set by the SDO Pin level. (p. 108 of datasheet)
-trait I2CAddr {
-    #[cfg(any(feature = "i2c-default", test))]
-    const ADDR: u8 = 0b00010100;
-    #[cfg(feature = "i2c-alt")]
-    const ADDR: u8 = 0b00010101;
-}
-
-impl<I2C> I2CAddr for I2CInterface<I2C> {}
 
 impl<I2C> I2CInterface<I2C> {
     /// Consumes the Interface returning the underlying I²C peripheral
@@ -216,6 +213,7 @@ mod tests {
         registers::{ConfigReg, ReadReg},
     };
     pub struct NoOpInterface;
+    impl private::Sealed for NoOpInterface {}
     #[derive(Debug)]
     pub struct NoOpError;
     impl ReadFromRegister for NoOpInterface {

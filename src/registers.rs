@@ -61,25 +61,45 @@ r_register!(ChipId: 0x00);
 r_register!(ErrReg: 0x02);
 r_register!(StatusReg: 0x03);
 r_register!(AccXLSB: 0x04);
+/* These are always read in a burst read
+* so they are not needed. If there is a
+* use case for a partial read we could use
+* these to implement that
 r_register!(AccXMSB: 0x05);
 r_register!(AccYLSB: 0x06);
 r_register!(AccYMSB: 0x07);
 r_register!(AccZLSB: 0x08);
 r_register!(AccZMSB: 0x09);
+*/
 r_register!(SensorTime0: 0x0A);
+/* These are always read in a burst read
+* so they are not needed. If there is a
+* use case for a partial read we could use
+* these to implement that
 r_register!(SensorTime1: 0x0B);
 r_register!(SensorTime2: 0x0C);
+*/
 r_register!(Event: 0x0D);
 r_register!(InterruptStatus0: 0x0E);
 r_register!(InterruptStatus1: 0x0F);
 r_register!(InterruptStatus2: 0x10);
 r_register!(TempData: 0x11);
 r_register!(FifoLength0: 0x12);
+/* This is always read in a burst read
+* so they are not needed. If there is a
+* use case for a partial read we could use
+* these to implement that
 r_register!(FifoLength1: 0x13);
+*/
 r_register!(FifoData: 0x14);
 r_register!(StepCount0: 0x15);
+/* These are always read in a burst read
+* so they are not needed. If there is a
+* use case for a partial read we could use
+* these to implement that
 r_register!(StepCount1: 0x16);
 r_register!(StepCount2: 0x17);
+*/
 r_register!(StepStatus: 0x18);
 
 cfg_register! {
