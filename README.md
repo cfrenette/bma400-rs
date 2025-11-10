@@ -11,7 +11,7 @@ A platform-agnostic Rust driver for the BMA400 accelerometer implemented using [
 - [ ] More Examples
 
 ## Basic Usage
-I²C - `cargo add bma400 --features=i2c-default`
+I²C - `cargo add bma400 --features=i2c`
  ``` rust
  // Import an embedded hal implementation
  use linux_embedded_hal::I2cdev; // replace as appropriate w/ hal crate for your MCU
@@ -20,7 +20,7 @@ I²C - `cargo add bma400 --features=i2c-default`
      PowerMode,
      Scale,
  };
- // i2c implements embedded-hal i2c::WriteRead and i2c::Write
+ // i2c implements embedded-hal i2c::I2c
  let mut accelerometer = BMA400::new_i2c(i2c).unwrap();
  ```
  SPI - `cargo add bma400 --features=spi`

@@ -16,7 +16,7 @@ embedded-hal = "1.0"
 
 [dependencies.bma400]
 path = "../../"
-features = ["i2c-default"]
+features = ["i2c"]
 
 # cargo build/run --release
 [profile.release]
