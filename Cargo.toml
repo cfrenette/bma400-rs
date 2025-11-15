@@ -1,6 +1,6 @@
 [package]
 name = "bma400"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Cory Frenette <cory@frenette.dev>"]
 repository = "https://github.com/cfrenette/bma400-rs"
 license = "MIT OR Apache-2.0"
