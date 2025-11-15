@@ -223,7 +223,7 @@ impl<'a, Interface> FifoConfigBuilder<'a, Interface> {
     ///
     /// Interupt will be active if FIFO length is > this value
     ///
-    /// Clamped to \[0, 1024\] See also [`with_ffull_int`](crate::IntConfigBuilder::with_ffull_int)
+    /// Clamped to \[0, 1024\] See also [`with_ffull_int`](crate::config::IntConfigBuilder::with_ffull_int)
     pub fn with_watermark_thresh(mut self, threshold: u16) -> Self {
         let thresh = threshold.clamp(0, 1024);
         let bytes = thresh.to_le_bytes();
