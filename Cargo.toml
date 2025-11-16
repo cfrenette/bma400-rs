@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["accelerometer", "mems", "bma400", "embedded-hal-driver"]
 categories = ["embedded", "hardware-support", "no-std"]
 edition = "2024"
+exclude = [ "/examples/images/" ]
 
 [dependencies]
 bitflags = "1.3"
