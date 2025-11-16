@@ -143,7 +143,7 @@
 //! - IoT applications powered by coin cell driven batteries, requiring <1µA and auto-wakeup functionality
 //!
 //! [^address]: For more info on I²C address select, see: [https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=108](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bma400-ds000.pdf#page=108)
-#![cfg_attr(docsrs, feature(doc_cfg), feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(missing_docs)]
 #![warn(missing_docs, unsafe_code)]
 #![no_std]
